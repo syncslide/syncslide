@@ -1,21 +1,7 @@
-{% extends "base.html" %}
+{% extends "audience.html" %}
 {% block title %}Stage{% endblock title %}
 
-{% block js %}
-<script defer="defer" src="/js/remarkable.js"></script>
-<script defer="defer" src="/js/katex.js"></script>
-<script defer="defer" src="/js/auto-render.js"></script>
-<script defer="defer" src="/js/render-a11y-string.js"></script>
-<script defer="defer" src="/js/common.js"></script>
-<script defer="defer" src="/js/handlers.js"></script>
-<script defer="defer" src="/js/audience.js"></script>
-<script defer="defer" src="/js/recording.js"></script>
-<link rel="stylesheet" href="/css/katex.css">
-{% endblock js %}
-
-{% block content %}
-<header><h1 id="syncSlide">Sync Slide</h1></header>
-<main>
+{% block stage %}
 <section aria-labelledby="record">
 <h2 id = "record">Record</h2>
 <button id="recordPause">Record</button>
@@ -30,6 +16,4 @@
 <select id="goTo" name="goTo"></select>
 <button id="update">Update</button>
 </section>
-<article aria-live="polite" id="currentSlide"></article>
-</main>
-{% endblock content %}
+{% endblock stage %}
