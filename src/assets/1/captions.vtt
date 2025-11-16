@@ -1,0 +1,121 @@
+WEBVTT
+
+00:00.000 --> 00:09.000
+<v Melody>Hello, my name is Melody. I'm excited to introduce you to my project SyncSlide, a tool designed to enhance presentation accessibility.</v>
+
+00:09.000 --> 00:14.000
+<v Melody>Accessibility is a pressing issue in academic, conference, and business settings.</v>
+
+00:14.000 --> 00:21.000
+<v Melody>Even with the most accessible PowerPoint slides provided in advance, individuals with print disabilities still face challenges.</v>
+
+00:21.000 --> 00:29.000
+<v Melody>It can be difficult to follow the projecting screen due to distance, fonts, lighting, or simply lose the spot after returning from a quick break.</v>
+
+00:29.000 --> 00:38.000
+<v Melody>It is just as inconvenient for the presenters who must remember to say "next slide" and read out the content showing to ensure everyone is on the same page.</v>
+
+00:38.000 --> 00:47.000
+<v Melody>So what is SyncSlide? SyncSlide is a tool for inclusive presentation that creates simple, accessible slides with real-time updates.</v>
+
+00:47.000 --> 00:52.000
+<v Melody>It ensures compatibility with screen readers, specialized fonts, and color inversion.</v>
+
+00:52.000 --> 00:58.000
+<v Melody>The entire audience can follow along on their own device, making presentations much more inclusive and engaging.</v>
+
+00:58.000 --> 01:07.000
+<v Melody>SyncSlide offers several key features. The extensive HTML and CSS support allows presenters to customize elements such as text, images, and tables.</v>
+
+01:07.000 --> 01:13.000
+<v Melody>Look at the quadratic equation. Inserting math using LaTeX is just as easy as adding any other content.</v>
+
+01:13.000 --> 01:19.000
+<v Melody>Start presenting by pasting the slides into the markdown input field. I'll use the current presentation as an example.</v>
+
+01:19.000 --> 01:21.000
+<v Screen Reader>[Screen Reader]: Heading level 0: Sync Slide</v>
+
+01:21.000 --> 01:22.000
+<v Screen Reader>[Screen Reader]: Main landmark, input region "markdwon input", edit multiline</v>
+
+01:22.000 --> 01:27.000
+<v Melody>Select a slide from the combo box.</v>
+
+01:27.000 --> 01:28.000
+<v Screen Reader>[Screen Reader]: "Go to slide", combo box, "1: Introduction to the Problem", collapsed</v>
+
+01:28.000 --> 01:30.000
+<v Screen Reader>[Screen Reader]: Combo box expanded</v>
+
+01:30.000 --> 01:32.000
+<v Screen Reader>[Screen Reader]: "Stage | SyncSlide" document, main landmark [audible beep]</v>
+
+01:33.000 --> 01:36.000
+<v Melody>Then click the Update button to display the content.</v>
+
+01:36.000 --> 01:37.000
+<v Screen Reader>[Screen Reader]: "Update" button</v>
+
+01:37.000 --> 01:41.000
+<v Melody>The audience received the contents without having access to the controls.</v>
+
+01:41.000 --> 01:43.000
+<v Screen Reader>[Screen Reader]: "Audience | SyncSlide" document</v>
+
+01:43.000 --> 01:46.000
+<v Screen Reader>[Screen Reader]: Heading level 1: "SyncSlide -- My Solution to Improve Presentation Accessibility"</v>
+
+01:46.000 --> 01:54.000
+<v Melody>The record button starts a timer, which tracks the content and the timestamp on every update.</v>
+
+01:54.000 --> 01:57.000
+<v Screen Reader>[Screen Reader]: Main landmark, record region, record button. Pause.</v>
+
+01:57.000 --> 02:01.000
+<v Melody>The presenter can pause the recording for a break.</v>
+
+02:02.000 --> 02:04.000
+<v Screen Reader>[Screen Reader]: Resume</v>
+
+02:04.000 --> 02:06.000
+<v Melody>Continue on to the rest of the slides.</v>
+
+02:06.000 --> 02:06.999
+<v Screen Reader>[Screen Reader]: Pause.</v>
+
+02:07.000 --> 02:07.999
+<v Screen Reader>[Screen Reader]: Input region: "Go to slide" combo box. (audible input sound)</v>
+
+02:08.000 --> 02:09.000
+<v Screen Reader>[Screen Reader]: "2: What is SyncSlide?"</v>
+
+02:09.000 --> 02:11.000
+<v Screen Reader>[Screen Reader]: "3: Demo: HTML and CSS"</v>
+
+02:11.000 --> 02:11.999
+<v Screen Reader>[Screen Reader]: "Update" button</v>
+
+02:13.000 --> 02:17.000
+<v Melody>Stop recording to export the data, then sync with a video for playback.</v>
+
+02:17.000 --> 02:19.000
+<v Screen Reader>[Screen Reader]: "Stop" button</v>
+
+02:20.000 --> 02:25.000
+<v Melody>SyncSlide is in its alpha stage, so I'm constantly looking to improve the project.</v>
+
+02:25.000 --> 02:31.000
+<v Melody>Some potential enhancements include adding audience interaction tools, keyboard shortcuts for common actions,</v>
+
+02:31.000 --> 02:36.000
+<v Melody>template for widely used elements, and documentation for users and developers.</v>
+
+02:36.000 --> 02:40.000
+<v Melody>Please check out the prototype, and feel free to contribute to the project on GitHub.</v>
+
+02:40.000 --> 02:45.000
+<v Melody>Thank you for your time and interest in SyncSlide, and let's make presentations accessible to everyone.</v>
+
+02:45.000 --> 02:46.000
+<v Melody>Thank you, everyone.</v>
