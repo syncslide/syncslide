@@ -13,10 +13,9 @@
 <link rel="stylesheet" href="/css/katex.css">
 {% endblock js %}
 
+{% block content %}
 {% block stage %}{% endblock stage %}
-
-{% block slide %}
 <main>
 <article aria-live="polite" id="currentSlide"></article>
 </main>
-{% endblock slide %}
+{% endblock content %}
