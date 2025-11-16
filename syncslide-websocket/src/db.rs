@@ -2,8 +2,32 @@ use argon2::password_hash::{PasswordHashString as PwdString, SaltString, rand_co
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use serde::{Deserialize, Serialize};
+use sqlx::types::time::OffsetDateTime;
 use sqlx::{self, SqlitePool};
 use std::collections::HashSet;
+
+#[derive(Deserialize)]
+pub struct NewRecordingForm {
+    content: String,
+}
+
+#[derive(Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Recording {
+    pub id: i64,
+    pub presentation_id: i64,
+    pub start: OffsetDateTime,
+    pub vtt_path: String,
+    pub video_path: String,
+    pub captions_path: String,
+}
+impl Recording {
+    pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {
+        sqlx::query_as!(Recording, "SELECT * FROM recording WHERE id = ?;", id)
+            .fetch_optional(&*db)
+            .await
+            .map_err(Error::from)
+    }
+}
 
 #[derive(sqlx::Type, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 #[sqlx(rename_all = "lowercase")]

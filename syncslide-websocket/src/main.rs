@@ -43,7 +43,7 @@ use std::{
 mod db;
 use db::{
     AddUserForm, AuthSession, Backend, ChangePasswordForm, Group, LoginForm,
-    Presentation as DbPresentation, User,
+    Presentation as DbPresentation, Recording, User,
 };
 
 /// Wraps Tera renderer so that we can force a special render process.
@@ -452,6 +452,30 @@ async fn logout(mut auth_session: AuthSession) -> impl IntoResponse {
     }
 }
 
+async fn demo(
+    State(tera): State<Tera>,
+    auth_session: AuthSession,
+    State(db): State<SqlitePool>,
+) -> impl IntoResponse {
+    watch_recording(tera, auth_session, 1, db).await
+}
+
+async fn watch_recording(
+    tera: Tera,
+    auth_session: AuthSession,
+    pres_id: i64,
+    db: SqlitePool,
+) -> impl IntoResponse {
+    let Ok(Some(rec)) = Recording::get_by_id(pres_id, &db).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let mut ctx = Context::new();
+    ctx.insert("recording", &rec);
+    tera.render("recording.html", ctx, auth_session, db)
+        .await
+        .into_response()
+}
+
 async fn index(
     State(tera): State<Tera>,
     auth_session: AuthSession,
@@ -501,9 +525,10 @@ async fn main() {
         .route("/create", post(start_pres))
         .route("/{uname}/{pid}", get(present))
         .route("/ws/{pid}", get(broadcast_to_all))
+        .route("/demo", get(demo))
         .nest_service("/css", ServeDir::new("../src/css/"))
         .nest_service("/js", ServeDir::new("../src/js/"))
-        .nest_service("/demo", ServeDir::new("../src/demo/"))
+        .nest_service("/assets", ServeDir::new("../src/assets/"))
         .with_state(state.clone())
         .layer(auth_layer);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5002").await.unwrap();
