@@ -18,13 +18,13 @@ recordPauseButton.addEventListener("click", () => {
 	}
 });
 
-stopButton.addEventListener("click", stopRecording);
+stopButton.addEventListener("click", downloadRecording);
 
 function startRecording() {
 	recording = true;
 	paused = false;
 	startTime = Date.now() - elapsedTime;
-	timerInterval = setInterval(updateTimer, 1000);
+	timerInterval = setInterval(updateTimer, 100);
 	recordPauseButton.innerText = "Pause";
 }
 
@@ -47,7 +47,7 @@ function stopRecording() {
 	recording = false;
 	paused = false;
 	elapsedTime = 0;
-	timer.innerText = "00:00:00";
+	timer.innerText = "00:00:00.000";
 	recordPauseButton.innerText = "Record";
 	downloadRecording();
 }
@@ -58,11 +58,12 @@ function updateTimer() {
 }
 
 function formatTime(ms) {
+	const msOver = ms % 1000;
 	const totalSeconds = Math.floor(ms / 1000);
 	const hours = Math.floor(totalSeconds / 3600);
 	const minutes = Math.floor((totalSeconds % 3600) / 60);
 	const seconds = totalSeconds % 60;
-	return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+	return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(msOver).padStart(3, '0')}`;
 }
 
 function saveCurrentState() {
@@ -71,16 +72,36 @@ function saveCurrentState() {
 		const slide = document.getElementById("goTo").value;
 		const slideTitle = document.getElementById("currentSlide").querySelector('h2').innerText;
 		const slideContent = document.getElementById("currentSlide").innerHTML;
-		recordingData.push({ time: parseFloat((currentTime /1000).toFixed(1)), slide: slide, title: slideTitle, content: slideContent });
+		recordingData.push({ time: parseFloat(currentTime), slide: slide, title: slideTitle, content: slideContent });
 	}
 }
 window.saveCurrentState = saveCurrentState
 
+function webvttRecording() {
+	console.log(recordingData);
+	let vtt = "WEBVTT\n\n"
+	const final_time = formatTime(elapsedTime);
+	for (let i = 0; i < recordingData.length; i++) {
+		const entry = recordingData[i];
+		const cur_time = formatTime(recordingData[i].time);
+		let next_time = undefined;
+		if (i+1 < recordingData.length) {
+			next_time = formatTime(recordingData[i+1].time);
+		} else {
+			next_time = final_time;
+		}
+		const json = JSON.stringify(entry);
+		const cueText = `${cur_time} --> ${next_time}\n${json}\n\n`
+		vtt += cueText;
+	}
+	return vtt;
+}
+
 function downloadRecording() {
-	const dataStr = "data:text/json;charset=utf-8," + "slidesData=" + encodeURIComponent(JSON.stringify(recordingData));
+	const dataStr = "data:text/vtt;charset=utf-8," + encodeURIComponent(webvttRecording(recordingData));
 	const downloadAnchorNode = document.createElement('a');
 	downloadAnchorNode.setAttribute("href", dataStr);
-	downloadAnchorNode.setAttribute("download", "recording.json");
+	downloadAnchorNode.setAttribute("download", "recording.vtt");
 	document.body.appendChild(downloadAnchorNode);
 	downloadAnchorNode.click();
 	downloadAnchorNode.remove();

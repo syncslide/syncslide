@@ -3,7 +3,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta charset="utf-8" />
 <title>Demo -- Sync Slide</title>
-<script defer src="/demo/recording.json"></script>
 <script defer src="/js/play.js"></script>
 <link rel="stylesheet" href="/css/style.css">
 <link rel="stylesheet" href="/css/katex.css">
@@ -17,6 +16,7 @@
 <summary id="video">Video</summary>
 <video id="myVideo" width="640" height="360" controls playsinline>
 <source src="/demo/out.mp4">
+<track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/demo/recording.vtt" srclang="en" label="SyncSlide Data"/>
 <track default kind="captions" src="/demo/subs.vtt" srclang="en" label="Captions"/>
 Your browser does not support the video tag.
 </video>
