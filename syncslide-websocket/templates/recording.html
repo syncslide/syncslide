@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Watch Recording{% endblock title %}
+
+{% block js %}
+<script defer src="/js/play.js"></script>
+<link rel="stylesheet" href="/css/katex.css">
+{% endblock js %}
+
+{% block content %}
+<section aria-labelledby="video">
+<details open>
+<summary id="video">Video</summary>
+<video id="myVideo" width="640" height="360" controls playsinline>
+<source src="/assets/{{ recording.id }}/{{ recording.video_path }}">
+<track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/assets/{{ recording.id }}/{{ recording.vtt_path }}" srclang="en" label="SyncSlide Data"/>
+<track default kind="captions" src="/assets/{{ recording.id }}/{{ recording.captions_path }}" srclang="en" label="Captions"/>
+Your browser does not support the video tag.
+</video>
+<label for="playbackRate">Playback Speed: </label>
+<select id="rate">
+<option value="0.5">0.5x</option>
+<option value="0.75">0.75x</option>
+<option value="1" selected>1x</option>
+<option value="1.25">1.25x</option>
+<option value="1.5">1.5x</option>
+<option value="1.75">1.75x</option>
+<option value="2">2x</option>
+</select>
+</details>
+</section>
+<main>
+<article aria-live="polite" id="currentSlide"></article>
+<nav aria-label="Slide Navigation">
+<label for="goTo">Go to slide:</label>
+<select id="goTo" name="goTo"></select>
+<button id="go">Go</button
+</nav>
+{% endblock content %}
