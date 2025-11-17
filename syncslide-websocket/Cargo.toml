@@ -13,7 +13,7 @@ serde = { version = "1.0", default-features = false, features = ["derive", "std"
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 signal-hook = { version = "0.3.18", default-features = false }
 signal-hook-tokio = { version = "0.3.1", default-features = false }
-sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "macros", "runtime-tokio"] }
+sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "macros", "runtime-tokio", "time"] }
 tera = { version = "1.20.1", default-features = false }
 thiserror = { version = "2.0.17", default-features = false }
 time = { version = "0.3.44", default-features = false }
