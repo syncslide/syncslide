@@ -11,16 +11,45 @@ pub struct NewRecordingForm {
     content: String,
 }
 
-#[derive(Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresentationRecordings {
+    pub id: i64,
+    pub user_id: i64,
+    pub content: String,
+    pub name: String,
+    pub recordings: Vec<Recording>,
+}
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Recording {
     pub id: i64,
     pub presentation_id: i64,
+    pub name: String,
     pub start: OffsetDateTime,
     pub vtt_path: String,
     pub video_path: String,
     pub captions_path: String,
 }
 impl Recording {
+    pub async fn get_by_presentation(
+        pres: Presentation,
+        db: &SqlitePool,
+    ) -> Result<PresentationRecordings, Error> {
+        let recordings = sqlx::query_as!(
+            Recording,
+            "SELECT * FROM recording WHERE presentation_id = ?;",
+            pres.id
+        )
+        .fetch_all(&*db)
+        .await
+        .map_err(Error::from)?;
+        Ok(PresentationRecordings {
+            recordings,
+            id: pres.id,
+            name: pres.name,
+            user_id: pres.user_id,
+            content: pres.content,
+        })
+    }
     pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {
         sqlx::query_as!(Recording, "SELECT * FROM recording WHERE id = ?;", id)
             .fetch_optional(&*db)

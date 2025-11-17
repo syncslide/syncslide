@@ -7,7 +7,17 @@
 {% if press | length > 0 %}
 <ul>
 	{% for pres in press %}
-		<li><a href="/{{ user.name }}/{{ pres.id }}">{{ pres.name }}</a></li>
+		<li>
+			<details>
+				<summary>{{ pres.name }}</summary>
+				<ul>
+					<li><a href="/{{ user.name }}/{{ pres.id }}">Edit/Stage</a></li>
+					{% for rec in pres.recordings %}
+						<li><a href="/watch/{{ rec.id }}">{{ rec.name }} ({{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }})</a></li>
+					{% endfor %}
+				</ul>
+			</details>
+		</li>
 	{% endfor %}
 </ul>
 {% else %}

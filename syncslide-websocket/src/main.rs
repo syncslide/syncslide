@@ -343,8 +343,15 @@ async fn presentations(
     let Ok(press) = press else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
+    let mut press_with_recordings = vec![];
+    for pres in press {
+        let Ok(pres_with_recs) = Recording::get_by_presentation(pres, &db).await else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+        press_with_recordings.push(pres_with_recs);
+    }
     let mut ctx = Context::new();
-    ctx.insert("press", &press);
+    ctx.insert("press", &press_with_recordings);
     tera.render("presentations.html", ctx, auth_session, db)
         .await
 }
@@ -452,6 +459,15 @@ async fn logout(mut auth_session: AuthSession) -> impl IntoResponse {
     }
 }
 
+async fn recording(
+    State(tera): State<Tera>,
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(rid): Path<i64>,
+) -> impl IntoResponse {
+    watch_recording(tera, auth_session, rid, db).await
+}
+
 async fn demo(
     State(tera): State<Tera>,
     auth_session: AuthSession,
@@ -526,6 +542,7 @@ async fn main() {
         .route("/{uname}/{pid}", get(present))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
+        .route("/watch/{rid}", get(recording))
         .nest_service("/css", ServeDir::new("../src/css/"))
         .nest_service("/js", ServeDir::new("../src/js/"))
         .nest_service("/assets", ServeDir::new("../src/assets/"))
