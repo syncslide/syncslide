@@ -1,15 +1,7 @@
 {% extends "nav.html" %}
 {% block title %}Create Presentation{% endblock title %}
 {% block js %}
-<script defer>
-document.getElementById("joinForm").addEventListener("submit", function(event) {
-event.preventDefault();
-let code = document.getElementById("code").value.trim();
-if (code) {
-window.location.href = window.location.origin + window.location.pathname + "/" + encodeURIComponent(code);
-}
-});
-</script>
+<script defer src="/js/create.js"></script>
 {% endblock js %}
 
 {% block content %}

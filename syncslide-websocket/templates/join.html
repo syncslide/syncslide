@@ -2,6 +2,7 @@
 {% block title %}Join Presentation{% endblock title %}
 
 {% block js %}
+<script defer src="/js/join.js"></script>
 {% endblock js %}
 
 {% block content %}
@@ -15,17 +16,4 @@
 <button type="submit">Join</button>
 </form>
 </main>
-<script>
-document.getElementById("joinForm").addEventListener("submit", function(event) {
-event.preventDefault();
-let uname = document.getElementById("uname").value.trim();
-let code = document.getElementById("code").value.trim();
-if (code) {
-window.location.href =
-	window.location.origin + "/" +
-	encodeURIComponent(uname) + "/" +
-	encodeURIComponent(code);
-}
-});
-</script>
 {% endblock content %}
