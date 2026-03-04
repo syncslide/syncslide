@@ -152,18 +152,37 @@ fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
     }
 }
 
-fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mutex<Presentation>> {
+async fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mutex<Presentation>> {
+    // Check if already in memory without holding lock across await
+    {
+        let Ok(slides) = state.slides.lock() else {
+            panic!("Unable to lock K/V store!");
+        };
+        if let Some(pres) = slides.get(&pid) {
+            return Arc::clone(pres);
+        }
+    }
+    // Not in memory — load content from DB so the initial WS message has real content
+    let db_content = if let Ok(pid_i64) = pid.parse::<i64>() {
+        DbPresentation::get_by_id(pid_i64, &state.db_pool)
+            .await
+            .ok()
+            .flatten()
+            .map(|p| p.content)
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
     let Ok(mut slides) = state.slides.lock() else {
-        // TODO: no panics
         panic!("Unable to lock K/V store!");
     };
-    let pres = slides
-        .entry(pid)
-        .or_insert(Arc::new(Mutex::new(Presentation {
-            content: String::new(),
+    let pres = slides.entry(pid).or_insert_with(|| {
+        Arc::new(Mutex::new(Presentation {
+            content: db_content,
             slide: 0,
             channel: broadcast::channel(1024),
-        })));
+        }))
+    });
     Arc::clone(pres)
 }
 
@@ -199,7 +218,7 @@ fn handle_socket(
 }
 
 async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, auth: bool) {
-    let pres = add_client_handler_channel(pid.clone(), &mut state);
+    let pres = add_client_handler_channel(pid.clone(), &mut state).await;
     let (mut tx, mut rx, text, slide) = {
         let p = pres.lock().unwrap();
         let text = serde_json::to_string(&SlideMessage::Text(p.content.clone())).unwrap();
