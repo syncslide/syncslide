@@ -26,13 +26,11 @@ const updateMarkdown = async () => {
 	const dom = stringToDOM(render);
 	getH2s(dom);
 	socket.send(JSON.stringify({ type: "text", data: markdownInput }));
+	updateSlide();
 }
 
 const textInput = document.getElementById("markdown-input");
 textInput.addEventListener("blur", updateMarkdown);
-
-update = document.getElementById("update");
-update.addEventListener("click", updateSlide);
 
 goTo = document.getElementById("goTo");
 goTo.addEventListener("change", updateSlide);
