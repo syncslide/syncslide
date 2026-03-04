@@ -113,7 +113,7 @@
 		nextBtn.disabled = currentPage >= totalPages;
 	}
 
-	sortSel.addEventListener('change', function () { currentPage = 1; render(); });
+	sortSel.addEventListener('change', function () { render(); });
 	perPageSel.addEventListener('change', function () { currentPage = 1; render(); });
 	prevBtn.addEventListener('click', function () { if (currentPage > 1) { currentPage--; render(); } });
 	nextBtn.addEventListener('click', function () {
