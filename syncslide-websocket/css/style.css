@@ -64,6 +64,11 @@ footer { padding-top: 16px; margin-bottom: 100px; }
 
 .post-header { margin-bottom: 8px; }
 
+/* external link indicator */
+a[href^="http"]::after { content: ' \2197'; font-size: .8em; }
+a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+#currentSlide a[href^="http"]::after { content: none; }
+
 /* presentations list */
 .pres-controls { margin-bottom: 1em; }
 .pres-controls label, .pagination-controls label { margin-right: .4em; }
