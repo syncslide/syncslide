@@ -36,3 +36,17 @@ update.addEventListener("click", updateSlide);
 
 goTo = document.getElementById("goTo");
 goTo.addEventListener("change", updateSlide);
+
+document.addEventListener("keydown", (e) => {
+	if (e.key !== "F8") return;
+	e.preventDefault();
+	const goTo = document.getElementById("goTo");
+	const current = Number(goTo.value);
+	const max = goTo.options.length - 1;
+	if (e.shiftKey) {
+		if (current > 0) goTo.value = current - 1;
+	} else {
+		if (current < max) goTo.value = current + 1;
+	}
+	updateSlide();
+});
