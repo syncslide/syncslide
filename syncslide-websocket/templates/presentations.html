@@ -19,10 +19,10 @@
 	{% for pres in press %}
 	<article class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
 		<h2>{{ pres.name }}</h2>
-		<p><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">Stage / Edit</a></p>
+		<p><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}" aria-label="Stage / Edit: {{ pres.name }}">Stage / Edit</a></p>
 		{% if pres.recordings | length > 0 %}
 		<details>
-			<summary>Recordings ({{ pres.recordings | length }})</summary>
+			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
 			<ul>
 				{% for rec in pres.recordings %}
 				<li><a href="/watch/{{ rec.id }}">{{ rec.name }} ({{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }})</a></li>
