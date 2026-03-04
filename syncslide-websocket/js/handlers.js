@@ -20,8 +20,12 @@ const updateSlide = async () => {
 	socket.send(JSON.stringify({ type: "slide", data: Number(slideChoice) }));
 }
 
+let lastSentMarkdown = null;
+
 const updateMarkdown = async () => {
 	const markdownInput = document.getElementById("markdown-input").value;
+	if (markdownInput === lastSentMarkdown) return;
+	lastSentMarkdown = markdownInput;
 	const render = md.render(markdownInput);
 	const dom = stringToDOM(render);
 	getH2s(dom);
