@@ -108,7 +108,8 @@
 			item.style.display = '';
 			list.appendChild(item);
 		});
-		pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+		var pageText = 'Page ' + currentPage + ' of ' + totalPages;
+		if (pageInfo.textContent !== pageText) pageInfo.textContent = pageText;
 		prevBtn.disabled = currentPage <= 1;
 		nextBtn.disabled = currentPage >= totalPages;
 	}
