@@ -64,6 +64,19 @@ footer { padding-top: 16px; margin-bottom: 100px; }
 
 .post-header { margin-bottom: 8px; }
 
+/* presentations list */
+.pres-controls { margin-bottom: 1em; }
+.pres-controls label, .pagination-controls label { margin-right: .4em; }
+.pres-controls select, .pagination-controls select { background: #333; color: #fff; border: 1px solid #666; padding: 3px 6px; }
+.pres-item { border-bottom: 1px solid #555; padding: .8em 0; }
+.pres-item h2 { text-align: left; margin-bottom: .25em; }
+.pres-item details { margin-top: .4em; }
+.pres-item summary { cursor: pointer; color: #aaa; }
+.pagination-controls { margin-top: 1.2em; display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
+.pagination-controls button { background: #333; color: #fff; border: 1px solid #666; padding: 4px 10px; cursor: pointer; }
+.pagination-controls button:disabled { opacity: .4; cursor: default; }
+#page-info { color: #aaa; }
+
 /* in stage: */
 #markdown-input { display: block; width: 90%; margin: auto; height: 12em; }
 

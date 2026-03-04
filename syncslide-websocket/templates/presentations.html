@@ -5,23 +5,129 @@
 <main>
 <h1>Your Presentations</h1>
 {% if press | length > 0 %}
-<ul>
+<div class="pres-controls">
+	<label for="sort-by">Sort by:</label>
+	<select id="sort-by">
+		<option value="newest">Newest</option>
+		<option value="oldest">Oldest</option>
+		<option value="recently-viewed">Recently Viewed</option>
+		<option value="alphabetical">Alphabetical</option>
+	</select>
+</div>
+
+<div id="pres-list">
 	{% for pres in press %}
-		<li>
-			<details>
-				<summary>{{ pres.name }}</summary>
-				<ul>
-					<li><a href="/{{ user.name }}/{{ pres.id }}">Edit/Stage</a></li>
-					{% for rec in pres.recordings %}
-						<li><a href="/watch/{{ rec.id }}">{{ rec.name }} ({{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }})</a></li>
-					{% endfor %}
-				</ul>
-			</details>
-		</li>
+	<article class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
+		<h2>{{ pres.name }}</h2>
+		<p><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">Stage / Edit</a></p>
+		{% if pres.recordings | length > 0 %}
+		<details>
+			<summary>Recordings ({{ pres.recordings | length }})</summary>
+			<ul>
+				{% for rec in pres.recordings %}
+				<li><a href="/watch/{{ rec.id }}">{{ rec.name }} ({{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }})</a></li>
+				{% endfor %}
+			</ul>
+		</details>
+		{% endif %}
+	</article>
 	{% endfor %}
-</ul>
+</div>
+
+<div class="pagination-controls">
+	<button id="prev-page" type="button">&#8592; Prev</button>
+	<span id="page-info"></span>
+	<button id="next-page" type="button">Next &#8594;</button>
+	<label for="per-page">Per page:</label>
+	<select id="per-page">
+		<option value="10">10</option>
+		<option value="20">20</option>
+		<option value="30">30</option>
+		<option value="50">50</option>
+	</select>
+</div>
+
+<script>
+(function () {
+	const VIEWED_KEY = 'syncslide_viewed';
+
+	function getViewed() {
+		try { return JSON.parse(localStorage.getItem(VIEWED_KEY) || '{}'); }
+		catch { return {}; }
+	}
+
+	// Track stage link clicks
+	document.querySelectorAll('.stage-link').forEach(function (a) {
+		a.addEventListener('click', function () {
+			var viewed = getViewed();
+			viewed[a.dataset.presId] = Date.now();
+			localStorage.setItem(VIEWED_KEY, JSON.stringify(viewed));
+		});
+	});
+
+	var allItems = Array.from(document.querySelectorAll('.pres-item'));
+	var sortSel = document.getElementById('sort-by');
+	var perPageSel = document.getElementById('per-page');
+	var prevBtn = document.getElementById('prev-page');
+	var nextBtn = document.getElementById('next-page');
+	var pageInfo = document.getElementById('page-info');
+	var currentPage = 1;
+
+	function getSorted() {
+		var items = allItems.slice();
+		var sort = sortSel.value;
+		if (sort === 'newest') {
+			items.sort(function (a, b) { return parseInt(b.dataset.id) - parseInt(a.dataset.id); });
+		} else if (sort === 'oldest') {
+			items.sort(function (a, b) { return parseInt(a.dataset.id) - parseInt(b.dataset.id); });
+		} else if (sort === 'alphabetical') {
+			items.sort(function (a, b) { return a.dataset.name.localeCompare(b.dataset.name); });
+		} else if (sort === 'recently-viewed') {
+			var viewed = getViewed();
+			items.sort(function (a, b) {
+				var ta = viewed[a.dataset.id] || 0;
+				var tb = viewed[b.dataset.id] || 0;
+				if (tb !== ta) return tb - ta;
+				return parseInt(b.dataset.id) - parseInt(a.dataset.id);
+			});
+		}
+		return items;
+	}
+
+	function render() {
+		var perPage = parseInt(perPageSel.value);
+		var sorted = getSorted();
+		var total = sorted.length;
+		var totalPages = Math.max(1, Math.ceil(total / perPage));
+		if (currentPage > totalPages) currentPage = totalPages;
+		var start = (currentPage - 1) * perPage;
+		var end = start + perPage;
+		var list = document.getElementById('pres-list');
+		allItems.forEach(function (item) { item.style.display = 'none'; });
+		sorted.slice(start, end).forEach(function (item) {
+			item.style.display = '';
+			list.appendChild(item);
+		});
+		pageInfo.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+		prevBtn.disabled = currentPage <= 1;
+		nextBtn.disabled = currentPage >= totalPages;
+	}
+
+	sortSel.addEventListener('change', function () { currentPage = 1; render(); });
+	perPageSel.addEventListener('change', function () { currentPage = 1; render(); });
+	prevBtn.addEventListener('click', function () { if (currentPage > 1) { currentPage--; render(); } });
+	nextBtn.addEventListener('click', function () {
+		var perPage = parseInt(perPageSel.value);
+		var totalPages = Math.max(1, Math.ceil(allItems.length / perPage));
+		if (currentPage < totalPages) { currentPage++; render(); }
+	});
+
+	render();
+})();
+</script>
+
 {% else %}
-<p>No presentations yet. <a href="/create">Start one now!</a><p>
+<p>No presentations yet. <a href="/create">Start one now!</a></p>
 {% endif %}
 </main>
 </body></html>
