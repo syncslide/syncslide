@@ -1,0 +1,56 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT * FROM recording WHERE id = ?;",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "presentation_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "name",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "vtt_path",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "captions_path",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "video_path",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "start",
+        "ordinal": 6,
+        "type_info": "Datetime"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "3261308826430d546afacc7646767b1302d186d2a2db985ed9f4b35e77c64186"
+}

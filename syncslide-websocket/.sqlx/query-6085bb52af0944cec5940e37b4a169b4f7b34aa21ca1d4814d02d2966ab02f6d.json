@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE presentation\n            SET content=?\n            WHERE id=?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "6085bb52af0944cec5940e37b4a169b4f7b34aa21ca1d4814d02d2966ab02f6d"
+}
