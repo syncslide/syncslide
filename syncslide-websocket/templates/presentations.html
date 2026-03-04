@@ -34,9 +34,9 @@
 	{% endfor %}
 </div>
 
-<div class="pagination-controls">
+<nav class="pagination-controls" aria-label="Pagination">
 	<button id="prev-page" type="button">&#8592; Prev</button>
-	<span id="page-info"></span>
+	<span id="page-info" aria-live="polite"></span>
 	<button id="next-page" type="button">Next &#8594;</button>
 	<label for="per-page">Per page:</label>
 	<select id="per-page">
@@ -45,7 +45,7 @@
 		<option value="30">30</option>
 		<option value="50">50</option>
 	</select>
-</div>
+</nav>
 
 <script>
 (function () {
