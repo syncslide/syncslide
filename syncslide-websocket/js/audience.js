@@ -1,7 +1,7 @@
 let TEXT_TO_RENDER = "";
 
 function is_stage() {
-	window.location.href.endsWith("stage/")
+	return document.getElementById("goTo") !== null
 }
 
 function stringToDOM(htmlString) {
@@ -34,3 +34,8 @@ saveCurrentState();
 }
 
 socket.onmessage = handleUpdate
+
+const markdownInput = document.getElementById("markdown-input");
+if (markdownInput && markdownInput.value) {
+	getH2s(stringToDOM(md.render(markdownInput.value)));
+}
