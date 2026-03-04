@@ -37,7 +37,10 @@ const textInput = document.getElementById("markdown-input");
 textInput.addEventListener("blur", updateMarkdown);
 
 goTo = document.getElementById("goTo");
-goTo.addEventListener("change", updateSlide);
+goTo.addEventListener("blur", updateSlide);
+goTo.addEventListener("keydown", (e) => {
+	if (e.key === "Enter") updateSlide();
+});
 
 document.addEventListener("keydown", (e) => {
 	if (e.key !== "F8") return;
