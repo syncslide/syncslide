@@ -543,9 +543,9 @@ async fn main() {
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
         .route("/watch/{rid}", get(recording))
-        .nest_service("/css", ServeDir::new("../src/css/"))
-        .nest_service("/js", ServeDir::new("../src/js/"))
-        .nest_service("/assets", ServeDir::new("../src/assets/"))
+        .nest_service("/css", ServeDir::new("css/"))
+        .nest_service("/js", ServeDir::new("js/"))
+        .nest_service("/assets", ServeDir::new("assets/"))
         .with_state(state.clone())
         .layer(auth_layer);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5002").await.unwrap();
