@@ -33,3 +33,6 @@ textInput.addEventListener("blur", updateMarkdown);
 
 update = document.getElementById("update");
 update.addEventListener("click", updateSlide);
+
+goTo = document.getElementById("goTo");
+goTo.addEventListener("change", updateSlide);
