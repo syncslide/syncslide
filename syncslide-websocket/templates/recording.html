@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Watch Recording{% endblock title %}
+{% block title %}Watch Recording: {{ recording.name }}{% endblock title %}
 
 {% block js %}
 <script defer src="/js/play.js"></script>
@@ -36,6 +36,7 @@ Your browser does not support the video tag.
 <select id="goTo" name="goTo"></select>
 <button id="go">Go</button
 </nav>
+{% if is_owner %}
 <section aria-labelledby="cue-editor-heading">
 <details>
 <summary id="cue-editor-heading">Edit Cue Timestamps</summary>
@@ -46,4 +47,5 @@ Your browser does not support the video tag.
 <button id="downloadVtt">Download Adjusted VTT</button>
 </details>
 </section>
+{% endif %}
 {% endblock content %}

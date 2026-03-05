@@ -504,8 +504,18 @@ async fn watch_recording(
     let Ok(Some(rec)) = Recording::get_by_id(pres_id, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
+    let Ok(pres_user_id) = sqlx::query_scalar::<_, i64>(
+        "SELECT user_id FROM presentation WHERE id = ?;"
+    )
+    .bind(rec.presentation_id)
+    .fetch_one(&db)
+    .await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user_id);
     let mut ctx = Context::new();
     ctx.insert("recording", &rec);
+    ctx.insert("is_owner", &is_owner);
     tera.render("recording.html", ctx, auth_session, db)
         .await
         .into_response()
