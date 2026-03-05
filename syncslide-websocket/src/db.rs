@@ -56,6 +56,28 @@ impl Recording {
             .await
             .map_err(Error::from)
     }
+    pub async fn create(
+        presentation_id: i64,
+        name: String,
+        video_path: String,
+        vtt_path: String,
+        captions_path: String,
+        db: &SqlitePool,
+    ) -> Result<Recording, Error> {
+        sqlx::query_as!(
+            Recording,
+            "INSERT INTO recording (presentation_id, name, video_path, vtt_path, captions_path)
+             VALUES (?, ?, ?, ?, ?) RETURNING *;",
+            presentation_id,
+            name,
+            video_path,
+            vtt_path,
+            captions_path
+        )
+        .fetch_one(&*db)
+        .await
+        .map_err(Error::from)
+    }
 }
 
 #[derive(sqlx::Type, Copy, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

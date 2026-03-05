@@ -30,6 +30,16 @@
 			</ul>
 		</details>
 		{% endif %}
+		<details>
+			<summary>Add Recording</summary>
+			<form method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
+				<label>Name: <input type="text" name="name" required></label>
+				<label>Video: <input type="file" name="video" accept="video/*" required></label>
+				<label>Slides VTT: <input type="file" name="vtt" accept=".vtt,text/vtt" required></label>
+				<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
+				<button type="submit">Upload</button>
+			</form>
+		</details>
 	</article>
 	{% endfor %}
 </div>

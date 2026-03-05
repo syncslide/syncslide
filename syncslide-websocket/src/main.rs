@@ -11,7 +11,7 @@ use axum::{
     Form, Router,
     body::Body,
     extract::{
-        FromRef, Path, State,
+        FromRef, Multipart, Path, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::StatusCode,
@@ -530,6 +530,105 @@ async fn index(
         .await
 }
 
+async fn add_recording(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let owner_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM presentation WHERE id = ? AND user_id = ?;",
+    )
+    .bind(pid)
+    .bind(user.id)
+    .fetch_one(&db)
+    .await;
+    if !matches!(owner_count, Ok(1)) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    let mut name = String::new();
+    let mut video_bytes: Option<(Vec<u8>, String)> = None;
+    let mut vtt_bytes: Option<Vec<u8>> = None;
+    let mut captions_bytes: Option<Vec<u8>> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        match field.name().unwrap_or("") {
+            "name" => {
+                name = field.text().await.unwrap_or_default();
+            }
+            "video" => {
+                let ext = field
+                    .file_name()
+                    .and_then(|f| std::path::Path::new(f).extension())
+                    .and_then(std::ffi::OsStr::to_str)
+                    .unwrap_or("bin")
+                    .to_string();
+                if let Ok(b) = field.bytes().await {
+                    video_bytes = Some((b.to_vec(), ext));
+                }
+            }
+            "vtt" => {
+                if let Ok(b) = field.bytes().await {
+                    vtt_bytes = Some(b.to_vec());
+                }
+            }
+            "captions" => {
+                if let Ok(b) = field.bytes().await {
+                    if !b.is_empty() {
+                        captions_bytes = Some(b.to_vec());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let (Some((video_data, video_ext)), Some(vtt_data)) = (video_bytes, vtt_bytes) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    if name.is_empty() {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+
+    let video_filename = format!("video.{video_ext}");
+    let captions_data = captions_bytes.unwrap_or_else(|| b"WEBVTT\n".to_vec());
+
+    let rec = match Recording::create(
+        pid,
+        name,
+        video_filename.clone(),
+        "slides.vtt".to_string(),
+        "captions.vtt".to_string(),
+        &db,
+    )
+    .await
+    {
+        Ok(r) => r,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+
+    let dir = format!("assets/{}", rec.id);
+    if tokio::fs::create_dir_all(&dir).await.is_err()
+        || tokio::fs::write(format!("{dir}/{video_filename}"), &video_data)
+            .await
+            .is_err()
+        || tokio::fs::write(format!("{dir}/slides.vtt"), &vtt_data)
+            .await
+            .is_err()
+        || tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data)
+            .await
+            .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+
+    Redirect::to("/user/presentations").into_response()
+}
+
 /// Dynamic cleanup of still open presentations.
 fn cleanup(state: &mut AppState) {
     let mut slides = state.slides.lock().unwrap();
@@ -561,6 +660,7 @@ async fn main() {
         .route("/auth/login", post(login_process))
         .route("/auth/logout", get(logout))
         .route("/user/presentations", get(presentations))
+        .route("/user/presentations/{pid}/recordings", post(add_recording))
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
         .route("/user/new", get(new_user))
