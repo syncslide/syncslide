@@ -10,6 +10,10 @@
 </section>
 <section aria-labelledby="slides-heading">
 <h2 id="slides-heading">Slides</h2>
+<nav aria-label="Slide Navigation">
+<label for="goTo">Go to slide:</label>
+<select id="goTo" name="goTo"></select>
+</nav>
 <button id="addSlide" type="button">Add Slide</button>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
@@ -21,8 +25,6 @@
 <section aria-labelledby="input">
 <label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
 <textarea id="markdown-input">{{ pres.content }}</textarea>
-<label for="goTo">Go to slide:</label>
-<select id="goTo" name="goTo"></select>
 </section>
 </details>
 {% endblock stage %}
