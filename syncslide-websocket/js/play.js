@@ -51,6 +51,35 @@ window.addEventListener("load", () => {
 		presTitleInput.value = d.querySelector('h1')?.textContent ?? '';
 	}
 
+	function updateAllCueH1(newTitle) {
+		cueList.forEach(c => {
+			const parsed = JSON.parse(c.text);
+			const d = document.createElement('div');
+			d.innerHTML = parsed.content;
+			const h2Text = d.querySelector('h2')?.textContent ?? '';
+			const body = extractBody(parsed.content);
+			parsed.content = `<h1>${escapeHtml(newTitle)}</h1><h2>${escapeHtml(h2Text)}</h2>${body}`;
+			c.text = JSON.stringify(parsed);
+		});
+	}
+
+	if (presTitleInput) {
+		let nameDebounce = null;
+		presTitleInput.addEventListener('input', () => {
+			const newTitle = presTitleInput.value;
+			updateAllCueH1(newTitle);
+			clearTimeout(nameDebounce);
+			nameDebounce = setTimeout(async () => {
+				const rid = video.dataset.rid;
+				await fetch(`/user/recordings/${rid}/name`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'text/plain' },
+					body: newTitle,
+				});
+			}, 500);
+		});
+	}
+
 	// Sync time inputs (number type only) back into cueList.
 	function syncTimesFromInputs() {
 		Array.from(cueTableBody.querySelectorAll("input[type='number']")).forEach((input, i) => {

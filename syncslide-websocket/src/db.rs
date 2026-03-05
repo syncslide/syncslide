@@ -63,6 +63,13 @@ impl Recording {
             .map_err(Error::from)
             .map(|_| ())
     }
+    pub async fn update_name(id: i64, name: String, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query!("UPDATE recording SET name = ? WHERE id = ?;", name, id)
+            .execute(&*db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
     pub async fn create(
         presentation_id: i64,
         name: String,
