@@ -3,7 +3,7 @@
 
 {% block stage %}
 <details>
-<summary>Edit Slides</summary>
+<summary><h2>Edit Slides</h2></summary>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
 <section aria-labelledby="slides-heading">
 <h2 id="slides-heading">Slides</h2>
@@ -26,9 +26,8 @@
 </details>
 </details>
 <details>
-<summary>Record</summary>
+<summary><h2 id="record">Record</h2></summary>
 <section aria-labelledby="record">
-<h2 id="record">Record</h2>
 <button id="recordPause">Record</button>
 <button id="stop">Stop</button>
 <p id="timer">00:00:00</p>
