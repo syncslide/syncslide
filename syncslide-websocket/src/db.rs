@@ -24,6 +24,7 @@ pub struct Recording {
     pub id: i64,
     pub presentation_id: i64,
     pub name: String,
+    #[serde(with = "time::serde::rfc3339")]
     pub start: OffsetDateTime,
     pub vtt_path: String,
     pub video_path: String,

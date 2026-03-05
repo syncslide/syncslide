@@ -29,7 +29,7 @@
 				{% for rec in pres.recordings %}
 				<tr>
 					<td>{{ rec.name }}</td>
-					<td>{{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }}</td>
+					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>
 						<a href="/watch/{{ rec.id }}">View</a>
 						<a href="/watch/{{ rec.id }}">Edit</a>
