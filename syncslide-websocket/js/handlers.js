@@ -96,7 +96,7 @@ function renderSlideTable() {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
 			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
-			+ `<option value="" disabled selected>Actions</option>`
+			+ `<option value="" disabled selected>--</option>`
 			+ `<option value="edit">Edit</option>`
 			+ `<option value="insert">Insert</option>`
 			+ `<option value="move-up">Move Up</option>`
@@ -193,6 +193,7 @@ if (slideTableBody) {
 		if (action === 'insert') { openSlideDialog('insert', idx); return; }
 		const slides = markdownToSlides(textInput.value);
 		if (action === 'delete') {
+			if (!confirm(`Delete slide ${idx + 1}: "${slides[idx].title}"?`)) return;
 			slides.splice(idx, 1);
 		} else if (action === 'move-up' && idx > 0) {
 			[slides[idx - 1], slides[idx]] = [slides[idx], slides[idx - 1]];
