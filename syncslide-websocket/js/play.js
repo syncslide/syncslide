@@ -21,17 +21,17 @@ window.addEventListener("load", () => {
 	const shiftSubsequent = document.getElementById("shiftSubsequent");
 
 	// cueList is the in-memory source of truth for the cue editor.
-	// originalCueList is a snapshot used by Cancel to undo all changes.
 	let cueList = Array.from(slidesData.cues).map(c => ({
 		startTime: c.startTime,
 		text: c.text,
 		title: JSON.parse(c.text).title,
 	}));
-	let originalCueList = cueList.map(c => ({ ...c }));
+	const originalCueList = cueList.map(c => ({ ...c }));
+	let editingIdx = null;
 
-	// Sync edited input values back into cueList before any structural operation.
+	// Sync time inputs (number type only) back into cueList.
 	function syncTimesFromInputs() {
-		Array.from(cueTableBody.querySelectorAll("input")).forEach((input, i) => {
+		Array.from(cueTableBody.querySelectorAll("input[type='number']")).forEach((input, i) => {
 			cueList[i].startTime = parseFloat(input.value);
 		});
 	}
@@ -49,9 +49,51 @@ window.addEventListener("load", () => {
 			const tr = document.createElement("tr");
 			tr.innerHTML = `<td>${i + 1}</td><td>${c.title}</td>`
 				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${c.title}"></td>`
-				+ `<td><button type="button" data-action="delete" data-idx="${i}">Delete</button>`
-				+ ` <button type="button" data-action="insert" data-idx="${i}">Insert after</button></td>`;
+				+ `<td>`
+				+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button> `
+				+ `<button type="button" data-action="insert" data-idx="${i}">Insert after</button> `
+				+ `<button type="button" data-action="edit" data-idx="${i}">Edit</button>`
+				+ `</td>`;
 			cueTableBody.appendChild(tr);
+
+			if (editingIdx === i) {
+				const editTr = document.createElement("tr");
+				const td = document.createElement("td");
+				td.colSpan = 4;
+
+				const parsed = JSON.parse(c.text);
+
+				const titleLabel = document.createElement("label");
+				const titleInput = document.createElement("input");
+				titleInput.type = "text";
+				titleInput.dataset.edit = "title";
+				titleInput.value = parsed.title;
+				titleLabel.append("Title: ", titleInput);
+
+				const contentLabel = document.createElement("label");
+				const contentArea = document.createElement("textarea");
+				contentArea.dataset.edit = "content";
+				contentArea.rows = 6;
+				contentArea.style.width = "100%";
+				contentArea.value = parsed.content;
+				contentLabel.append("Content (HTML):", document.createElement("br"), contentArea);
+
+				const applyBtn = document.createElement("button");
+				applyBtn.type = "button";
+				applyBtn.dataset.action = "apply";
+				applyBtn.dataset.idx = i;
+				applyBtn.textContent = "Apply";
+
+				const closeBtn = document.createElement("button");
+				closeBtn.type = "button";
+				closeBtn.dataset.action = "close-edit";
+				closeBtn.dataset.idx = i;
+				closeBtn.textContent = "Close";
+
+				td.append(titleLabel, document.createElement("br"), contentLabel, document.createElement("br"), applyBtn, " ", closeBtn);
+				editTr.appendChild(td);
+				cueTableBody.appendChild(editTr);
+			}
 		});
 	}
 
@@ -62,8 +104,8 @@ window.addEventListener("load", () => {
 	cueTableBody.addEventListener("change", (event) => {
 		if (!shiftSubsequent || !shiftSubsequent.checked) return;
 		const input = event.target;
-		if (input.tagName !== "INPUT") return;
-		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+		if (input.type !== "number") return;
+		const inputs = Array.from(cueTableBody.querySelectorAll("input[type='number']"));
 		const idx = inputs.indexOf(input);
 		if (idx < 0) return;
 		const delta = parseFloat(input.value) - parseFloat(input.defaultValue);
@@ -75,18 +117,47 @@ window.addEventListener("load", () => {
 		input.defaultValue = input.value;
 	});
 
-	// Delete / Insert after buttons
 	cueTableBody.addEventListener("click", (event) => {
 		const btn = event.target.closest("button[data-action]");
 		if (!btn) return;
-		syncTimesFromInputs();
 		const idx = parseInt(btn.dataset.idx);
-		if (btn.dataset.action === "delete") {
+		const action = btn.dataset.action;
+
+		if (action === "edit") {
+			editingIdx = editingIdx === idx ? null : idx;
+			renderCueTable();
+			return;
+		}
+		if (action === "close-edit") {
+			editingIdx = null;
+			renderCueTable();
+			return;
+		}
+		if (action === "apply") {
+			const titleInput = cueTableBody.querySelector("[data-edit='title']");
+			const contentArea = cueTableBody.querySelector("[data-edit='content']");
+			const parsed = JSON.parse(cueList[idx].text);
+			parsed.title = titleInput.value;
+			parsed.content = contentArea.value;
+			cueList[idx].text = JSON.stringify(parsed);
+			cueList[idx].title = parsed.title;
+			editingIdx = null;
+			renderCueTable();
+			buildGoTo();
+			return;
+		}
+
+		// delete / insert — sync times first
+		syncTimesFromInputs();
+		if (action === "delete") {
+			if (editingIdx === idx) editingIdx = null;
+			else if (editingIdx !== null && editingIdx > idx) editingIdx--;
 			cueList.splice(idx, 1);
-		} else if (btn.dataset.action === "insert") {
+		} else if (action === "insert") {
 			const nextTime = idx + 1 < cueList.length ? cueList[idx + 1].startTime : cueList[idx].startTime + 5;
 			const midTime = parseFloat(((cueList[idx].startTime + nextTime) / 2).toFixed(3));
 			cueList.splice(idx + 1, 0, { startTime: midTime, text: cueList[idx].text, title: cueList[idx].title });
+			if (editingIdx !== null && editingIdx > idx) editingIdx++;
 		}
 		renderCueTable();
 		buildGoTo();
@@ -124,6 +195,7 @@ window.addEventListener("load", () => {
 
 	cancelVtt.addEventListener("click", () => {
 		cueList = originalCueList.map(c => ({ ...c }));
+		editingIdx = null;
 		renderCueTable();
 		buildGoTo();
 	});
