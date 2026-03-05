@@ -1,3 +1,17 @@
+function escapeHtml(str) {
+	const d = document.createElement('div');
+	d.textContent = str;
+	return d.innerHTML;
+}
+
+function extractBody(html) {
+	const d = document.createElement('div');
+	d.innerHTML = html;
+	d.querySelector('h1')?.remove();
+	d.querySelector('h2')?.remove();
+	return d.innerHTML.trim();
+}
+
 function secondsToVtt(s) {
 	const ms = Math.round((s % 1) * 1000);
 	const total = Math.floor(s);
@@ -28,6 +42,14 @@ window.addEventListener("load", () => {
 	}));
 	const originalCueList = cueList.map(c => ({ ...c }));
 	let editingIdx = null;
+
+	// Populate the presentation title field from the first cue's h1
+	const presTitleInput = document.getElementById("presTitle");
+	if (presTitleInput && cueList.length > 0) {
+		const d = document.createElement('div');
+		d.innerHTML = JSON.parse(cueList[0].text).content;
+		presTitleInput.value = d.querySelector('h1')?.textContent ?? '';
+	}
 
 	// Sync time inputs (number type only) back into cueList.
 	function syncTimesFromInputs() {
@@ -75,7 +97,7 @@ window.addEventListener("load", () => {
 				contentArea.dataset.edit = "content";
 				contentArea.rows = 6;
 				contentArea.style.width = "100%";
-				contentArea.value = parsed.content;
+				contentArea.value = extractBody(parsed.content);
 				contentLabel.append("Content (HTML):", document.createElement("br"), contentArea);
 
 				const applyBtn = document.createElement("button");
@@ -136,9 +158,10 @@ window.addEventListener("load", () => {
 		if (action === "apply") {
 			const titleInput = cueTableBody.querySelector("[data-edit='title']");
 			const contentArea = cueTableBody.querySelector("[data-edit='content']");
+			const presTitle = presTitleInput ? presTitleInput.value : '';
 			const parsed = JSON.parse(cueList[idx].text);
 			parsed.title = titleInput.value;
-			parsed.content = contentArea.value;
+			parsed.content = `<h1>${escapeHtml(presTitle)}</h1><h2>${escapeHtml(parsed.title)}</h2>${contentArea.value}`;
 			cueList[idx].text = JSON.stringify(parsed);
 			cueList[idx].title = parsed.title;
 			editingIdx = null;
