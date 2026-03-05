@@ -21,8 +21,8 @@ const updateSlide = async () => {
 }
 
 let lastSentMarkdown = null;
-let slideEditingIdx = null;
-let insertRefIdx = null;
+let dialogRefIdx = null;
+let dialogMode = 'insert'; // 'insert' | 'edit'
 
 const updateMarkdown = async () => {
 	const markdownInput = document.getElementById("markdown-input").value;
@@ -33,7 +33,6 @@ const updateMarkdown = async () => {
 	getH2s(dom);
 	socket.send(JSON.stringify({ type: "text", data: markdownInput }));
 	updateSlide();
-	slideEditingIdx = null;
 	renderSlideTable();
 }
 
@@ -102,44 +101,33 @@ function renderSlideTable() {
 			+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button>`
 			+ `</td>`;
 		slideTableBody.appendChild(tr);
-
-		if (slideEditingIdx === i) {
-			const editTr = document.createElement('tr');
-			const td = document.createElement('td');
-			td.colSpan = 3;
-
-			const titleLabel = document.createElement('label');
-			const titleInput = document.createElement('input');
-			titleInput.type = 'text';
-			titleInput.dataset.edit = 'title';
-			titleInput.value = slide.title;
-			titleLabel.append('Title: ', titleInput);
-
-			const bodyLabel = document.createElement('label');
-			const bodyArea = document.createElement('textarea');
-			bodyArea.dataset.edit = 'body';
-			bodyArea.rows = 6;
-			bodyArea.style.width = '100%';
-			bodyArea.value = slide.body;
-			bodyLabel.append('Content (Markdown):', document.createElement('br'), bodyArea);
-
-			const applyBtn = document.createElement('button');
-			applyBtn.type = 'button';
-			applyBtn.dataset.action = 'apply';
-			applyBtn.dataset.idx = i;
-			applyBtn.textContent = 'Apply';
-
-			const closeBtn = document.createElement('button');
-			closeBtn.type = 'button';
-			closeBtn.dataset.action = 'close-edit';
-			closeBtn.dataset.idx = i;
-			closeBtn.textContent = 'Close';
-
-			td.append(titleLabel, document.createElement('br'), bodyLabel, document.createElement('br'), applyBtn, ' ', closeBtn);
-			editTr.appendChild(td);
-			slideTableBody.appendChild(editTr);
-		}
 	});
+}
+
+function openSlideDialog(mode, idx) {
+	const dialog = document.getElementById('slideDialog');
+	if (!dialog) return;
+	dialogMode = mode;
+	dialogRefIdx = idx;
+	const posFieldset = document.getElementById('slideDialogPosition');
+	const heading = document.getElementById('slideDialogHeading');
+	const applyBtn = document.getElementById('slideDialogApply');
+	if (mode === 'edit') {
+		const slides = markdownToSlides(textInput.value);
+		document.getElementById('insertTitle').value = slides[idx].title;
+		document.getElementById('insertBody').value = slides[idx].body;
+		posFieldset.hidden = true;
+		heading.textContent = 'Edit Slide';
+		applyBtn.textContent = 'Apply';
+	} else {
+		document.getElementById('insertTitle').value = 'New Slide';
+		document.getElementById('insertBody').value = '';
+		document.querySelector('input[name="insertPos"][value="after"]').checked = true;
+		posFieldset.hidden = false;
+		heading.textContent = 'Insert Slide';
+		applyBtn.textContent = 'Insert';
+	}
+	dialog.showModal();
 }
 
 renderSlideTable();
@@ -163,22 +151,26 @@ if (presNameInput) {
 	});
 }
 
-const insertDialog = document.getElementById('insertSlideDialog');
-if (insertDialog) {
-	document.getElementById('insertApply').addEventListener('click', () => {
-		const pos = document.querySelector('input[name="insertPos"]:checked').value;
+const slideDialog = document.getElementById('slideDialog');
+if (slideDialog) {
+	document.getElementById('slideDialogApply').addEventListener('click', () => {
 		const title = document.getElementById('insertTitle').value;
 		const body = document.getElementById('insertBody').value;
 		const slides = markdownToSlides(textInput.value);
-		const insertAt = pos === 'before' ? insertRefIdx : insertRefIdx + 1;
-		slides.splice(insertAt, 0, { title, body });
-		if (slideEditingIdx !== null && slideEditingIdx >= insertAt) slideEditingIdx++;
+		if (dialogMode === 'edit') {
+			slides[dialogRefIdx].title = title;
+			slides[dialogRefIdx].body = body;
+		} else {
+			const pos = document.querySelector('input[name="insertPos"]:checked').value;
+			const insertAt = pos === 'before' ? dialogRefIdx : dialogRefIdx + 1;
+			slides.splice(insertAt, 0, { title, body });
+		}
 		syncFromSlides(slides);
 		renderSlideTable();
-		insertDialog.close();
+		slideDialog.close();
 	});
-	document.getElementById('insertCancel').addEventListener('click', () => {
-		insertDialog.close();
+	document.getElementById('slideDialogCancel').addEventListener('click', () => {
+		slideDialog.close();
 	});
 }
 
@@ -189,42 +181,20 @@ if (slideTableBody) {
 		if (!btn) return;
 		const idx = parseInt(btn.dataset.idx);
 		const action = btn.dataset.action;
-		const slides = markdownToSlides(textInput.value);
 
 		if (action === 'edit') {
-			slideEditingIdx = slideEditingIdx === idx ? null : idx;
-			renderSlideTable();
-			return;
-		}
-		if (action === 'close-edit') {
-			slideEditingIdx = null;
-			renderSlideTable();
-			return;
-		}
-		if (action === 'apply') {
-			const titleInput = slideTableBody.querySelector("[data-edit='title']");
-			const bodyArea = slideTableBody.querySelector("[data-edit='body']");
-			slides[idx].title = titleInput.value;
-			slides[idx].body = bodyArea.value;
-			slideEditingIdx = null;
-			syncFromSlides(slides);
-			renderSlideTable();
+			openSlideDialog('edit', idx);
 			return;
 		}
 		if (action === 'delete') {
-			if (slideEditingIdx === idx) slideEditingIdx = null;
-			else if (slideEditingIdx !== null && slideEditingIdx > idx) slideEditingIdx--;
+			const slides = markdownToSlides(textInput.value);
 			slides.splice(idx, 1);
 			syncFromSlides(slides);
 			renderSlideTable();
 			return;
 		}
 		if (action === 'insert') {
-			insertRefIdx = idx;
-			document.getElementById('insertTitle').value = 'New Slide';
-			document.getElementById('insertBody').value = '';
-			document.querySelector('input[name="insertPos"][value="after"]').checked = true;
-			document.getElementById('insertSlideDialog').showModal();
+			openSlideDialog('insert', idx);
 		}
 	});
 }

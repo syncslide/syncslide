@@ -32,15 +32,16 @@
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </nav>
-<dialog id="insertSlideDialog">
-<fieldset>
+<dialog id="slideDialog">
+<h2 id="slideDialogHeading"></h2>
+<fieldset id="slideDialogPosition">
 <legend>Position</legend>
 <label><input type="radio" name="insertPos" value="before"> Before</label>
 <label><input type="radio" name="insertPos" value="after" checked> After</label>
 </fieldset>
 <label>Title: <input type="text" id="insertTitle"></label><br>
 <label>Content (Markdown):<br><textarea id="insertBody" rows="6" style="width:100%"></textarea></label><br>
-<button type="button" id="insertApply">Insert</button>
-<button type="button" id="insertCancel">Cancel</button>
+<button type="button" id="slideDialogApply"></button>
+<button type="button" id="slideDialogCancel">Cancel</button>
 </dialog>
 {% endblock stage %}
