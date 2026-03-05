@@ -557,6 +557,31 @@ async fn update_slides_vtt(
     StatusCode::OK.into_response()
 }
 
+async fn update_presentation_name(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    body: String,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let owner_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM presentation WHERE id = ? AND user_id = ?;",
+    )
+    .bind(pid)
+    .bind(user.id)
+    .fetch_one(&db)
+    .await;
+    if !matches!(owner_count, Ok(1)) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match DbPresentation::update_name(pid, body, &db).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn update_recording_name(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -743,6 +768,7 @@ async fn main() {
         .route("/user/recordings/{rid}/delete", post(delete_recording))
         .route("/user/recordings/{rid}/slides_vtt", post(update_slides_vtt))
         .route("/user/recordings/{rid}/name", post(update_recording_name))
+        .route("/user/presentations/{pid}/name", post(update_presentation_name))
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
         .route("/user/new", get(new_user))

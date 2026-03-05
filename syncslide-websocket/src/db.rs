@@ -173,6 +173,13 @@ impl Presentation {
         .await
         .map_err(Error::from)
     }
+    pub async fn update_name(id: i64, name: String, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query!("UPDATE presentation SET name = ? WHERE id = ?;", name, id)
+            .execute(&*db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
     pub async fn update_content(
         id: i64,
         new_content: String,

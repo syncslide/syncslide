@@ -143,6 +143,25 @@ function renderSlideTable() {
 
 renderSlideTable();
 
+const presNameInput = document.getElementById('presName');
+if (presNameInput) {
+	let presNameDebounce = null;
+	presNameInput.addEventListener('input', () => {
+		const newName = presNameInput.value;
+		document.title = `Stage - ${newName}`;
+		const span = document.getElementById('pres-name');
+		if (span) span.textContent = newName;
+		clearTimeout(presNameDebounce);
+		presNameDebounce = setTimeout(async () => {
+			await fetch(`/user/presentations/${pid}/name`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/plain' },
+				body: newName,
+			});
+		}, 500);
+	});
+}
+
 const addSlideBtn = document.getElementById('addSlide');
 if (addSlideBtn) {
 	addSlideBtn.addEventListener('click', () => {
