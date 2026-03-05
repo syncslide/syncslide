@@ -7,14 +7,13 @@
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
 <section aria-labelledby="slides-heading">
 <h2 id="slides-heading">Slides</h2>
-<button id="addSlide" type="button">Add Slide</button>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
 <tbody id="slideTableBody"></tbody>
 </table>
 </section>
 <details>
-<summary>Raw Markdown</summary>
+<summary><h3>Raw Markdown</h3></summary>
 <section aria-labelledby="input">
 <label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
 <textarea id="markdown-input">{{ pres.content }}</textarea>
@@ -33,4 +32,15 @@
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </nav>
+<dialog id="insertSlideDialog">
+<fieldset>
+<legend>Position</legend>
+<label><input type="radio" name="insertPos" value="before"> Before</label>
+<label><input type="radio" name="insertPos" value="after" checked> After</label>
+</fieldset>
+<label>Title: <input type="text" id="insertTitle"></label><br>
+<label>Content (Markdown):<br><textarea id="insertBody" rows="6" style="width:100%"></textarea></label><br>
+<button type="button" id="insertApply">Insert</button>
+<button type="button" id="insertCancel">Cancel</button>
+</dialog>
 {% endblock stage %}

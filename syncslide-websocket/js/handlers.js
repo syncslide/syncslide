@@ -22,6 +22,7 @@ const updateSlide = async () => {
 
 let lastSentMarkdown = null;
 let slideEditingIdx = null;
+let insertRefIdx = null;
 
 const updateMarkdown = async () => {
 	const markdownInput = document.getElementById("markdown-input").value;
@@ -97,7 +98,7 @@ function renderSlideTable() {
 		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
 			+ `<td>`
 			+ `<button type="button" data-action="edit" data-idx="${i}">Edit</button> `
-			+ `<button type="button" data-action="insert" data-idx="${i}">Insert after</button> `
+			+ `<button type="button" data-action="insert" data-idx="${i}">Insert</button> `
 			+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button>`
 			+ `</td>`;
 		slideTableBody.appendChild(tr);
@@ -162,14 +163,22 @@ if (presNameInput) {
 	});
 }
 
-const addSlideBtn = document.getElementById('addSlide');
-if (addSlideBtn) {
-	addSlideBtn.addEventListener('click', () => {
+const insertDialog = document.getElementById('insertSlideDialog');
+if (insertDialog) {
+	document.getElementById('insertApply').addEventListener('click', () => {
+		const pos = document.querySelector('input[name="insertPos"]:checked').value;
+		const title = document.getElementById('insertTitle').value;
+		const body = document.getElementById('insertBody').value;
 		const slides = markdownToSlides(textInput.value);
-		slides.push({ title: 'New Slide', body: '' });
-		slideEditingIdx = slides.length - 1;
+		const insertAt = pos === 'before' ? insertRefIdx : insertRefIdx + 1;
+		slides.splice(insertAt, 0, { title, body });
+		if (slideEditingIdx !== null && slideEditingIdx >= insertAt) slideEditingIdx++;
 		syncFromSlides(slides);
 		renderSlideTable();
+		insertDialog.close();
+	});
+	document.getElementById('insertCancel').addEventListener('click', () => {
+		insertDialog.close();
 	});
 }
 
@@ -211,11 +220,11 @@ if (slideTableBody) {
 			return;
 		}
 		if (action === 'insert') {
-			slides.splice(idx + 1, 0, { title: 'New Slide', body: '' });
-			if (slideEditingIdx !== null && slideEditingIdx > idx) slideEditingIdx++;
-			slideEditingIdx = idx + 1;
-			syncFromSlides(slides);
-			renderSlideTable();
+			insertRefIdx = idx;
+			document.getElementById('insertTitle').value = 'New Slide';
+			document.getElementById('insertBody').value = '';
+			document.querySelector('input[name="insertPos"][value="after"]').checked = true;
+			document.getElementById('insertSlideDialog').showModal();
 		}
 	});
 }
