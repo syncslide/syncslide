@@ -143,6 +143,10 @@ if (presNameInput) {
 		document.title = `Stage - ${newName}`;
 		const span = document.getElementById('pres-name');
 		if (span) span.textContent = newName;
+		const slideH1 = document.querySelector('#currentSlide h1');
+		if (slideH1) slideH1.textContent = newName;
+		const mdLabel = document.getElementById('input');
+		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
 		clearTimeout(presNameDebounce);
 		presNameDebounce = setTimeout(async () => {
 			await fetch(`/user/presentations/${pid}/name`, {
