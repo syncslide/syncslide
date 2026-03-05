@@ -137,8 +137,7 @@ renderSlideTable();
 
 const presNameInput = document.getElementById('presName');
 if (presNameInput) {
-	let presNameDebounce = null;
-	presNameInput.addEventListener('input', () => {
+	presNameInput.addEventListener('blur', async () => {
 		const newName = presNameInput.value;
 		document.title = `Stage - ${newName}`;
 		const span = document.getElementById('pres-name');
@@ -147,14 +146,11 @@ if (presNameInput) {
 		if (slideH1) slideH1.textContent = newName;
 		const mdLabel = document.getElementById('input');
 		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
-		clearTimeout(presNameDebounce);
-		presNameDebounce = setTimeout(async () => {
-			await fetch(`/user/presentations/${pid}/name`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'text/plain' },
-				body: newName,
-			});
-		}, 500);
+		await fetch(`/user/presentations/${pid}/name`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/plain' },
+			body: newName,
+		});
 	});
 }
 
