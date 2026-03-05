@@ -264,6 +264,18 @@ window.addEventListener("load", () => {
 		video.currentTime = goTo.value;
 	};
 
+	document.addEventListener("keydown", (e) => {
+		if (e.key !== "F8") return;
+		e.preventDefault();
+		const current = Array.from(goTo.options).findIndex(o => o.selected);
+		const max = goTo.options.length - 1;
+		if (e.shiftKey) {
+			if (current > 0) video.currentTime = cueList[current - 1].startTime;
+		} else {
+			if (current < max) video.currentTime = cueList[current + 1].startTime;
+		}
+	});
+
 	rate.onchange = function() {
 		video.playbackRate = rate.value;
 	};
