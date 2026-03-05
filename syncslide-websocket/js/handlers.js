@@ -137,7 +137,7 @@ renderSlideTable();
 
 const presNameInput = document.getElementById('presName');
 if (presNameInput) {
-	presNameInput.addEventListener('blur', async () => {
+	const applyPresName = async () => {
 		const newName = presNameInput.value;
 		document.title = `Stage - ${newName}`;
 		const span = document.getElementById('pres-name');
@@ -151,7 +151,12 @@ if (presNameInput) {
 			headers: { 'Content-Type': 'text/plain' },
 			body: newName,
 		});
-	});
+	};
+	presNameInput.addEventListener('blur', applyPresName);
+	presNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyPresName(); });
+	if (window.matchMedia('(pointer: coarse)').matches) {
+		presNameInput.addEventListener('change', applyPresName);
+	}
 }
 
 const slideDialog = document.getElementById('slideDialog');
