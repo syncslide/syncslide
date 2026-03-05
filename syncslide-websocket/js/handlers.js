@@ -179,21 +179,13 @@ if (slideDialog) {
 
 const slideTableBody = document.getElementById('slideTableBody');
 if (slideTableBody) {
-	slideTableBody.addEventListener('change', (e) => {
-		const sel = e.target.closest('select[data-idx]');
-		if (!sel) return;
+	function executeSlideAction(sel) {
 		const idx = parseInt(sel.dataset.idx);
 		const action = sel.value;
+		if (!action) return;
 		sel.value = '';
-
-		if (action === 'edit') {
-			openSlideDialog('edit', idx);
-			return;
-		}
-		if (action === 'insert') {
-			openSlideDialog('insert', idx);
-			return;
-		}
+		if (action === 'edit') { openSlideDialog('edit', idx); return; }
+		if (action === 'insert') { openSlideDialog('insert', idx); return; }
 		const slides = markdownToSlides(textInput.value);
 		if (action === 'delete') {
 			slides.splice(idx, 1);
@@ -204,5 +196,20 @@ if (slideTableBody) {
 		}
 		syncFromSlides(slides);
 		renderSlideTable();
+	}
+	slideTableBody.addEventListener('focusout', (e) => {
+		const sel = e.target.closest('select[data-idx]');
+		if (sel) executeSlideAction(sel);
 	});
+	slideTableBody.addEventListener('keydown', (e) => {
+		if (e.key !== 'Enter') return;
+		const sel = e.target.closest('select[data-idx]');
+		if (sel) executeSlideAction(sel);
+	});
+	if (window.matchMedia('(pointer: coarse)').matches) {
+		slideTableBody.addEventListener('change', (e) => {
+			const sel = e.target.closest('select[data-idx]');
+			if (sel) executeSlideAction(sel);
+		});
+	}
 }
