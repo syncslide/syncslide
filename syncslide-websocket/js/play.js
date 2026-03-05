@@ -17,6 +17,7 @@ window.addEventListener("load", () => {
 	const go = document.getElementById("go");
 	const cueTableBody = document.getElementById("cueTableBody");
 	const downloadVtt = document.getElementById("downloadVtt");
+	const shiftSubsequent = document.getElementById("shiftSubsequent");
 
 	// set the dropdown with the options from the VTT file
 	for (const i of Array(slidesData.cues.length).keys()) {
@@ -31,6 +32,24 @@ window.addEventListener("load", () => {
 		tr.innerHTML = `<td>${i + 1}</td><td>${e.title}</td><td><input type="number" step="0.001" min="0" value="${cue.startTime}" aria-label="Start time for slide ${i + 1}: ${e.title}"></td>`;
 		cueTableBody.appendChild(tr);
 	}
+
+	cueTableBody.addEventListener("change", (event) => {
+		if (!shiftSubsequent || !shiftSubsequent.checked) return;
+		const input = event.target;
+		if (input.tagName !== "INPUT") return;
+		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+		const idx = inputs.indexOf(input);
+		if (idx < 0) return;
+		const oldValue = parseFloat(input.defaultValue);
+		const newValue = parseFloat(input.value);
+		const delta = newValue - oldValue;
+		if (delta === 0) return;
+		for (let j = idx + 1; j < inputs.length; j++) {
+			inputs[j].value = Math.max(0, parseFloat(inputs[j].value) + delta).toFixed(3);
+			inputs[j].defaultValue = inputs[j].value;
+		}
+		input.defaultValue = input.value;
+	});
 
 	downloadVtt.addEventListener("click", () => {
 		const cues = Array.from(slidesData.cues);
@@ -57,7 +76,7 @@ window.addEventListener("load", () => {
 			return;
 		}
 		const data = JSON.parse(slide.text);
-		slidesContainer.innerHTML = data.data;
+		slidesContainer.innerHTML = data.content;
 		goTo.value = Number(slide.startTime);
 	});
 
