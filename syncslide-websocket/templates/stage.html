@@ -3,16 +3,26 @@
 
 {% block stage %}
 <section aria-labelledby="record">
-<h2 id = "record">Record</h2>
+<h2 id="record">Record</h2>
 <button id="recordPause">Record</button>
 <button id="stop">Stop</button>
 <p id="timer">00:00:00</p>
 </section>
+<section aria-labelledby="slides-heading">
+<h2 id="slides-heading">Slides</h2>
+<button id="addSlide" type="button">Add Slide</button>
+<table>
+<thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
+<tbody id="slideTableBody"></tbody>
+</table>
+</section>
+<details>
+<summary>Raw Markdown</summary>
 <section aria-labelledby="input">
-<h2 id="input">Input</h2>
-<label for="markdown-input">Markdown Input: {{ pres.name }}</label>
+<label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
 <textarea id="markdown-input">{{ pres.content }}</textarea>
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </section>
+</details>
 {% endblock stage %}
