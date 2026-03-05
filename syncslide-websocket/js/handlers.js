@@ -41,6 +41,9 @@ goTo.addEventListener("blur", updateSlide);
 goTo.addEventListener("keydown", (e) => {
 	if (e.key === "Enter") updateSlide();
 });
+if (window.matchMedia("(pointer: coarse)").matches) {
+	goTo.addEventListener("change", updateSlide);
+}
 
 document.addEventListener("keydown", (e) => {
 	if (e.key !== "F8") return;
