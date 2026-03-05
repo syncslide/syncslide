@@ -86,5 +86,7 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 /* in stage: */
 #markdown-input { display: block; width: 90%; margin: auto; height: 12em; }
 
+#qrOverlay { position: fixed; bottom: 1em; right: 1em; background: #fff; padding: 8px; border-radius: 4px; z-index: 100; line-height: 0; }
+
 
 /*# sourceMappingURL=style.css.map */

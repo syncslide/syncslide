@@ -31,7 +31,19 @@
 <nav aria-label="Slide Navigation">
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
+<button type="button" id="qrToggle">Show QR</button>
 </nav>
+<div id="qrOverlay" hidden aria-label="QR code for this presentation">
+<img src="/qr/{{ user.name }}/{{ pres.id }}" alt="QR code linking to this presentation" width="200" height="200">
+</div>
+<script>
+document.getElementById('qrToggle').addEventListener('click', () => {
+  const overlay = document.getElementById('qrOverlay');
+  const btn = document.getElementById('qrToggle');
+  overlay.hidden = !overlay.hidden;
+  btn.textContent = overlay.hidden ? 'Show QR' : 'Hide QR';
+});
+</script>
 <dialog id="slideDialog">
 <h2 id="slideDialogHeading"></h2>
 <fieldset id="slideDialogPosition">

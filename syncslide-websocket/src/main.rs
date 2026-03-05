@@ -7,6 +7,7 @@
 #![deny(clippy::all, clippy::pedantic, rustdoc::all, unsafe_code, missing_docs)]
 
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use qrcode::{QrCode, render::svg};
 use axum::{
     Form, Router,
     body::Body,
@@ -14,7 +15,7 @@ use axum::{
         DefaultBodyLimit, FromRef, Multipart, Path, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{Html, IntoResponse, Redirect, Response},
     routing::{get, post},
 };
@@ -347,6 +348,27 @@ async fn stage(
     ctx.insert("pres", &pres);
     tera.render("stage.html", ctx, auth_session, db).await
 }
+/// Returns an SVG QR code linking to the presentation at `/{uname}/{pid}`.
+async fn qr_code(Path((uname, pid)): Path<(String, String)>, headers: HeaderMap) -> impl IntoResponse {
+    let proto = headers
+        .get("x-forwarded-proto")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("https");
+    let host = headers
+        .get("host")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("localhost");
+    let url = format!("{proto}://{host}/{uname}/{pid}");
+    let Ok(code) = QrCode::new(url.as_bytes()) else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let image = code
+        .render::<svg::Color<'_>>()
+        .min_dimensions(200, 200)
+        .build();
+    ([(axum::http::header::CONTENT_TYPE, "image/svg+xml")], image).into_response()
+}
+
 async fn presentations(
     State(tera): State<Tera>,
     State(db): State<SqlitePool>,
@@ -777,6 +799,7 @@ async fn main() {
         .route("/create", get(start))
         .route("/create", post(start_pres))
         .route("/{uname}/{pid}", get(present))
+        .route("/qr/{uname}/{pid}", get(qr_code))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
         .route("/watch/{rid}", get(recording))
