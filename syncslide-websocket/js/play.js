@@ -95,31 +95,7 @@ window.addEventListener("load", () => {
 		});
 		if (!resp.ok) return;
 
-		// Update cue boundaries in-place so cuechange fires at the right times
-		for (let i = 0; i < cues.length; i++) {
-			cues[i].startTime = newTimes[i];
-			cues[i].endTime = i + 1 < newTimes.length ? newTimes[i + 1] : video.duration;
-		}
-
-		// Rebuild the go-to dropdown with updated timestamps
-		goTo.innerHTML = '';
-		for (let i = 0; i < cues.length; i++) {
-			goTo.add(new Option(titles[i] + ": " + newTimes[i] + "s", String(newTimes[i])));
-		}
-
-		// Re-render whichever slide is active right now
-		const t = video.currentTime;
-		const active = cues.find(c => c.startTime <= t && t < c.endTime);
-		if (active) {
-			slidesContainer.innerHTML = JSON.parse(active.text).content;
-			goTo.value = String(active.startTime);
-		}
-
-		// Update bookkeeping
-		inputs.forEach((input, i) => {
-			originalTimes[i] = newTimes[i];
-			input.defaultValue = input.value;
-		});
+		location.reload();
 	});
 
 	cancelVtt.addEventListener("click", () => {
