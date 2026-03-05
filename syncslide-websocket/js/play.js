@@ -99,7 +99,7 @@ window.addEventListener("load", () => {
 		cueTableBody.innerHTML = '';
 		cueList.forEach((c, i) => {
 			const tr = document.createElement("tr");
-			tr.innerHTML = `<td>${i + 1}</td><td>${c.title}</td>`
+			tr.innerHTML = `<th scope="row">${i + 1}</th><td>${c.title}</td>`
 				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${c.title}"></td>`
 				+ `<td>`
 				+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button> `
