@@ -2,12 +2,8 @@
 {% block title %}Stage - {{ pres.name }}{% endblock title %}
 
 {% block stage %}
-<section aria-labelledby="record">
-<h2 id="record">Record</h2>
-<button id="recordPause">Record</button>
-<button id="stop">Stop</button>
-<p id="timer">00:00:00</p>
-</section>
+<details>
+<summary>Edit Slides</summary>
 <section aria-labelledby="slides-heading">
 <h2 id="slides-heading">Slides</h2>
 <nav aria-label="Slide Navigation">
@@ -27,4 +23,11 @@
 <textarea id="markdown-input">{{ pres.content }}</textarea>
 </section>
 </details>
+</details>
+<section aria-labelledby="record">
+<h2 id="record">Record</h2>
+<button id="recordPause">Record</button>
+<button id="stop">Stop</button>
+<p id="timer">00:00:00</p>
+</section>
 {% endblock stage %}
