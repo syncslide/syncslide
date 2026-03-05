@@ -15,6 +15,7 @@
 
 {% block content %}
 {% block stage %}{% endblock stage %}
+{% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
 <main>
 <article aria-live="polite" id="currentSlide"></article>
 </main>

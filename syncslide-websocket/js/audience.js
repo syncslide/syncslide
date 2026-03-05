@@ -1,4 +1,6 @@
 let TEXT_TO_RENDER = "";
+const presNameEl = document.getElementById('pres-name');
+const presName = presNameEl ? presNameEl.textContent.trim() : '';
 
 function is_stage() {
 	return document.getElementById("goTo") !== null
@@ -25,8 +27,11 @@ const handleUpdate = (message) => {
 	newHtml = addSiblings(allHtml)[slideIndex];
 	const htmlOutput = document.getElementById("currentSlide");
 	htmlOutput.innerHTML = "";
-	const h1 = allHtml.querySelector('h1');
-	if (h1) htmlOutput.appendChild(h1);
+	if (presName) {
+		const h1 = document.createElement('h1');
+		h1.textContent = presName;
+		htmlOutput.appendChild(h1);
+	}
 	for (nh of newHtml) {
 		htmlOutput.appendChild(nh);
 	}

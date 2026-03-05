@@ -312,26 +312,23 @@ async fn present(
     auth_session: AuthSession,
     Path((uname, pid)): Path<(String, i64)>,
 ) -> impl IntoResponse {
-    let audience_page = audience(tera.clone(), auth_session.clone(), db.clone())
-        .await
-        .into_response();
     let pres_user = User::get_by_name(uname, &db).await;
     let pres_user = match pres_user {
         Ok(Some(u)) => u,
-        Ok(None) => return audience_page,
+        Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
     let pres = DbPresentation::get_by_id(pid, &db).await;
-    let _pres = match pres {
+    let pres = match pres {
         Ok(Some(p)) => p,
-        Ok(None) => return audience_page,
+        Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
-    let Some(ref user) = auth_session.user else {
-        return audience_page;
-    };
-    if user.id != pres_user.id {
-        return audience_page;
+    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
+    if !is_owner {
+        let mut ctx = Context::new();
+        ctx.insert("pres", &pres);
+        return tera.render("audience.html", ctx, auth_session, db).await.into_response();
     }
     stage(tera, db, auth_session, pid).await.into_response()
 }
