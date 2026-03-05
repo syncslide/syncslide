@@ -23,15 +23,28 @@
 		{% if pres.recordings | length > 0 %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
-			<ul>
+			<table>
+				<thead><tr><th>Name</th><th>Date</th><th>Actions</th></tr></thead>
+				<tbody>
 				{% for rec in pres.recordings %}
-				<li><a href="/watch/{{ rec.id }}">{{ rec.name }} ({{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }})</a></li>
+				<tr>
+					<td>{{ rec.name }}</td>
+					<td>{{ rec.start[0] ~ '-' ~ rec.start[1] ~ '-' ~ rec.start[2] }}</td>
+					<td>
+						<a href="/watch/{{ rec.id }}">View</a>
+						<a href="/watch/{{ rec.id }}">Edit</a>
+						<form method="post" action="/user/recordings/{{ rec.id }}/delete" style="display:inline">
+							<button type="submit">Delete</button>
+						</form>
+					</td>
+				</tr>
 				{% endfor %}
-			</ul>
+				</tbody>
+			</table>
 		</details>
 		{% endif %}
 		<details>
-			<summary>Add Recording</summary>
+			<summary>Add Recording: {{ pres.name }}</summary>
 			<form method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
 				<label>Name: <input type="text" name="name" required></label>
 				<label>Video: <input type="file" name="video" accept="video/*" required></label>

@@ -56,6 +56,13 @@ impl Recording {
             .await
             .map_err(Error::from)
     }
+    pub async fn delete(id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query!("DELETE FROM recording WHERE id = ?;", id)
+            .execute(&*db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
     pub async fn create(
         presentation_id: i64,
         name: String,
