@@ -68,6 +68,7 @@ window.addEventListener("load", () => {
 		presTitleInput.addEventListener('input', () => {
 			const newTitle = presTitleInput.value;
 			updateAllCueH1(newTitle);
+			document.title = `Watch Recording: ${newTitle} - SyncSlide`;
 			clearTimeout(nameDebounce);
 			nameDebounce = setTimeout(async () => {
 				const rid = video.dataset.rid;
