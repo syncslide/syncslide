@@ -28,11 +28,10 @@
 				<tbody>
 				{% for rec in pres.recordings %}
 				<tr>
-					<td>{{ rec.name }}</td>
+					<td><a href="/watch/{{ rec.id }}">{{ rec.name }}</a></td>
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>
-						<a href="/watch/{{ rec.id }}">View</a>
 						<form method="post" action="/user/recordings/{{ rec.id }}/delete" style="display:inline">
 							<button type="submit">Delete</button>
 						</form>
