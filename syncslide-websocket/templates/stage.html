@@ -7,10 +7,6 @@
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
 <section aria-labelledby="slides-heading">
 <h2 id="slides-heading">Slides</h2>
-<nav aria-label="Slide Navigation">
-<label for="goTo">Go to slide:</label>
-<select id="goTo" name="goTo"></select>
-</nav>
 <button id="addSlide" type="button">Add Slide</button>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
@@ -33,4 +29,8 @@
 <p id="timer">00:00:00</p>
 </section>
 </details>
+<nav aria-label="Slide Navigation">
+<label for="goTo">Go to slide:</label>
+<select id="goTo" name="goTo"></select>
+</nav>
 {% endblock stage %}
