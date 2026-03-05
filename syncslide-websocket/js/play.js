@@ -17,12 +17,19 @@ window.addEventListener("load", () => {
 	const go = document.getElementById("go");
 	const cueTableBody = document.getElementById("cueTableBody");
 	const downloadVtt = document.getElementById("downloadVtt");
+	const saveVtt = document.getElementById("saveVtt");
+	const cancelVtt = document.getElementById("cancelVtt");
 	const shiftSubsequent = document.getElementById("shiftSubsequent");
+
+	// original times captured at load, used by Cancel
+	const originalTimes = [];
 
 	// set the dropdown with the options from the VTT file
 	for (const i of Array(slidesData.cues.length).keys()) {
 		const cue = slidesData.cues[i];
 		const e = JSON.parse(cue.text);
+		originalTimes.push(cue.startTime);
+
 		const newOption = document.createElement('option');
 		newOption.value = cue.startTime;
 		newOption.innerText = e.title + ": " + cue.startTime + "s";
@@ -51,7 +58,7 @@ window.addEventListener("load", () => {
 		input.defaultValue = input.value;
 	});
 
-	downloadVtt.addEventListener("click", () => {
+	function buildVtt() {
 		const cues = Array.from(slidesData.cues);
 		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
 		const newTimes = inputs.map(i => parseFloat(i.value));
@@ -61,12 +68,42 @@ window.addEventListener("load", () => {
 			const end = i + 1 < newTimes.length ? newTimes[i + 1] : video.duration;
 			vtt += `${secondsToVtt(start)} --> ${secondsToVtt(end)}\n${cues[i].text}\n\n`;
 		}
+		return vtt;
+	}
+
+	downloadVtt.addEventListener("click", () => {
 		const a = document.createElement("a");
-		a.href = "data:text/vtt;charset=utf-8," + encodeURIComponent(vtt);
+		a.href = "data:text/vtt;charset=utf-8," + encodeURIComponent(buildVtt());
 		a.download = "recording-adjusted.vtt";
 		document.body.appendChild(a);
 		a.click();
 		a.remove();
+	});
+
+	saveVtt.addEventListener("click", async () => {
+		const rid = video.dataset.rid;
+		const resp = await fetch(`/user/recordings/${rid}/slides_vtt`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/plain' },
+			body: buildVtt(),
+		});
+		if (resp.ok) {
+			const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+			inputs.forEach((input, i) => {
+				originalTimes[i] = parseFloat(input.value);
+				input.defaultValue = input.value;
+			});
+			const track = document.getElementById("syncslide-data");
+			track.src = track.src.split('?')[0] + '?t=' + Date.now();
+		}
+	});
+
+	cancelVtt.addEventListener("click", () => {
+		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+		inputs.forEach((input, i) => {
+			input.value = originalTimes[i];
+			input.defaultValue = String(originalTimes[i]);
+		});
 	});
 
 	slidesData.addEventListener("cuechange", (event) => {

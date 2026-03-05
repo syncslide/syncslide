@@ -530,6 +530,33 @@ async fn index(
         .await
 }
 
+async fn update_slides_vtt(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(rid): Path<i64>,
+    body: String,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let owner_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM recording
+         JOIN presentation ON presentation.id = recording.presentation_id
+         WHERE recording.id = ? AND presentation.user_id = ?;",
+    )
+    .bind(rid)
+    .bind(user.id)
+    .fetch_one(&db)
+    .await;
+    if !matches!(owner_count, Ok(1)) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match tokio::fs::write(format!("assets/{rid}/slides.vtt"), body.as_bytes()).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn delete_recording(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -687,6 +714,7 @@ async fn main() {
         .route("/auth/logout", get(logout))
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
+        .route("/user/recordings/{rid}/slides_vtt", post(update_slides_vtt))
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
         .route("/user/new", get(new_user))

@@ -11,7 +11,7 @@
 <section aria-labelledby="video">
 <details open>
 <summary id="video">Video</summary>
-<video id="myVideo" width="640" height="360" controls playsinline>
+<video id="myVideo" width="640" height="360" controls playsinline data-rid="{{ recording.id }}">
 <source src="/assets/{{ recording.id }}/{{ recording.video_path }}">
 <track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/assets/{{ recording.id }}/{{ recording.vtt_path }}" srclang="en" label="SyncSlide Data"/>
 <track default kind="captions" src="/assets/{{ recording.id }}/{{ recording.captions_path }}" srclang="en" label="Captions"/>
@@ -40,11 +40,14 @@ Your browser does not support the video tag.
 <section aria-labelledby="cue-editor-heading">
 <details>
 <summary id="cue-editor-heading">Edit Cue Timestamps</summary>
+<label><input type="checkbox" id="shiftSubsequent"> Shift subsequent cues when editing a timestamp</label>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
 <tbody id="cueTableBody"></tbody>
 </table>
-<button id="downloadVtt">Download Adjusted VTT</button>
+<button id="saveVtt" type="button">Save</button>
+<button id="cancelVtt" type="button">Cancel</button>
+<button id="downloadVtt" type="button">Download VTT</button>
 </details>
 </section>
 {% endif %}
