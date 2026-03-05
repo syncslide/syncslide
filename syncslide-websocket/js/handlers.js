@@ -94,14 +94,13 @@ function renderSlideTable() {
 	slideTableBody.innerHTML = '';
 	slides.forEach((slide, i) => {
 		const tr = document.createElement('tr');
-		const total = slides.length;
 		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
 			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
 			+ `<option value="" disabled selected>Actions</option>`
 			+ `<option value="edit">Edit</option>`
 			+ `<option value="insert">Insert</option>`
-			+ `<option value="move-up" ${i === 0 ? 'disabled' : ''}>Move Up</option>`
-			+ `<option value="move-down" ${i === total - 1 ? 'disabled' : ''}>Move Down</option>`
+			+ `<option value="move-up">Move Up</option>`
+			+ `<option value="move-down">Move Down</option>`
 			+ `<option value="delete">Delete</option>`
 			+ `</select></td>`;
 		slideTableBody.appendChild(tr);
