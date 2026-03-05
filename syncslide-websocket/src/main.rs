@@ -11,7 +11,7 @@ use axum::{
     Form, Router,
     body::Body,
     extract::{
-        FromRef, Multipart, Path, State,
+        DefaultBodyLimit, FromRef, Multipart, Path, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::StatusCode,
@@ -686,7 +686,6 @@ async fn main() {
         .route("/auth/login", post(login_process))
         .route("/auth/logout", get(logout))
         .route("/user/presentations", get(presentations))
-        .route("/user/presentations/{pid}/recordings", post(add_recording))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
@@ -702,6 +701,11 @@ async fn main() {
         .nest_service("/css", ServeDir::new("css/"))
         .nest_service("/js", ServeDir::new("js/"))
         .nest_service("/assets", ServeDir::new("assets/"))
+        .merge(
+            Router::new()
+                .route("/user/presentations/{pid}/recordings", post(add_recording))
+                .layer(DefaultBodyLimit::disable()),
+        )
         .with_state(state.clone())
         .layer(auth_layer);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5002").await.unwrap();
