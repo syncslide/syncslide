@@ -29,6 +29,8 @@ pub struct Recording {
     pub vtt_path: String,
     pub video_path: String,
     pub captions_path: String,
+    #[serde(with = "time::serde::rfc3339::option")]
+    pub last_edited: Option<OffsetDateTime>,
 }
 impl Recording {
     pub async fn get_by_presentation(
@@ -65,7 +67,7 @@ impl Recording {
             .map(|_| ())
     }
     pub async fn update_name(id: i64, name: String, db: &SqlitePool) -> Result<(), Error> {
-        sqlx::query!("UPDATE recording SET name = ? WHERE id = ?;", name, id)
+        sqlx::query!("UPDATE recording SET name = ?, last_edited = strftime('%s', 'now') WHERE id = ?;", name, id)
             .execute(&*db)
             .await
             .map_err(Error::from)

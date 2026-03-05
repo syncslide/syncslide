@@ -551,10 +551,13 @@ async fn update_slides_vtt(
     if !matches!(owner_count, Ok(1)) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    match tokio::fs::write(format!("assets/{rid}/slides.vtt"), body.as_bytes()).await {
-        Ok(()) => StatusCode::OK.into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    if tokio::fs::write(format!("assets/{rid}/slides.vtt"), body.as_bytes()).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
+    let _ = sqlx::query!("UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;", rid)
+        .execute(&db)
+        .await;
+    StatusCode::OK.into_response()
 }
 
 async fn update_recording_name(

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE recording SET name = ?, last_edited = strftime('%s', 'now') WHERE id = ?;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "c24112f48a31daa70c2cf2e84412bb9ef161be341251717d47d66af2fb212b9a"
+}

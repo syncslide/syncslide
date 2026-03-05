@@ -24,15 +24,15 @@
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
 			<table>
-				<thead><tr><th>Name</th><th>Date</th><th>Actions</th></tr></thead>
+				<thead><tr><th>Name</th><th>Created</th><th>Last Edited</th><th>Actions</th></tr></thead>
 				<tbody>
 				{% for rec in pres.recordings %}
 				<tr>
 					<td>{{ rec.name }}</td>
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
+					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>
 						<a href="/watch/{{ rec.id }}">View</a>
-						<a href="/watch/{{ rec.id }}">Edit</a>
 						<form method="post" action="/user/recordings/{{ rec.id }}/delete" style="display:inline">
 							<button type="submit">Delete</button>
 						</form>

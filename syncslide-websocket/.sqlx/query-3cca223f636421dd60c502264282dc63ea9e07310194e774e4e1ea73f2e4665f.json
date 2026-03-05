@@ -37,6 +37,11 @@
         "name": "start",
         "ordinal": 6,
         "type_info": "Datetime"
+      },
+      {
+        "name": "last_edited",
+        "ordinal": 7,
+        "type_info": "Datetime"
       }
     ],
     "parameters": {
@@ -49,7 +54,8 @@
       false,
       false,
       false,
-      false
+      false,
+      true
     ]
   },
   "hash": "3cca223f636421dd60c502264282dc63ea9e07310194e774e4e1ea73f2e4665f"
