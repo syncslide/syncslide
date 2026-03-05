@@ -99,11 +99,14 @@ window.addEventListener("load", () => {
 			cues[i].endTime = i + 1 < newTimes.length ? newTimes[i + 1] : video.duration;
 		}
 
-		// Update the go-to dropdown values and labels to match
-		Array.from(goTo.options).forEach((opt, i) => {
+		// Rebuild the go-to dropdown with updated timestamps
+		while (goTo.options.length > 0) goTo.remove(0);
+		for (let i = 0; i < cues.length; i++) {
+			const opt = document.createElement('option');
 			opt.value = newTimes[i];
-			opt.innerText = JSON.parse(cues[i].text).title + ": " + newTimes[i] + "s";
-		});
+			opt.text = JSON.parse(cues[i].text).title + ": " + newTimes[i] + "s";
+			goTo.appendChild(opt);
+		}
 
 		// Re-render whichever slide is active right now
 		const t = video.currentTime;
