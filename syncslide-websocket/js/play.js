@@ -87,15 +87,36 @@ window.addEventListener("load", () => {
 			headers: { 'Content-Type': 'text/plain' },
 			body: buildVtt(),
 		});
-		if (resp.ok) {
-			const inputs = Array.from(cueTableBody.querySelectorAll("input"));
-			inputs.forEach((input, i) => {
-				originalTimes[i] = parseFloat(input.value);
-				input.defaultValue = input.value;
-			});
-			const track = document.getElementById("syncslide-data");
-			track.src = track.src.split('?')[0] + '?t=' + Date.now();
+		if (!resp.ok) return;
+
+		const cues = Array.from(slidesData.cues);
+		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+		const newTimes = inputs.map(inp => parseFloat(inp.value));
+
+		// Update cue boundaries in-place so cuechange fires at the right times
+		for (let i = 0; i < cues.length; i++) {
+			cues[i].startTime = newTimes[i];
+			cues[i].endTime = i + 1 < newTimes.length ? newTimes[i + 1] : video.duration;
 		}
+
+		// Update the go-to dropdown values to match
+		Array.from(goTo.options).forEach((opt, i) => {
+			opt.value = newTimes[i];
+		});
+
+		// Re-render whichever slide is active right now
+		const t = video.currentTime;
+		const active = cues.find(c => c.startTime <= t && t < c.endTime);
+		if (active) {
+			slidesContainer.innerHTML = JSON.parse(active.text).content;
+			goTo.value = active.startTime;
+		}
+
+		// Update bookkeeping
+		inputs.forEach((input, i) => {
+			originalTimes[i] = newTimes[i];
+			input.defaultValue = input.value;
+		});
 	});
 
 	cancelVtt.addEventListener("click", () => {
