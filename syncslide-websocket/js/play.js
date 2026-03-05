@@ -99,9 +99,10 @@ window.addEventListener("load", () => {
 			cues[i].endTime = i + 1 < newTimes.length ? newTimes[i + 1] : video.duration;
 		}
 
-		// Update the go-to dropdown values to match
+		// Update the go-to dropdown values and labels to match
 		Array.from(goTo.options).forEach((opt, i) => {
 			opt.value = newTimes[i];
+			opt.innerText = JSON.parse(cues[i].text).title + ": " + newTimes[i] + "s";
 		});
 
 		// Re-render whichever slide is active right now
