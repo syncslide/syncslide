@@ -96,7 +96,7 @@ function renderSlideTable() {
 		const tr = document.createElement('tr');
 		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
 			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
-			+ `<option value="" disabled selected>--</option>`
+			+ `<option value="" selected>--</option>`
 			+ `<option value="edit">Edit</option>`
 			+ `<option value="insert">Insert</option>`
 			+ `<option value="move-up">Move Up</option>`
