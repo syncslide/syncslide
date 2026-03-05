@@ -94,12 +94,16 @@ function renderSlideTable() {
 	slideTableBody.innerHTML = '';
 	slides.forEach((slide, i) => {
 		const tr = document.createElement('tr');
+		const total = slides.length;
 		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
-			+ `<td>`
-			+ `<button type="button" data-action="edit" data-idx="${i}">Edit</button> `
-			+ `<button type="button" data-action="insert" data-idx="${i}">Insert</button> `
-			+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button>`
-			+ `</td>`;
+			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
+			+ `<option value="" disabled selected>Actions</option>`
+			+ `<option value="edit">Edit</option>`
+			+ `<option value="insert">Insert</option>`
+			+ `<option value="move-up" ${i === 0 ? 'disabled' : ''}>Move Up</option>`
+			+ `<option value="move-down" ${i === total - 1 ? 'disabled' : ''}>Move Down</option>`
+			+ `<option value="delete">Delete</option>`
+			+ `</select></td>`;
 		slideTableBody.appendChild(tr);
 	});
 }
@@ -176,25 +180,30 @@ if (slideDialog) {
 
 const slideTableBody = document.getElementById('slideTableBody');
 if (slideTableBody) {
-	slideTableBody.addEventListener('click', (e) => {
-		const btn = e.target.closest('button[data-action]');
-		if (!btn) return;
-		const idx = parseInt(btn.dataset.idx);
-		const action = btn.dataset.action;
+	slideTableBody.addEventListener('change', (e) => {
+		const sel = e.target.closest('select[data-idx]');
+		if (!sel) return;
+		const idx = parseInt(sel.dataset.idx);
+		const action = sel.value;
+		sel.value = '';
 
 		if (action === 'edit') {
 			openSlideDialog('edit', idx);
 			return;
 		}
-		if (action === 'delete') {
-			const slides = markdownToSlides(textInput.value);
-			slides.splice(idx, 1);
-			syncFromSlides(slides);
-			renderSlideTable();
-			return;
-		}
 		if (action === 'insert') {
 			openSlideDialog('insert', idx);
+			return;
 		}
+		const slides = markdownToSlides(textInput.value);
+		if (action === 'delete') {
+			slides.splice(idx, 1);
+		} else if (action === 'move-up' && idx > 0) {
+			[slides[idx - 1], slides[idx]] = [slides[idx], slides[idx - 1]];
+		} else if (action === 'move-down' && idx < slides.length - 1) {
+			[slides[idx], slides[idx + 1]] = [slides[idx + 1], slides[idx]];
+		}
+		syncFromSlides(slides);
+		renderSlideTable();
 	});
 }
