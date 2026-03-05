@@ -81,6 +81,12 @@ window.addEventListener("load", () => {
 	});
 
 	saveVtt.addEventListener("click", async () => {
+		// Capture everything synchronously before the fetch so order is guaranteed
+		const cues = Array.from(slidesData.cues);
+		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
+		const newTimes = inputs.map(inp => parseFloat(inp.value));
+		const titles = cues.map(c => JSON.parse(c.text).title);
+
 		const rid = video.dataset.rid;
 		const resp = await fetch(`/user/recordings/${rid}/slides_vtt`, {
 			method: 'POST',
@@ -89,10 +95,6 @@ window.addEventListener("load", () => {
 		});
 		if (!resp.ok) return;
 
-		const cues = Array.from(slidesData.cues);
-		const inputs = Array.from(cueTableBody.querySelectorAll("input"));
-		const newTimes = inputs.map(inp => parseFloat(inp.value));
-
 		// Update cue boundaries in-place so cuechange fires at the right times
 		for (let i = 0; i < cues.length; i++) {
 			cues[i].startTime = newTimes[i];
@@ -100,12 +102,9 @@ window.addEventListener("load", () => {
 		}
 
 		// Rebuild the go-to dropdown with updated timestamps
-		while (goTo.options.length > 0) goTo.remove(0);
+		goTo.innerHTML = '';
 		for (let i = 0; i < cues.length; i++) {
-			const opt = document.createElement('option');
-			opt.value = newTimes[i];
-			opt.text = JSON.parse(cues[i].text).title + ": " + newTimes[i] + "s";
-			goTo.appendChild(opt);
+			goTo.add(new Option(titles[i] + ": " + newTimes[i] + "s", String(newTimes[i])));
 		}
 
 		// Re-render whichever slide is active right now
@@ -113,7 +112,7 @@ window.addEventListener("load", () => {
 		const active = cues.find(c => c.startTime <= t && t < c.endTime);
 		if (active) {
 			slidesContainer.innerHTML = JSON.parse(active.text).content;
-			goTo.value = active.startTime;
+			goTo.value = String(active.startTime);
 		}
 
 		// Update bookkeeping
