@@ -10,7 +10,7 @@ h1, h2, h3, h4, h5, h6 { line-height: 1em; }
 
 h2 { text-align: center; line-height: 1.5em; color: #ffffff; margin-bottom: 8px; }
 
-article { border: 1px solid #cccccc; max-width: 800px; margin: auto; }
+#currentSlide { border: 1px solid #cccccc; max-width: 800px; margin: auto; }
 
 hr { border: none; border-bottom: 1px solid #999; }
 

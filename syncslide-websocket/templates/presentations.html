@@ -17,7 +17,7 @@
 
 <div id="pres-list">
 	{% for pres in press %}
-	<article class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
+	<section class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
 		<h2>{{ pres.name }}</h2>
 		<p><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}" aria-label="Stage: {{ pres.name }}">Stage</a></p>
 		{% if pres.recordings | length > 0 %}
@@ -52,7 +52,7 @@
 				<button type="submit">Upload</button>
 			</form>
 		</details>
-	</article>
+	</section>
 	{% endfor %}
 </div>
 

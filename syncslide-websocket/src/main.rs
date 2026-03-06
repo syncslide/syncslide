@@ -332,6 +332,7 @@ async fn present(
     if !is_owner {
         let mut ctx = Context::new();
         ctx.insert("pres", &pres);
+        ctx.insert("pres_user", &pres_user);
         return tera.render("audience.html", ctx, auth_session, db).await.into_response();
     }
     stage(tera, db, auth_session, pid).await.into_response()
