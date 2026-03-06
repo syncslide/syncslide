@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="/css/katex.css">
 {% endblock js %}
 
+{% block breadcrumb %}{% if is_owner %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% else %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
 {% block content %}
 <section aria-labelledby="video">
 <details open>
