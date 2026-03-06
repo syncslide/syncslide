@@ -36,15 +36,19 @@ const updateMarkdown = async () => {
 	renderSlideTable();
 }
 
+function onCommit(el, fn) {
+	el.addEventListener('blur', fn);
+	el.addEventListener('change', fn);
+	if (el.tagName !== 'TEXTAREA') {
+		el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
+	}
+}
+
 const textInput = document.getElementById("markdown-input");
-textInput.addEventListener("blur", updateMarkdown);
+onCommit(textInput, updateMarkdown);
 
 goTo = document.getElementById("goTo");
-goTo.addEventListener("blur", updateSlide);
-goTo.addEventListener("change", updateSlide);
-goTo.addEventListener("keydown", (e) => {
-	if (e.key === "Enter") updateSlide();
-});
+onCommit(goTo, updateSlide);
 
 document.addEventListener("keydown", (e) => {
 	if (e.key !== "F8") return;
@@ -153,11 +157,7 @@ if (presNameInput) {
 			body: newName,
 		});
 	};
-	presNameInput.addEventListener('blur', applyPresName);
-	presNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') applyPresName(); });
-	if (window.matchMedia('(pointer: coarse)').matches) {
-		presNameInput.addEventListener('change', applyPresName);
-	}
+	onCommit(presNameInput, applyPresName);
 }
 
 const slideDialog = document.getElementById('slideDialog');
