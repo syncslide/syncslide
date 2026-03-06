@@ -511,7 +511,7 @@ async fn recording(
     let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let Ok(Some(pres)) = Presentation::get_by_id(pid, &db).await else {
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
         return StatusCode::NOT_FOUND.into_response();
     };
     if pres.user_id != pres_user.id {
