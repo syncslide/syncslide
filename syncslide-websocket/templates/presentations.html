@@ -28,7 +28,7 @@
 				<tbody>
 				{% for rec in pres.recordings %}
 				<tr>
-					<td><a href="/watch/{{ rec.id }}">{{ rec.name }}</a></td>
+					<td><a href="/{{ user.name }}/{{ pres.id }}/{{ rec.id }}">{{ rec.name }}</a></td>
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>

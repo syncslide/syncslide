@@ -506,43 +506,34 @@ async fn recording(
     State(tera): State<Tera>,
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
-    Path(rid): Path<i64>,
+    Path((uname, pid, rid)): Path<(String, i64, i64)>,
 ) -> impl IntoResponse {
-    watch_recording(tera, auth_session, rid, db).await
-}
-
-async fn demo(
-    State(tera): State<Tera>,
-    auth_session: AuthSession,
-    State(db): State<SqlitePool>,
-) -> impl IntoResponse {
-    watch_recording(tera, auth_session, 1, db).await
-}
-
-async fn watch_recording(
-    tera: Tera,
-    auth_session: AuthSession,
-    pres_id: i64,
-    db: SqlitePool,
-) -> impl IntoResponse {
-    let Ok(Some(rec)) = Recording::get_by_id(pres_id, &db).await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
     };
-    let Ok(pres_user_id) = sqlx::query_scalar::<_, i64>(
-        "SELECT user_id FROM presentation WHERE id = ?;"
-    )
-    .bind(rec.presentation_id)
-    .fetch_one(&db)
-    .await else {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    let Ok(Some(pres)) = Presentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
     };
-    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user_id);
+    if pres.user_id != pres_user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(Some(rec)) = Recording::get_by_id(rid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if rec.presentation_id != pid {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
     let mut ctx = Context::new();
     ctx.insert("recording", &rec);
     ctx.insert("is_owner", &is_owner);
     tera.render("recording.html", ctx, auth_session, db)
         .await
         .into_response()
+}
+
+async fn demo() -> impl IntoResponse {
+    Redirect::to("/admin/1/1")
 }
 
 async fn index(
@@ -807,7 +798,7 @@ async fn main() {
         .route("/qr/{uname}/{pid}", get(qr_code))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
-        .route("/watch/{rid}", get(recording))
+        .route("/{uname}/{pid}/{rid}", get(recording))
         .nest_service("/css", ServeDir::new("css/"))
         .nest_service("/js", ServeDir::new("js/"))
         .nest_service("/assets", ServeDir::new("assets/"))
