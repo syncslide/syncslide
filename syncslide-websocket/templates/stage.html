@@ -34,7 +34,7 @@
 <button type="button" id="qrToggle">Show QR</button>
 </nav>
 <div id="qrOverlay" hidden aria-label="QR code for this presentation">
-<img src="/qr/{{ user.name }}/{{ pres.id }}" alt="QR code linking to this presentation" width="200" height="200">
+<a href="/{{ user.name }}/{{ pres.id }}"><img src="/qr/{{ user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="300" height="300"></a>
 </div>
 <script>
 document.getElementById('qrToggle').addEventListener('click', () => {
