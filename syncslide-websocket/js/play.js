@@ -118,12 +118,13 @@ window.addEventListener("load", () => {
 			const tr = document.createElement("tr");
 			tr.innerHTML = `<th scope="row">${i + 1}</th>`
 				+ `<td><input type="text" data-edit="title" data-idx="${i}" value="${escapeHtml(c.title)}" aria-label="Title for slide ${i + 1}"></td>`
-				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${escapeHtml(c.title)}"></td>`
 				+ `<td><textarea data-edit="content" data-idx="${i}" rows="3" aria-label="Content for slide ${i + 1}"></textarea></td>`
-				+ `<td>`
-				+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button> `
-				+ `<button type="button" data-action="insert" data-idx="${i}">Insert after</button>`
-				+ `</td>`;
+				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${escapeHtml(c.title)}"></td>`
+				+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
+				+ `<option value="" selected>--</option>`
+				+ `<option value="insert">Insert</option>`
+				+ `<option value="delete">Delete</option>`
+				+ `</select></td>`;
 			tr.querySelector(`textarea[data-idx="${i}"]`).value = bodyContent;
 			cueTableBody.appendChild(tr);
 		});
@@ -200,23 +201,62 @@ window.addEventListener("load", () => {
 		input.defaultValue = input.value;
 	});
 
-	cueTableBody.addEventListener("click", (event) => {
-		const btn = event.target.closest("button[data-action]");
-		if (!btn) return;
-		const idx = parseInt(btn.dataset.idx);
-		const action = btn.dataset.action;
+	const cueInsertDialog = document.getElementById('cueInsertDialog');
+	let insertRefIdx = null;
 
-		syncFromInputs();
-		if (action === "delete") {
-			cueList.splice(idx, 1);
-		} else if (action === "insert") {
-			const nextTime = idx + 1 < cueList.length ? cueList[idx + 1].startTime : cueList[idx].startTime + 5;
-			const midTime = parseFloat(((cueList[idx].startTime + nextTime) / 2).toFixed(3));
-			cueList.splice(idx + 1, 0, { startTime: midTime, text: cueList[idx].text, title: cueList[idx].title });
+	function executeCueAction(sel) {
+		const idx = parseInt(sel.dataset.idx);
+		const action = sel.value;
+		if (!action) return;
+		sel.value = '';
+		if (action === 'insert') {
+			insertRefIdx = idx;
+			document.querySelector('input[name="cueInsertPos"][value="after"]').checked = true;
+			cueInsertDialog.showModal();
+			return;
 		}
-		renderCueTable();
-		buildGoTo();
+		if (action === 'delete') {
+			syncFromInputs();
+			cueList.splice(idx, 1);
+			renderCueTable();
+			buildGoTo();
+		}
+	}
+
+	if (cueInsertDialog) {
+		document.getElementById('cueInsertApply').addEventListener('click', () => {
+			const pos = document.querySelector('input[name="cueInsertPos"]:checked').value;
+			syncFromInputs();
+			const idx = insertRefIdx;
+			const insertAt = pos === 'before' ? idx : idx + 1;
+			const prevTime = insertAt > 0 ? cueList[insertAt - 1].startTime : 0;
+			const nextTime = insertAt < cueList.length ? cueList[insertAt].startTime : cueList[insertAt - 1].startTime + 5;
+			const midTime = parseFloat(((prevTime + nextTime) / 2).toFixed(3));
+			cueList.splice(insertAt, 0, { startTime: midTime, text: cueList[idx].text, title: cueList[idx].title });
+			renderCueTable();
+			buildGoTo();
+			cueInsertDialog.close();
+		});
+		document.getElementById('cueInsertCancel').addEventListener('click', () => {
+			cueInsertDialog.close();
+		});
+	}
+
+	cueTableBody.addEventListener('focusout', (e) => {
+		const sel = e.target.closest('select[data-idx]');
+		if (sel) executeCueAction(sel);
 	});
+	cueTableBody.addEventListener('keydown', (e) => {
+		if (e.key !== 'Enter') return;
+		const sel = e.target.closest('select[data-idx]');
+		if (sel) executeCueAction(sel);
+	});
+	if (window.matchMedia('(pointer: coarse)').matches) {
+		cueTableBody.addEventListener('change', (e) => {
+			const sel = e.target.closest('select[data-idx]');
+			if (sel) executeCueAction(sel);
+		});
+	}
 
 	function buildVtt() {
 		syncFromInputs();

@@ -44,7 +44,7 @@ Your browser does not support the video tag.
 <label>Presentation title: <input type="text" id="presTitle"></label>
 <label><input type="checkbox" id="shiftSubsequent"> Shift subsequent cues when editing a timestamp</label>
 <table>
-<thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th><th>Content</th><th>Actions</th></tr></thead>
+<thead><tr><th>Slide</th><th>Title</th><th>Content</th><th>Start Time (seconds)</th><th>Actions</th></tr></thead>
 <tbody id="cueTableBody"></tbody>
 </table>
 <button id="downloadVtt" type="button">Download VTT</button>
@@ -65,6 +65,16 @@ Your browser does not support the video tag.
 <button type="submit">Replace</button>
 <button type="button" id="cancelReplaceFiles">Cancel</button>
 </form>
+</dialog>
+<dialog id="cueInsertDialog" aria-labelledby="cue-insert-heading">
+<h2 id="cue-insert-heading">Insert Slide</h2>
+<fieldset>
+<legend>Position</legend>
+<label><input type="radio" name="cueInsertPos" value="before"> Before</label>
+<label><input type="radio" name="cueInsertPos" value="after" checked> After</label>
+</fieldset>
+<button type="button" id="cueInsertApply">Insert</button>
+<button type="button" id="cueInsertCancel">Cancel</button>
 </dialog>
 {% endif %}
 {% endblock content %}
