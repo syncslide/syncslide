@@ -155,6 +155,11 @@ window.addEventListener("load", () => {
 		});
 	}
 
+	const editPresentationDialog = document.getElementById('editPresentationDialog');
+	document.getElementById('openEditPresentation')?.addEventListener('click', () => {
+		editPresentationDialog.showModal();
+	});
+
 	buildGoTo();
 	renderCueTable();
 
@@ -262,6 +267,7 @@ window.addEventListener("load", () => {
 		editingIdx = null;
 		renderCueTable();
 		buildGoTo();
+		editPresentationDialog.close();
 	});
 
 	slidesData.addEventListener("cuechange", (event) => {
