@@ -579,6 +579,8 @@ async fn recording(
     let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
     let mut ctx = Context::new();
     ctx.insert("recording", &rec);
+    ctx.insert("pres", &pres);
+    ctx.insert("pres_user", &pres_user);
     ctx.insert("is_owner", &is_owner);
     tera.render("recording.html", ctx, auth_session, db)
         .await
