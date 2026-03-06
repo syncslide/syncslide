@@ -34,8 +34,6 @@ window.addEventListener("load", () => {
 	const go = document.getElementById("go");
 	const cueTableBody = document.getElementById("cueTableBody");
 	const downloadVtt = document.getElementById("downloadVtt");
-	const saveVtt = document.getElementById("saveVtt");
-	const cancelVtt = document.getElementById("cancelVtt");
 	const shiftSubsequent = document.getElementById("shiftSubsequent");
 
 	// cueList is the in-memory source of truth for the cue editor.
@@ -55,6 +53,7 @@ window.addEventListener("load", () => {
 		d.innerHTML = first.content ?? first.data ?? '';
 		presTitleInput.value = d.querySelector('h1')?.textContent ?? '';
 	}
+	const originalPresTitle = presTitleInput?.value ?? '';
 
 	function updateAllCueH1(newTitle) {
 		cueList.forEach(c => {
@@ -156,8 +155,55 @@ window.addEventListener("load", () => {
 	}
 
 	const editPresentationDialog = document.getElementById('editPresentationDialog');
+	const saveDiscardDialog = document.getElementById('saveDiscardDialog');
+
+	function hasChanges() {
+		syncTimesFromInputs();
+		if (presTitleInput && presTitleInput.value !== originalPresTitle) return true;
+		return JSON.stringify(cueList) !== JSON.stringify(originalCueList);
+	}
+
+	async function saveChanges() {
+		const rid = video.dataset.rid;
+		const resp = await fetch(`/user/recordings/${rid}/slides_vtt`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'text/plain' },
+			body: buildVtt(),
+		});
+		if (resp.ok) location.reload();
+	}
+
+	function discardChanges() {
+		cueList = originalCueList.map(c => ({ ...c }));
+		editingIdx = null;
+		renderCueTable();
+		buildGoTo();
+	}
+
 	document.getElementById('openEditPresentation')?.addEventListener('click', () => {
 		editPresentationDialog.showModal();
+	});
+
+	document.getElementById('closeEditPresentation')?.addEventListener('click', () => {
+		if (!hasChanges()) { editPresentationDialog.close(); return; }
+		saveDiscardDialog.showModal();
+	});
+
+	editPresentationDialog?.addEventListener('cancel', (e) => {
+		if (!hasChanges()) return;
+		e.preventDefault();
+		saveDiscardDialog.showModal();
+	});
+
+	document.getElementById('saveAndClose')?.addEventListener('click', async () => {
+		saveDiscardDialog.close();
+		await saveChanges();
+	});
+
+	document.getElementById('discardAndClose')?.addEventListener('click', () => {
+		discardChanges();
+		saveDiscardDialog.close();
+		editPresentationDialog.close();
 	});
 
 	buildGoTo();
@@ -250,24 +296,6 @@ window.addEventListener("load", () => {
 		document.body.appendChild(a);
 		a.click();
 		a.remove();
-	});
-
-	saveVtt.addEventListener("click", async () => {
-		const rid = video.dataset.rid;
-		const resp = await fetch(`/user/recordings/${rid}/slides_vtt`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'text/plain' },
-			body: buildVtt(),
-		});
-		if (resp.ok) location.reload();
-	});
-
-	cancelVtt.addEventListener("click", () => {
-		cueList = originalCueList.map(c => ({ ...c }));
-		editingIdx = null;
-		renderCueTable();
-		buildGoTo();
-		editPresentationDialog.close();
 	});
 
 	slidesData.addEventListener("cuechange", (event) => {
