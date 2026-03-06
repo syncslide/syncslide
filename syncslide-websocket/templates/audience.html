@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Audience{% endblock title %}
+{% block title %}{% if pres %}{{ pres.name }}{% else %}Audience{% endif %}{% endblock title %}
 
 {% block js %}
 <script defer="defer" src="/js/remarkable.js"></script>

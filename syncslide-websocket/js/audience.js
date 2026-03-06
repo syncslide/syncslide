@@ -22,6 +22,7 @@ const handleUpdate = (message) => {
 		if (presNameEl) presNameEl.textContent = message.data;
 		const slideH1 = document.querySelector('#currentSlide h1');
 		if (slideH1) slideH1.textContent = message.data;
+		document.title = `${message.data} - SyncSlide`;
 		return;
 	}
 	const slideIndex = message.data;
