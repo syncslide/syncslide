@@ -43,7 +43,6 @@ window.addEventListener("load", () => {
 		title: JSON.parse(c.text).title,
 	}));
 	const originalCueList = cueList.map(c => ({ ...c }));
-	let editingIdx = null;
 
 	// Populate the presentation title field from the first cue's h1
 	const presTitleInput = document.getElementById("presTitle");
@@ -86,10 +85,21 @@ window.addEventListener("load", () => {
 		});
 	}
 
-	// Sync time inputs (number type only) back into cueList.
-	function syncTimesFromInputs() {
-		Array.from(cueTableBody.querySelectorAll("input[type='number']")).forEach((input, i) => {
+	// Sync all inline inputs back into cueList.
+	function syncFromInputs() {
+		const presTitle = presTitleInput ? presTitleInput.value : '';
+		const timeInputs = Array.from(cueTableBody.querySelectorAll("input[type='number']"));
+		const titleInputs = Array.from(cueTableBody.querySelectorAll("input[data-edit='title']"));
+		const contentAreas = Array.from(cueTableBody.querySelectorAll("textarea[data-edit='content']"));
+		timeInputs.forEach((input, i) => {
 			cueList[i].startTime = parseFloat(input.value);
+		});
+		titleInputs.forEach((input, i) => {
+			const parsed = JSON.parse(cueList[i].text);
+			parsed.title = input.value;
+			parsed.content = `<h1>${escapeHtml(presTitle)}</h1><h2>${escapeHtml(input.value)}</h2>${contentAreas[i].value}`;
+			cueList[i].text = JSON.stringify(parsed);
+			cueList[i].title = parsed.title;
 		});
 	}
 
@@ -103,54 +113,19 @@ window.addEventListener("load", () => {
 	function renderCueTable() {
 		cueTableBody.innerHTML = '';
 		cueList.forEach((c, i) => {
+			const parsed = JSON.parse(c.text);
+			const bodyContent = extractBody(parsed.content ?? parsed.data ?? '');
 			const tr = document.createElement("tr");
-			tr.innerHTML = `<th scope="row">${i + 1}</th><td>${c.title}</td>`
-				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${c.title}"></td>`
+			tr.innerHTML = `<th scope="row">${i + 1}</th>`
+				+ `<td><input type="text" data-edit="title" data-idx="${i}" value="${escapeHtml(c.title)}" aria-label="Title for slide ${i + 1}"></td>`
+				+ `<td><input type="number" step="0.001" min="0" value="${c.startTime}" aria-label="Start time for slide ${i + 1}: ${escapeHtml(c.title)}"></td>`
+				+ `<td><textarea data-edit="content" data-idx="${i}" rows="3" aria-label="Content for slide ${i + 1}"></textarea></td>`
 				+ `<td>`
 				+ `<button type="button" data-action="delete" data-idx="${i}">Delete</button> `
-				+ `<button type="button" data-action="insert" data-idx="${i}">Insert after</button> `
-				+ `<button type="button" data-action="edit" data-idx="${i}">Edit</button>`
+				+ `<button type="button" data-action="insert" data-idx="${i}">Insert after</button>`
 				+ `</td>`;
+			tr.querySelector(`textarea[data-idx="${i}"]`).value = bodyContent;
 			cueTableBody.appendChild(tr);
-
-			if (editingIdx === i) {
-				const editTr = document.createElement("tr");
-				const td = document.createElement("td");
-				td.colSpan = 4;
-
-				const parsed = JSON.parse(c.text);
-
-				const titleLabel = document.createElement("label");
-				const titleInput = document.createElement("input");
-				titleInput.type = "text";
-				titleInput.dataset.edit = "title";
-				titleInput.value = parsed.title;
-				titleLabel.append("Title: ", titleInput);
-
-				const contentLabel = document.createElement("label");
-				const contentArea = document.createElement("textarea");
-				contentArea.dataset.edit = "content";
-				contentArea.rows = 6;
-				contentArea.style.width = "100%";
-				contentArea.value = extractBody(parsed.content ?? parsed.data ?? '');
-				contentLabel.append("Content (HTML):", document.createElement("br"), contentArea);
-
-				const applyBtn = document.createElement("button");
-				applyBtn.type = "button";
-				applyBtn.dataset.action = "apply";
-				applyBtn.dataset.idx = i;
-				applyBtn.textContent = "Apply";
-
-				const closeBtn = document.createElement("button");
-				closeBtn.type = "button";
-				closeBtn.dataset.action = "close-edit";
-				closeBtn.dataset.idx = i;
-				closeBtn.textContent = "Close";
-
-				td.append(titleLabel, document.createElement("br"), contentLabel, document.createElement("br"), applyBtn, " ", closeBtn);
-				editTr.appendChild(td);
-				cueTableBody.appendChild(editTr);
-			}
 		});
 	}
 
@@ -158,7 +133,7 @@ window.addEventListener("load", () => {
 	const saveDiscardDialog = document.getElementById('saveDiscardDialog');
 
 	function hasChanges() {
-		syncTimesFromInputs();
+		syncFromInputs();
 		if (presTitleInput && presTitleInput.value !== originalPresTitle) return true;
 		return JSON.stringify(cueList) !== JSON.stringify(originalCueList);
 	}
@@ -175,7 +150,6 @@ window.addEventListener("load", () => {
 
 	function discardChanges() {
 		cueList = originalCueList.map(c => ({ ...c }));
-		editingIdx = null;
 		renderCueTable();
 		buildGoTo();
 	}
@@ -232,49 +206,20 @@ window.addEventListener("load", () => {
 		const idx = parseInt(btn.dataset.idx);
 		const action = btn.dataset.action;
 
-		if (action === "edit") {
-			editingIdx = editingIdx === idx ? null : idx;
-			renderCueTable();
-			return;
-		}
-		if (action === "close-edit") {
-			editingIdx = null;
-			renderCueTable();
-			return;
-		}
-		if (action === "apply") {
-			const titleInput = cueTableBody.querySelector("[data-edit='title']");
-			const contentArea = cueTableBody.querySelector("[data-edit='content']");
-			const presTitle = presTitleInput ? presTitleInput.value : '';
-			const parsed = JSON.parse(cueList[idx].text);
-			parsed.title = titleInput.value;
-			parsed.content = `<h1>${escapeHtml(presTitle)}</h1><h2>${escapeHtml(parsed.title)}</h2>${contentArea.value}`;
-			cueList[idx].text = JSON.stringify(parsed);
-			cueList[idx].title = parsed.title;
-			editingIdx = null;
-			renderCueTable();
-			buildGoTo();
-			return;
-		}
-
-		// delete / insert — sync times first
-		syncTimesFromInputs();
+		syncFromInputs();
 		if (action === "delete") {
-			if (editingIdx === idx) editingIdx = null;
-			else if (editingIdx !== null && editingIdx > idx) editingIdx--;
 			cueList.splice(idx, 1);
 		} else if (action === "insert") {
 			const nextTime = idx + 1 < cueList.length ? cueList[idx + 1].startTime : cueList[idx].startTime + 5;
 			const midTime = parseFloat(((cueList[idx].startTime + nextTime) / 2).toFixed(3));
 			cueList.splice(idx + 1, 0, { startTime: midTime, text: cueList[idx].text, title: cueList[idx].title });
-			if (editingIdx !== null && editingIdx > idx) editingIdx++;
 		}
 		renderCueTable();
 		buildGoTo();
 	});
 
 	function buildVtt() {
-		syncTimesFromInputs();
+		syncFromInputs();
 		let vtt = "WEBVTT\n\n";
 		for (let i = 0; i < cueList.length; i++) {
 			const start = cueList[i].startTime;
