@@ -1,3 +1,13 @@
+const qrToggleBtn = document.getElementById('qrToggle');
+const qrOverlay = document.getElementById('qrOverlay');
+if (qrToggleBtn && qrOverlay) {
+	qrToggleBtn.addEventListener('click', () => {
+		const pressed = qrToggleBtn.getAttribute('aria-pressed') === 'true';
+		qrToggleBtn.setAttribute('aria-pressed', String(!pressed));
+		qrOverlay.hidden = pressed;
+	});
+}
+
 let TEXT_TO_RENDER = "";
 const presNameEl = document.getElementById('pres-name');
 function getPresName() { return presNameEl ? presNameEl.textContent.trim() : ''; }

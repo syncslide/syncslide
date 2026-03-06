@@ -7,7 +7,6 @@
 <script defer="defer" src="/js/auto-render.js"></script>
 <script defer="defer" src="/js/render-a11y-string.js"></script>
 <script defer="defer" src="/js/common.js"></script>
-<script defer="defer" src="/js/handlers.js"></script>
 <script defer="defer" src="/js/audience.js"></script>
 <script defer="defer" src="/js/recording.js"></script>
 <link rel="stylesheet" href="/css/katex.css">
@@ -20,15 +19,6 @@
 <div id="qrOverlay" hidden aria-label="QR code for this presentation">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </div>
-<script>
-document.getElementById('qrToggle').addEventListener('click', () => {
-  const overlay = document.getElementById('qrOverlay');
-  const btn = document.getElementById('qrToggle');
-  const pressed = btn.getAttribute('aria-pressed') === 'true';
-  btn.setAttribute('aria-pressed', String(!pressed));
-  overlay.hidden = pressed;
-});
-</script>
 {% endif %}
 {% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
 <main>

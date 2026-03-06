@@ -1,5 +1,6 @@
 {% extends "audience.html" %}
 {% block title %}{{ pres.name }} (stage){% endblock title %}
+{% block js %}{{ super() }}<script defer="defer" src="/js/handlers.js"></script>{% endblock js %}
 
 {% block stage %}
 <button type="button" id="qrToggle" aria-pressed="false">QR</button>
@@ -36,15 +37,6 @@
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </nav>
-<script>
-document.getElementById('qrToggle').addEventListener('click', () => {
-  const overlay = document.getElementById('qrOverlay');
-  const btn = document.getElementById('qrToggle');
-  const pressed = btn.getAttribute('aria-pressed') === 'true';
-  btn.setAttribute('aria-pressed', String(!pressed));
-  overlay.hidden = pressed;
-});
-</script>
 <dialog id="slideDialog">
 <h2 id="slideDialogHeading"></h2>
 <fieldset id="slideDialogPosition">

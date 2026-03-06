@@ -17,7 +17,7 @@
 <track default kind="captions" src="/assets/{{ recording.id }}/{{ recording.captions_path }}" srclang="en" label="Captions"/>
 Your browser does not support the video tag.
 </video>
-<label for="playbackRate">Playback Speed: </label>
+<label for="rate">Playback Speed: </label>
 <select id="rate">
 <option value="0.5">0.5x</option>
 <option value="0.75">0.75x</option>
@@ -35,7 +35,7 @@ Your browser does not support the video tag.
 <nav aria-label="Slide Navigation">
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
-<button id="go">Go</button
+<button id="go">Go</button>
 </nav>
 {% if is_owner %}
 <dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
