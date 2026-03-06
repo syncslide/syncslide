@@ -41,16 +41,18 @@
 			</table>
 		</details>
 		{% endif %}
-		<details>
-			<summary>Add Recording: {{ pres.name }}</summary>
+		<button type="button" data-open-dialog="add-recording-{{ pres.id }}">Add Recording</button>
+		<dialog id="add-recording-{{ pres.id }}" aria-labelledby="add-recording-heading-{{ pres.id }}">
+			<h3 id="add-recording-heading-{{ pres.id }}">Add Recording: {{ pres.name }}</h3>
 			<form method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
 				<label>Name: <input type="text" name="name" required></label>
 				<label>Video: <input type="file" name="video" accept="video/*" required></label>
 				<label>Slides VTT: <input type="file" name="vtt" accept=".vtt,text/vtt" required></label>
 				<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
 				<button type="submit">Upload</button>
+				<button type="button" data-close-dialog="add-recording-{{ pres.id }}">Cancel</button>
 			</form>
-		</details>
+		</dialog>
 	</section>
 	{% endfor %}
 </div>
@@ -69,6 +71,17 @@
 </nav>
 
 <script>
+document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
+	btn.addEventListener('click', function () {
+		document.getElementById(btn.dataset.openDialog).showModal();
+	});
+});
+document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
+	btn.addEventListener('click', function () {
+		document.getElementById(btn.dataset.closeDialog).close();
+	});
+});
+
 (function () {
 	const VIEWED_KEY = 'syncslide_viewed';
 
