@@ -27,6 +27,7 @@ Your browser does not support the video tag.
 <option value="1.75">1.75x</option>
 <option value="2">2x</option>
 </select>
+{% if is_owner %}<button id="openEditPresentation" type="button">Edit Presentation</button>{% endif %}
 </details>
 </section>
 <main>
@@ -37,7 +38,6 @@ Your browser does not support the video tag.
 <button id="go">Go</button
 </nav>
 {% if is_owner %}
-<button id="openEditPresentation" type="button">Edit Presentation</button>
 <dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
 <button id="closeEditPresentation" type="button">Close</button>
 <h2 id="cue-editor-heading">Edit Presentation</h2>
