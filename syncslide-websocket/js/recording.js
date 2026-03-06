@@ -18,7 +18,7 @@ recordPauseButton.addEventListener("click", () => {
 	}
 });
 
-stopButton.addEventListener("click", downloadRecording);
+stopButton.addEventListener("click", stopRecording);
 
 function startRecording() {
 	recording = true;
@@ -38,7 +38,7 @@ function pauseRecording() {
 function resumeRecording() {
 	paused = false;
 	startTime = Date.now() - elapsedTime;
-	timerInterval = setInterval(updateTimer, 1000);
+	timerInterval = setInterval(updateTimer, 100);
 	recordPauseButton.innerText = "Pause";
 }
 
@@ -98,7 +98,7 @@ function webvttRecording() {
 }
 
 function downloadRecording() {
-	const dataStr = "data:text/vtt;charset=utf-8," + encodeURIComponent(webvttRecording(recordingData));
+	const dataStr = "data:text/vtt;charset=utf-8," + encodeURIComponent(webvttRecording());
 	const downloadAnchorNode = document.createElement('a');
 	downloadAnchorNode.setAttribute("href", dataStr);
 	downloadAnchorNode.setAttribute("download", "recording.vtt");

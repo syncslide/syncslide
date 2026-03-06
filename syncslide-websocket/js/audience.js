@@ -27,11 +27,11 @@ const handleUpdate = (message) => {
 	}
 	const slideIndex = message.data;
 	const htmlString = md.render(TEXT_TO_RENDER);
-	allHtml = stringToDOM(htmlString);
+	const allHtml = stringToDOM(htmlString);
 	if (is_stage()) {
 		getH2s(allHtml)
 	}
-	newHtml = addSiblings(allHtml)[slideIndex];
+	const newHtml = addSiblings(allHtml)[slideIndex];
 	const htmlOutput = document.getElementById("currentSlide");
 	htmlOutput.innerHTML = "";
 	const presName = getPresName();
