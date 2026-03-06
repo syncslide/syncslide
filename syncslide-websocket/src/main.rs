@@ -653,6 +653,106 @@ async fn delete_recording(
     }
 }
 
+async fn update_recording_files(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(rid): Path<i64>,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let owner_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM recording
+         JOIN presentation ON presentation.id = recording.presentation_id
+         WHERE recording.id = ? AND presentation.user_id = ?;",
+    )
+    .bind(rid)
+    .bind(user.id)
+    .fetch_one(&db)
+    .await;
+    if !matches!(owner_count, Ok(1)) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+
+    let mut video_bytes: Option<(Vec<u8>, String)> = None;
+    let mut vtt_bytes: Option<Vec<u8>> = None;
+    let mut captions_bytes: Option<Vec<u8>> = None;
+
+    while let Ok(Some(field)) = multipart.next_field().await {
+        match field.name().unwrap_or("") {
+            "video" => {
+                let ext = field
+                    .file_name()
+                    .and_then(|f| std::path::Path::new(f).extension())
+                    .and_then(std::ffi::OsStr::to_str)
+                    .unwrap_or("bin")
+                    .to_string();
+                if let Ok(b) = field.bytes().await {
+                    if !b.is_empty() {
+                        video_bytes = Some((b.to_vec(), ext));
+                    }
+                }
+            }
+            "vtt" => {
+                if let Ok(b) = field.bytes().await {
+                    if !b.is_empty() {
+                        vtt_bytes = Some(b.to_vec());
+                    }
+                }
+            }
+            "captions" => {
+                if let Ok(b) = field.bytes().await {
+                    if !b.is_empty() {
+                        captions_bytes = Some(b.to_vec());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    let dir = format!("assets/{rid}");
+
+    if let Some((video_data, video_ext)) = video_bytes {
+        let video_filename = format!("video.{video_ext}");
+        if tokio::fs::write(format!("{dir}/{video_filename}"), &video_data).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        if sqlx::query("UPDATE recording SET video_path = ?, last_edited = strftime('%s', 'now') WHERE id = ?;")
+            .bind(&video_filename)
+            .bind(rid)
+            .execute(&db)
+            .await
+            .is_err()
+        {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+
+    if let Some(vtt_data) = vtt_bytes {
+        if tokio::fs::write(format!("{dir}/slides.vtt"), &vtt_data).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        let _ = sqlx::query("UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;")
+            .bind(rid)
+            .execute(&db)
+            .await;
+    }
+
+    if let Some(captions_data) = captions_bytes {
+        if tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+        let _ = sqlx::query("UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;")
+            .bind(rid)
+            .execute(&db)
+            .await;
+    }
+
+    StatusCode::OK.into_response()
+}
+
 async fn add_recording(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -805,6 +905,7 @@ async fn main() {
         .merge(
             Router::new()
                 .route("/user/presentations/{pid}/recordings", post(add_recording))
+                .route("/user/recordings/{rid}/files", post(update_recording_files))
                 .layer(DefaultBodyLimit::disable()),
         )
         .with_state(state.clone())

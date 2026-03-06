@@ -37,6 +37,17 @@ Your browser does not support the video tag.
 <button id="go">Go</button
 </nav>
 {% if is_owner %}
+<section aria-labelledby="replace-files-heading">
+<details>
+<summary id="replace-files-heading">Replace Files</summary>
+<form id="replaceFilesForm">
+<label>Video: <input type="file" name="video" accept="video/*"></label>
+<label>Slides VTT: <input type="file" name="vtt" accept=".vtt,text/vtt"></label>
+<label>Captions VTT: <input type="file" name="captions" accept=".vtt,text/vtt"></label>
+<button type="submit">Replace</button>
+</form>
+</details>
+</section>
 <section aria-labelledby="cue-editor-heading">
 <details>
 <summary id="cue-editor-heading">Edit Presentation</summary>

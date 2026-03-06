@@ -291,4 +291,16 @@ window.addEventListener("load", () => {
 	rate.addEventListener('change', () => {
 		video.playbackRate = rate.value;
 	});
+
+	const replaceFilesForm = document.getElementById('replaceFilesForm');
+	if (replaceFilesForm) {
+		replaceFilesForm.addEventListener('submit', async (e) => {
+			e.preventDefault();
+			const resp = await fetch(`/user/recordings/${video.dataset.rid}/files`, {
+				method: 'POST',
+				body: new FormData(e.target),
+			});
+			if (resp.ok) location.reload();
+		});
+	}
 });
