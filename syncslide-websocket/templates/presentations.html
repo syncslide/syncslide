@@ -18,8 +18,7 @@
 <div id="pres-list">
 	{% for pres in press %}
 	<section class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
-		<h2>{{ pres.name }}</h2>
-		<p><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}" aria-label="Stage: {{ pres.name }}">Stage</a></p>
+		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
 		{% if pres.recordings | length > 0 %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
