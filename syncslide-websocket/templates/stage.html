@@ -2,6 +2,7 @@
 {% block title %}Stage - {{ pres.name }}{% endblock title %}
 
 {% block stage %}
+<button type="button" id="qrToggle" aria-pressed="false">QR</button>
 <details>
 <summary><h2>Edit Slides</h2></summary>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
@@ -31,7 +32,6 @@
 <nav aria-label="Slide Navigation">
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
-<button type="button" id="qrToggle">Show QR</button>
 </nav>
 <div id="qrOverlay" hidden aria-label="QR code for this presentation">
 <a href="/{{ user.name }}/{{ pres.id }}"><img src="/qr/{{ user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="300" height="300"></a>
@@ -40,8 +40,9 @@
 document.getElementById('qrToggle').addEventListener('click', () => {
   const overlay = document.getElementById('qrOverlay');
   const btn = document.getElementById('qrToggle');
-  overlay.hidden = !overlay.hidden;
-  btn.textContent = overlay.hidden ? 'Show QR' : 'Hide QR';
+  const pressed = btn.getAttribute('aria-pressed') === 'true';
+  btn.setAttribute('aria-pressed', String(!pressed));
+  overlay.hidden = pressed;
 });
 </script>
 <dialog id="slideDialog">
