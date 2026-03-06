@@ -146,6 +146,8 @@ if (presNameInput) {
 		if (slideH1) slideH1.textContent = newName;
 		const mdLabel = document.getElementById('input');
 		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
+		const qrImg = document.querySelector('#qrOverlay img');
+		if (qrImg) qrImg.alt = `${newName} QR code`;
 		await fetch(`/user/presentations/${pid}/name`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'text/plain' },
