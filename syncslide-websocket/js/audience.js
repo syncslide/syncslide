@@ -2,7 +2,7 @@ let TEXT_TO_RENDER = "";
 const presNameEl = document.getElementById('pres-name');
 function getPresName() { return presNameEl ? presNameEl.textContent.trim() : ''; }
 
-function is_stage() {
+function isStage() {
 	return document.getElementById("goTo") !== null
 }
 
@@ -28,7 +28,7 @@ const handleUpdate = (message) => {
 	const slideIndex = message.data;
 	const htmlString = md.render(TEXT_TO_RENDER);
 	const allHtml = stringToDOM(htmlString);
-	if (is_stage()) {
+	if (isStage()) {
 		getH2s(allHtml)
 	}
 	const newHtml = addSiblings(allHtml)[slideIndex];

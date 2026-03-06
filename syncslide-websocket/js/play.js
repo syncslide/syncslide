@@ -263,9 +263,9 @@ window.addEventListener("load", () => {
 		goTo.value = Number(slide.startTime);
 	});
 
-	go.onclick = function() {
+	go.addEventListener('click', () => {
 		video.currentTime = goTo.value;
-	};
+	});
 
 	document.addEventListener("keydown", (e) => {
 		if (e.key !== "F8") return;
@@ -279,7 +279,7 @@ window.addEventListener("load", () => {
 		}
 	});
 
-	rate.onchange = function() {
+	rate.addEventListener('change', () => {
 		video.playbackRate = rate.value;
-	};
+	});
 });

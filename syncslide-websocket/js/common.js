@@ -1,12 +1,8 @@
-const pid=window.location.href.substring(window.location.href.lastIndexOf("/")+1)
+const pid = window.location.pathname.split('/').pop();
 
-let port = window.location.port;
-let port_spec = port === "" ? "" : ":" + port;
-let host = window.location.hostname;
-let secure = window.location.protocol === "https:";
-let prefix = secure ? "wss://" : "ws://";
-WEBSOCKET_ADDR = prefix + host + port_spec + "/ws/" + pid;
-const socket = new WebSocket(WEBSOCKET_ADDR);
+const wsUrl = new URL(`/ws/${pid}`, window.location.href);
+wsUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const socket = new WebSocket(wsUrl.href);
 const md = new remarkable.Remarkable({
 	html: true,
 });
