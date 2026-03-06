@@ -6,7 +6,49 @@
 <main>
 <h1 id="syncSlide">SyncSlide</h1>
 <p>Even with the most accessible Powerpoint slides provided in advance, not being able to track what the presenter is showing on stage has been a pressing issue in academic settings, conferences, and business presentations for many with print disabilities.</p>
-<p>SyncSlide is a presentation tool that incorporates web technologies to create simple, accessible, live slides that can be viewed from any device with a web browser. The goal is to create an alternative presentation software, such that assistive technologies users (i.e., screen readers, specialized fonts, color inversion, etc.) can effortlessly follow along without the need to see the projecting screen. For presenters, SyncSlide provides a simple way to input their presentation content using basic text formatting (Markdown) in a semantical manner. They can navigate, edit the slides, and seamlessly update what's being shown in real-time. Since the application is built on web technologies, adding support for different types of content such as audience interaction tools, accessible graphics and math equations will no longer be a barrier.</p>
-<p>With its focus on simplicity and versatility, SyncSlide aims to revolutionize the way presentations are delivered and experienced, making them truly accessible to all.</p>
+<details>
+  <summary>About SyncSlide</summary>
+  <p>SyncSlide is a presentation tool that incorporates web technologies to create simple, accessible, live slides that can be viewed from any device with a web browser. The goal is to create an alternative presentation software, such that assistive technology users (i.e., screen readers, specialized fonts, color inversion, etc.) can effortlessly follow along without the need to see the projecting screen. For presenters, SyncSlide provides a simple way to input their presentation content using basic text formatting (Markdown) in a semantical manner. They can navigate, edit the slides, and seamlessly update what's being shown in real-time. Since the application is built on web technologies, adding support for different types of content such as audience interaction tools, accessible graphics and math equations will no longer be a barrier.</p>
+  <p>With its focus on simplicity and versatility, SyncSlide aims to make presentations truly accessible to all.</p>
+</details>
+
+<section aria-label="Frequently Asked Questions">
+<h2>FAQ</h2>
+
+<details>
+  <summary>How do I create a presentation?</summary>
+  <p>Log in, then go to <a href="/create">Create Presentation</a>. Give your presentation a title and you'll be taken to the stage, where you can write your content in Markdown and navigate your slides in real time.</p>
+</details>
+
+<details>
+  <summary>How does an audience member follow along?</summary>
+  <p>Audience members navigate to the same URL as the presenter (e.g. <code>/username/presentation-id</code>). They see a read-only view of the current slide that updates automatically as the presenter advances. No account is required to view a presentation.</p>
+</details>
+
+<details>
+  <summary>How do I format slides?</summary>
+  <p>Slides are written in <a href="https://commonmark.org/help/" rel="noopener noreferrer">Markdown</a>. Each <code>## Heading</code> (level 2) starts a new slide. Content between headings — paragraphs, lists, code blocks, and math — becomes the body of that slide.</p>
+</details>
+
+<details>
+  <summary>Are math equations supported?</summary>
+  <p>Yes. SyncSlide renders LaTeX math client-side using KaTeX. Use <code>$...$</code> for inline math and <code>$$...$$</code> for display math inside your Markdown.</p>
+</details>
+
+<details>
+  <summary>Can I record a presentation?</summary>
+  <p>Yes. On the stage page, start recording before you begin presenting. The recording captures a timestamped log of each slide change and exports it as a WebVTT metadata track paired with your video file, so viewers can replay the slides in sync with the recording.</p>
+</details>
+
+<details>
+  <summary>What devices and browsers are supported?</summary>
+  <p>Any device with a modern web browser works — desktop, tablet, or phone. Because the audience view is plain HTML, it is compatible with screen readers and other assistive technologies out of the box.</p>
+</details>
+
+<details>
+  <summary>Do I need an account to join a presentation?</summary>
+  <p>No. Audience members can view any presentation without logging in. An account is only required to create or edit presentations.</p>
+</details>
+</section>
 </main>
 {% endblock content %}
