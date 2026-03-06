@@ -3,7 +3,7 @@ body { background-color: #222222; padding: 16px; font-family: -apple-system, hel
 header { text-align: center; margin-bottom: 18px; }
 
 summary { cursor: pointer; }
-summary::before { content: "▶"; margin-right: .4em; display: inline-block; transition: transform .15s; }
+summary::before { content: ""; display: inline-block; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid currentColor; margin-right: .4em; transition: transform .15s; vertical-align: middle; }
 details[open] > summary::before { transform: rotate(90deg); }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1em; }
