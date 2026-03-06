@@ -36,6 +36,7 @@ use serde::{Deserialize, Serialize};
 use signal_hook::consts::signal::SIGUSR1;
 use signal_hook_tokio::Signals;
 
+use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, html as cmark_html};
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
@@ -268,6 +269,50 @@ async fn join(
     tera.render("join.html", Context::new(), auth_session, db)
         .await
 }
+/// Returns the HTML for a single slide from rendered markdown.
+/// Splits at `<h2>` boundaries, mirroring the JS `addSiblings` function.
+#[must_use]
+fn render_slide(markdown: &str, slide_index: u32, pres_name: &str) -> String {
+    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all()).collect();
+    let slide_starts: Vec<usize> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| match e {
+            Event::Start(Tag::Heading { level: HeadingLevel::H2, .. }) => Some(i),
+            _ => None,
+        })
+        .collect();
+    if slide_starts.is_empty() {
+        return String::new();
+    }
+    let idx = usize::try_from(slide_index)
+        .unwrap_or(usize::MAX)
+        .min(slide_starts.len() - 1);
+    let start = slide_starts[idx];
+    let end = slide_starts.get(idx + 1).copied().unwrap_or(events.len());
+    let mut output = String::new();
+    if !pres_name.is_empty() {
+        let escaped = pres_name
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;");
+        output.push_str("<h1>");
+        output.push_str(&escaped);
+        output.push_str("</h1>");
+    }
+    cmark_html::push_html(&mut output, events[start..end].iter().cloned());
+    output
+}
+
+/// Gets the current slide index from in-memory state, defaulting to 0.
+#[must_use]
+fn current_slide_index(app_state: &AppState, pid: i64) -> u32 {
+    let Ok(map) = app_state.slides.lock() else { return 0; };
+    map.get(&pid.to_string())
+        .and_then(|p| p.lock().ok().map(|p| p.slide))
+        .unwrap_or(0)
+}
+
 async fn audience(tera: Tera, auth_session: AuthSession, db: SqlitePool) -> impl IntoResponse {
     tera.render("audience.html", Context::new(), auth_session, db)
         .await
@@ -313,6 +358,7 @@ async fn start_pres(
 async fn present(
     State(tera): State<Tera>,
     State(db): State<SqlitePool>,
+    State(app_state): State<AppState>,
     auth_session: AuthSession,
     Path((uname, pid)): Path<(String, i64)>,
 ) -> impl IntoResponse {
@@ -330,12 +376,15 @@ async fn present(
     };
     let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
     if !is_owner {
+        let slide_index = current_slide_index(&app_state, pid);
+        let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
         let mut ctx = Context::new();
         ctx.insert("pres", &pres);
         ctx.insert("pres_user", &pres_user);
+        ctx.insert("initial_slide", &initial_slide);
         return tera.render("audience.html", ctx, auth_session, db).await.into_response();
     }
-    stage(tera, db, auth_session, pid).await.into_response()
+    stage(tera, db, auth_session, pid, app_state).await.into_response()
 }
 
 async fn stage(
@@ -343,13 +392,17 @@ async fn stage(
     db: SqlitePool,
     auth_session: AuthSession,
     pid: i64,
+    app_state: AppState,
 ) -> impl IntoResponse {
     if auth_session.user.is_none() {
         return Redirect::to("/auth/login").into_response();
     }
     let pres = DbPresentation::get_by_id(pid, &db).await.unwrap();
+    let slide_index = current_slide_index(&app_state, pid);
+    let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
     let mut ctx = Context::new();
     ctx.insert("pres", &pres);
+    ctx.insert("initial_slide", &initial_slide);
     tera.render("stage.html", ctx, auth_session, db).await
 }
 /// Returns an SVG QR code linking to the presentation at `/{uname}/{pid}`.

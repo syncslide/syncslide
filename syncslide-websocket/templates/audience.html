@@ -32,6 +32,6 @@ document.getElementById('qrToggle').addEventListener('click', () => {
 {% endif %}
 {% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
 <main>
-<section aria-live="polite" id="currentSlide"></section>
+<section aria-live="polite" id="currentSlide">{% if initial_slide %}{{ initial_slide | safe }}{% endif %}</section>
 </main>
 {% endblock content %}
