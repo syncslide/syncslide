@@ -47,17 +47,19 @@ window.addEventListener("load", () => {
 	const presTitleInput = document.getElementById("presTitle");
 	if (presTitleInput && cueList.length > 0) {
 		const d = document.createElement('div');
-		d.innerHTML = JSON.parse(cueList[0].text).content;
+		const first = JSON.parse(cueList[0].text);
+		d.innerHTML = first.content ?? first.data ?? '';
 		presTitleInput.value = d.querySelector('h1')?.textContent ?? '';
 	}
 
 	function updateAllCueH1(newTitle) {
 		cueList.forEach(c => {
 			const parsed = JSON.parse(c.text);
+			const html = parsed.content ?? parsed.data ?? '';
 			const d = document.createElement('div');
-			d.innerHTML = parsed.content;
+			d.innerHTML = html;
 			const h2Text = d.querySelector('h2')?.textContent ?? '';
-			const body = extractBody(parsed.content);
+			const body = extractBody(html);
 			parsed.content = `<h1>${escapeHtml(newTitle)}</h1><h2>${escapeHtml(h2Text)}</h2>${body}`;
 			c.text = JSON.stringify(parsed);
 		});
@@ -127,7 +129,7 @@ window.addEventListener("load", () => {
 				contentArea.dataset.edit = "content";
 				contentArea.rows = 6;
 				contentArea.style.width = "100%";
-				contentArea.value = extractBody(parsed.content);
+				contentArea.value = extractBody(parsed.content ?? parsed.data ?? '');
 				contentLabel.append("Content (HTML):", document.createElement("br"), contentArea);
 
 				const applyBtn = document.createElement("button");
@@ -256,7 +258,8 @@ window.addEventListener("load", () => {
 	slidesData.addEventListener("cuechange", (event) => {
 		const slide = slidesData.activeCues[0];
 		if (!slide) return;
-		slidesContainer.innerHTML = JSON.parse(slide.text).content;
+		const parsed = JSON.parse(slide.text);
+		slidesContainer.innerHTML = parsed.content ?? parsed.data ?? '';
 		goTo.value = Number(slide.startTime);
 	});
 
