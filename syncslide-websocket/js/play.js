@@ -292,15 +292,26 @@ window.addEventListener("load", () => {
 		video.playbackRate = rate.value;
 	});
 
+	const replaceFilesDialog = document.getElementById('replaceFilesDialog');
 	const replaceFilesForm = document.getElementById('replaceFilesForm');
-	if (replaceFilesForm) {
+	if (replaceFilesDialog && replaceFilesForm) {
+		document.getElementById('openReplaceFiles').addEventListener('click', () => {
+			replaceFilesDialog.showModal();
+		});
+		document.getElementById('cancelReplaceFiles').addEventListener('click', () => {
+			replaceFilesDialog.close();
+		});
 		replaceFilesForm.addEventListener('submit', async (e) => {
 			e.preventDefault();
 			const resp = await fetch(`/user/recordings/${video.dataset.rid}/files`, {
 				method: 'POST',
 				body: new FormData(e.target),
 			});
-			if (resp.ok) location.reload();
+			if (resp.ok) {
+				replaceFilesForm.reset();
+				replaceFilesDialog.close();
+				location.reload();
+			}
 		});
 	}
 });
