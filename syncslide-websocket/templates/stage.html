@@ -10,13 +10,14 @@
 <details>
 <summary><h2>Edit Slides</h2></summary>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
-<section aria-labelledby="slides-heading">
-<h3 id="slides-heading">Slides</h3>
+<details>
+<summary><h3>Slides</h3></summary>
+<button type="button" id="addSlide">Add Slide</button>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
 <tbody id="slideTableBody"></tbody>
 </table>
-</section>
+</details>
 <details>
 <summary><h3>Markdown</h3></summary>
 <section aria-labelledby="input">
@@ -38,7 +39,9 @@
 <select id="goTo" name="goTo"></select>
 </nav>
 <dialog id="slideDialog">
+<button type="button" id="slideDialogCancel">Cancel</button>
 <h2 id="slideDialogHeading"></h2>
+<label id="slideDialogRefLabel">Slide: <select id="insertRefSlide"></select></label>
 <fieldset id="slideDialogPosition">
 <legend>Position</legend>
 <label><input type="radio" name="insertPos" value="before"> Before</label>
@@ -47,6 +50,5 @@
 <label>Title: <input type="text" id="insertTitle"></label><br>
 <label>Content (Markdown):<br><textarea id="insertBody" rows="6" style="width:100%"></textarea></label><br>
 <button type="button" id="slideDialogApply"></button>
-<button type="button" id="slideDialogCancel">Cancel</button>
 </dialog>
 {% endblock stage %}

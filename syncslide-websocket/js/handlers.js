@@ -100,7 +100,6 @@ function renderSlideTable() {
 			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
 			+ `<option value="" selected>--</option>`
 			+ `<option value="edit">Edit</option>`
-			+ `<option value="insert">Insert</option>`
 			+ `<option value="move-up">Move Up</option>`
 			+ `<option value="move-down">Move Down</option>`
 			+ `<option value="delete">Delete</option>`
@@ -115,22 +114,29 @@ function openSlideDialog(mode, idx) {
 	dialogMode = mode;
 	dialogRefIdx = idx;
 	const posFieldset = document.getElementById('slideDialogPosition');
+	const refLabel = document.getElementById('slideDialogRefLabel');
 	const heading = document.getElementById('slideDialogHeading');
 	const applyBtn = document.getElementById('slideDialogApply');
+	const slides = markdownToSlides(textInput.value);
 	if (mode === 'edit') {
-		const slides = markdownToSlides(textInput.value);
 		document.getElementById('insertTitle').value = slides[idx].title;
 		document.getElementById('insertBody').value = slides[idx].body;
 		posFieldset.hidden = true;
+		refLabel.hidden = true;
 		heading.textContent = 'Edit Slide';
 		applyBtn.textContent = 'Apply';
 	} else {
 		document.getElementById('insertTitle').value = 'New Slide';
 		document.getElementById('insertBody').value = '';
 		document.querySelector('input[name="insertPos"][value="after"]').checked = true;
-		posFieldset.hidden = false;
-		heading.textContent = 'Insert Slide';
-		applyBtn.textContent = 'Insert';
+		const refSelect = document.getElementById('insertRefSlide');
+		refSelect.innerHTML = '';
+		slides.forEach((s, i) => refSelect.add(new Option(`${i + 1}: ${s.title}`, String(i))));
+		const hasSlides = slides.length > 0;
+		posFieldset.hidden = !hasSlides;
+		refLabel.hidden = !hasSlides;
+		heading.textContent = 'Add Slide';
+		applyBtn.textContent = 'Add';
 	}
 	dialog.showModal();
 }
@@ -170,8 +176,12 @@ if (slideDialog) {
 			slides[dialogRefIdx].title = title;
 			slides[dialogRefIdx].body = body;
 		} else {
-			const pos = document.querySelector('input[name="insertPos"]:checked').value;
-			const insertAt = pos === 'before' ? dialogRefIdx : dialogRefIdx + 1;
+			let insertAt = 0;
+			if (slides.length > 0) {
+				const refIdx = parseInt(document.getElementById('insertRefSlide').value);
+				const pos = document.querySelector('input[name="insertPos"]:checked').value;
+				insertAt = pos === 'before' ? refIdx : refIdx + 1;
+			}
 			slides.splice(insertAt, 0, { title, body });
 		}
 		syncFromSlides(slides);
@@ -183,6 +193,10 @@ if (slideDialog) {
 	});
 }
 
+document.getElementById('addSlide')?.addEventListener('click', () => {
+	openSlideDialog('insert');
+});
+
 const slideTableBody = document.getElementById('slideTableBody');
 if (slideTableBody) {
 	function executeSlideAction(sel) {
@@ -191,7 +205,6 @@ if (slideTableBody) {
 		if (!action) return;
 		sel.value = '';
 		if (action === 'edit') { openSlideDialog('edit', idx); return; }
-		if (action === 'insert') { openSlideDialog('insert', idx); return; }
 		const slides = markdownToSlides(textInput.value);
 		if (action === 'delete') {
 			if (!confirm(`Delete slide ${idx + 1}: "${slides[idx].title}"?`)) return;
