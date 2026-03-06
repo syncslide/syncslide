@@ -397,7 +397,7 @@ async fn stage(
     if auth_session.user.is_none() {
         return Redirect::to("/auth/login").into_response();
     }
-    let pres = DbPresentation::get_by_id(pid, &db).await.unwrap();
+    let pres = DbPresentation::get_by_id(pid, &db).await.unwrap().unwrap();
     let slide_index = current_slide_index(&app_state, pid);
     let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
     let mut ctx = Context::new();
