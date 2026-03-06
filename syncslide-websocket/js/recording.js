@@ -98,10 +98,14 @@ function webvttRecording() {
 }
 
 function downloadRecording() {
+	const parts = window.location.pathname.split('/');
+	const uname = sanitize(parts[1] ?? '');
+	const presName = sanitize(document.getElementById('pres-name')?.textContent ?? document.getElementById('presName')?.value ?? '');
+	const filename = [uname, presName, 'recording'].filter(Boolean).join('_') + '.vtt';
 	const dataStr = "data:text/vtt;charset=utf-8," + encodeURIComponent(webvttRecording());
 	const downloadAnchorNode = document.createElement('a');
 	downloadAnchorNode.setAttribute("href", dataStr);
-	downloadAnchorNode.setAttribute("download", "recording.vtt");
+	downloadAnchorNode.setAttribute("download", filename);
 	document.body.appendChild(downloadAnchorNode);
 	downloadAnchorNode.click();
 	downloadAnchorNode.remove();

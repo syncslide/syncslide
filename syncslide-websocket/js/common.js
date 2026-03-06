@@ -1,3 +1,7 @@
+function sanitize(s) {
+	return s.trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
 const pid = window.location.pathname.split('/').pop();
 
 const wsUrl = new URL(`/ws/${pid}`, window.location.href);

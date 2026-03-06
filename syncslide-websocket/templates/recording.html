@@ -11,7 +11,7 @@
 <section aria-labelledby="video">
 <details open>
 <summary id="video">Video</summary>
-<video id="myVideo" width="640" height="360" controls playsinline data-rid="{{ recording.id }}">
+<video id="myVideo" width="640" height="360" controls playsinline data-rid="{{ recording.id }}" data-recording-name="{{ recording.name }}">
 <source src="/assets/{{ recording.id }}/{{ recording.video_path }}">
 <track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/assets/{{ recording.id }}/{{ recording.vtt_path }}" srclang="en" label="SyncSlide Data"/>
 <track default kind="captions" src="/assets/{{ recording.id }}/{{ recording.captions_path }}" srclang="en" label="Captions"/>

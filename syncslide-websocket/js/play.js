@@ -21,6 +21,10 @@ function secondsToVtt(s) {
 	return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
 }
 
+function sanitize(s) {
+	return s.trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+}
+
 window.addEventListener("load", () => {
 	const video = document.getElementById("myVideo");
 	const slidesData = video.textTracks.getTrackById("syncslide-data");
@@ -230,9 +234,14 @@ window.addEventListener("load", () => {
 	}
 
 	downloadVtt.addEventListener("click", () => {
+		const parts = window.location.pathname.split('/');
+		const uname = sanitize(parts[1] ?? '');
+		const presName = sanitize(presTitleInput?.value ?? '');
+		const recName = sanitize(video.dataset.recordingName ?? '');
+		const filename = [uname, presName, recName].filter(Boolean).join('_') + '.vtt';
 		const a = document.createElement("a");
 		a.href = "data:text/vtt;charset=utf-8," + encodeURIComponent(buildVtt());
-		a.download = "recording-adjusted.vtt";
+		a.download = filename;
 		document.body.appendChild(a);
 		a.click();
 		a.remove();
