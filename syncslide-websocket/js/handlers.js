@@ -139,7 +139,7 @@ const presNameInput = document.getElementById('presName');
 if (presNameInput) {
 	const applyPresName = async () => {
 		const newName = presNameInput.value;
-		document.title = `Stage - ${newName}`;
+		document.title = `${newName} (stage) - SyncSlide`;
 		const span = document.getElementById('pres-name');
 		if (span) span.textContent = newName;
 		const slideH1 = document.querySelector('#currentSlide h1');
