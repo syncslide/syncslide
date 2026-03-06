@@ -148,6 +148,7 @@ if (presNameInput) {
 		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
 		const qrImg = document.querySelector('#qrOverlay img');
 		if (qrImg) qrImg.alt = `${newName} QR code`;
+		socket.send(JSON.stringify({ type: "name", data: newName }));
 		await fetch(`/user/presentations/${pid}/name`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'text/plain' },

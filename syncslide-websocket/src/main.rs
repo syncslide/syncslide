@@ -91,6 +91,8 @@ pub enum SlideMessage {
     Text(String),
     /// Change the `slide` index.
     Slide(u32),
+    /// Change the presentation name.
+    Name(String),
 }
 
 /// A specific presetation.
@@ -150,6 +152,7 @@ fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
         SlideMessage::Text(text) => {
             pres.content = text;
         }
+        SlideMessage::Name(_) => {}
     }
 }
 

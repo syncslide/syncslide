@@ -18,6 +18,12 @@ const handleUpdate = (message) => {
 		TEXT_TO_RENDER = message.data;
 		return;
 	}
+	if (message.type === "name") {
+		if (presNameEl) presNameEl.textContent = message.data;
+		const slideH1 = document.querySelector('#currentSlide h1');
+		if (slideH1) slideH1.textContent = message.data;
+		return;
+	}
 	const slideIndex = message.data;
 	const htmlString = md.render(TEXT_TO_RENDER);
 	allHtml = stringToDOM(htmlString);
