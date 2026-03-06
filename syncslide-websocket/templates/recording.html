@@ -27,9 +27,9 @@ Your browser does not support the video tag.
 <option value="1.75">1.75x</option>
 <option value="2">2x</option>
 </select>
-{% if is_owner %}<button id="openEditPresentation" type="button">Edit Presentation</button>{% endif %}
 </details>
 </section>
+{% if is_owner %}<button id="openEditPresentation" type="button">Edit Recording</button>{% endif %}
 <main>
 <section aria-live="polite" id="currentSlide"></section>
 <nav aria-label="Slide Navigation">
@@ -40,7 +40,7 @@ Your browser does not support the video tag.
 {% if is_owner %}
 <dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
 <button id="closeEditPresentation" type="button">Close</button>
-<h2 id="cue-editor-heading">Edit Presentation</h2>
+<h2 id="cue-editor-heading">Edit Recording</h2>
 <label>Presentation title: <input type="text" id="presTitle"></label>
 <label><input type="checkbox" id="shiftSubsequent"> Shift subsequent cues when editing a timestamp</label>
 <table>
