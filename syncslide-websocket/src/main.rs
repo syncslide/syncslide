@@ -368,6 +368,7 @@ async fn qr_code(Path((uname, pid)): Path<(String, String)>, headers: HeaderMap)
     let image = code
         .render::<svg::Color<'_>>()
         .min_dimensions(200, 200)
+        .quiet_zone(false)
         .build();
     ([(axum::http::header::CONTENT_TYPE, "image/svg+xml")], image).into_response()
 }
