@@ -706,6 +706,20 @@ async fn delete_recording(
     }
 }
 
+async fn delete_presentation(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match DbPresentation::delete(pid, user.id, &db).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn update_recording_files(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -937,6 +951,7 @@ async fn main() {
         .route("/auth/logout", get(logout))
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
+        .route("/user/presentations/{pid}/delete", post(delete_presentation))
         .route("/user/recordings/{rid}/slides_vtt", post(update_slides_vtt))
         .route("/user/recordings/{rid}/name", post(update_recording_name))
         .route("/user/presentations/{pid}/name", post(update_presentation_name))

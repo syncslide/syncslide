@@ -19,9 +19,10 @@
 	{% for pres in press %}
 	<section class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
 		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
-		{% if pres.recordings | length > 0 %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
+			<button type="button" data-open-dialog="add-recording-{{ pres.id }}">Add Recording: {{ pres.name }}</button>
+			{% if pres.recordings | length > 0 %}
 			<table>
 				<thead><tr><th>Name</th><th>Created</th><th>Last Edited</th><th>Actions</th></tr></thead>
 				<tbody>
@@ -39,9 +40,9 @@
 				{% endfor %}
 				</tbody>
 			</table>
+			{% endif %}
 		</details>
-		{% endif %}
-		<button type="button" data-open-dialog="add-recording-{{ pres.id }}">Add Recording: {{ pres.name }}</button>
+		<button type="button" data-open-dialog="delete-pres-{{ pres.id }}">Delete: {{ pres.name }}</button>
 		<dialog id="add-recording-{{ pres.id }}" aria-labelledby="add-recording-heading-{{ pres.id }}">
 			<button type="button" data-close-dialog="add-recording-{{ pres.id }}">Cancel</button>
 			<h3 id="add-recording-heading-{{ pres.id }}">Add Recording: {{ pres.name }}</h3>
@@ -51,6 +52,14 @@
 				<label>Slides VTT: <input type="file" name="vtt" accept=".vtt,text/vtt" required></label>
 				<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
 				<button type="submit">Upload</button>
+			</form>
+		</dialog>
+		<dialog id="delete-pres-{{ pres.id }}" aria-labelledby="delete-pres-heading-{{ pres.id }}">
+			<button type="button" data-close-dialog="delete-pres-{{ pres.id }}">Cancel</button>
+			<h3 id="delete-pres-heading-{{ pres.id }}">Delete {{ pres.name }}?</h3>
+			<p>This will permanently delete the presentation and all its recordings.</p>
+			<form method="post" action="/user/presentations/{{ pres.id }}/delete">
+				<button type="submit">Delete</button>
 			</form>
 		</dialog>
 	</section>

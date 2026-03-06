@@ -197,6 +197,20 @@ impl Presentation {
         .map_err(Error::from)
         .map(|_| ())
     }
+    pub async fn delete(id: i64, user_id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("DELETE FROM recording WHERE presentation_id = ?")
+            .bind(id)
+            .execute(&*db)
+            .await
+            .map_err(Error::from)?;
+        sqlx::query("DELETE FROM presentation WHERE id = ? AND user_id = ?")
+            .bind(id)
+            .bind(user_id)
+            .execute(&*db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
