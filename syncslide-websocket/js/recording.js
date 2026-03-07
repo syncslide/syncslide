@@ -7,7 +7,6 @@ let recordingData = [];
 
 const recordPauseButton = document.getElementById("recordPause");
 const stopButton = document.getElementById("stop");
-const updateButton = document.getElementById("update");
 const timer = document.getElementById("timer");
 
 recordPauseButton.addEventListener("click", () => {
@@ -19,6 +18,10 @@ recordPauseButton.addEventListener("click", () => {
 });
 
 stopButton.addEventListener("click", stopRecording);
+
+document.getElementById("cancelSaveRecording")?.addEventListener("click", () => {
+	document.getElementById("saveRecordingDialog").close();
+});
 
 function startRecording() {
 	recording = true;
@@ -39,7 +42,7 @@ function resumeRecording() {
 	paused = false;
 	startTime = Date.now() - elapsedTime;
 	timerInterval = setInterval(updateTimer, 100);
-	recordPauseButton.innerText = "Pause";
+	recordPauseButton.innerText = "Resume";
 }
 
 function stopRecording() {
@@ -49,7 +52,13 @@ function stopRecording() {
 	elapsedTime = 0;
 	timer.innerText = "00:00:00.000";
 	recordPauseButton.innerText = "Record";
-	downloadRecording();
+
+	const slidesInput = document.getElementById("slidesData");
+	if (slidesInput) {
+		slidesInput.value = jsonRecording();
+		document.getElementById("saveRecordingDialog").showModal();
+	}
+	recordingData = [];
 }
 
 function updateTimer() {
@@ -77,37 +86,10 @@ function saveCurrentState() {
 }
 window.saveCurrentState = saveCurrentState
 
-function webvttRecording() {
-	console.log(recordingData);
-	let vtt = "WEBVTT\n\n"
-	const final_time = formatTime(elapsedTime);
-	for (let i = 0; i < recordingData.length; i++) {
-		const entry = recordingData[i];
-		const cur_time = formatTime(recordingData[i].time);
-		let next_time = undefined;
-		if (i+1 < recordingData.length) {
-			next_time = formatTime(recordingData[i+1].time);
-		} else {
-			next_time = final_time;
-		}
-		const json = JSON.stringify(entry);
-		const cueText = `${cur_time} --> ${next_time}\n${json}\n\n`
-		vtt += cueText;
-	}
-	return vtt;
-}
-
-function downloadRecording() {
-	const parts = window.location.pathname.split('/');
-	const uname = sanitize(parts[1] ?? '');
-	const presName = sanitize(document.getElementById('pres-name')?.textContent ?? document.getElementById('presName')?.value ?? '');
-	const filename = [uname, presName, 'recording'].filter(Boolean).join('_') + '.vtt';
-	const dataStr = "data:text/vtt;charset=utf-8," + encodeURIComponent(webvttRecording());
-	const downloadAnchorNode = document.createElement('a');
-	downloadAnchorNode.setAttribute("href", dataStr);
-	downloadAnchorNode.setAttribute("download", filename);
-	document.body.appendChild(downloadAnchorNode);
-	downloadAnchorNode.click();
-	downloadAnchorNode.remove();
-	recordingData = [];
+function jsonRecording() {
+	return JSON.stringify(recordingData.map(entry => ({
+		start_seconds: entry.time / 1000,
+		title: entry.title,
+		content: entry.content,
+	})));
 }

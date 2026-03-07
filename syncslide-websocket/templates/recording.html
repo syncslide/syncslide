@@ -9,15 +9,23 @@
 
 {% block breadcrumb %}{% if is_owner %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% else %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
 {% block content %}
-<section aria-labelledby="video">
+<section aria-labelledby="video-heading">
 <details open>
-<summary id="video">Video</summary>
+<summary id="video-heading">Video</summary>
+{% if recording.video_path %}
 <video id="myVideo" width="640" height="360" controls playsinline data-rid="{{ recording.id }}" data-recording-name="{{ recording.name }}">
 <source src="/assets/{{ recording.id }}/{{ recording.video_path }}">
-<track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/assets/{{ recording.id }}/{{ recording.vtt_path }}" srclang="en" label="SyncSlide Data"/>
+<track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" srclang="en" label="SyncSlide Data"/>
 <track default kind="captions" src="/assets/{{ recording.id }}/{{ recording.captions_path }}" srclang="en" label="Captions"/>
 Your browser does not support the video tag.
 </video>
+{% else %}
+<p>No video uploaded yet.{% if is_owner %} Use <strong>Replace Files</strong> to add one.{% endif %}</p>
+<video id="myVideo" data-rid="{{ recording.id }}" data-recording-name="{{ recording.name }}" style="display:none">
+<track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" srclang="en" label="SyncSlide Data"/>
+</video>
+{% endif %}
+{% if recording.video_path %}
 <label for="rate">Playback Speed: </label>
 <select id="rate">
 <option value="0.5">0.5x</option>
@@ -28,9 +36,14 @@ Your browser does not support the video tag.
 <option value="1.75">1.75x</option>
 <option value="2">2x</option>
 </select>
+{% endif %}
 </details>
 </section>
-{% if is_owner %}<button id="openEditPresentation" type="button">Edit Recording</button>{% endif %}
+<nav aria-label="Downloads">
+<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" download>Download VTT</a>
+<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.html" download>Download Slides HTML</a>
+</nav>
+{% if is_owner %}<button id="openEditPresentation" type="button">Edit Timing</button>{% endif %}
 <main>
 <section aria-live="polite" id="currentSlide"></section>
 <nav aria-label="Slide Navigation">
@@ -41,41 +54,22 @@ Your browser does not support the video tag.
 {% if is_owner %}
 <dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
 <button id="closeEditPresentation" type="button">Close</button>
-<h2 id="cue-editor-heading">Edit Recording</h2>
-<label>Presentation title: <input type="text" id="presTitle"></label>
-<label><input type="checkbox" id="shiftSubsequent"> Shift subsequent cues when editing a timestamp</label>
+<h2 id="cue-editor-heading">Edit Timing</h2>
+<label><input type="checkbox" id="shiftSubsequent"> Shift subsequent slides when editing a timestamp</label>
 <table>
-<thead><tr><th>Slide</th><th>Title</th><th>Content</th><th>Start Time (seconds)</th><th>Actions</th></tr></thead>
+<thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
 <tbody id="cueTableBody"></tbody>
 </table>
-<button id="downloadVtt" type="button">Download VTT</button>
 <button id="openReplaceFiles" type="button">Replace Files</button>
-</dialog>
-<dialog id="saveDiscardDialog" aria-labelledby="save-discard-heading">
-<h2 id="save-discard-heading">Unsaved Changes</h2>
-<p>You have unsaved changes.</p>
-<button id="saveAndClose" type="button">Save</button>
-<button id="discardAndClose" type="button">Discard</button>
 </dialog>
 <dialog id="replaceFilesDialog" aria-labelledby="replace-files-heading">
 <h2 id="replace-files-heading">Replace Files</h2>
 <form id="replaceFilesForm">
 <label>Video (optional): <input type="file" name="video" accept="video/*"></label>
-<label>Slides VTT (optional): <input type="file" name="vtt" accept=".vtt,text/vtt"></label>
 <label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
 <button type="submit">Replace</button>
 <button type="button" id="cancelReplaceFiles">Cancel</button>
 </form>
-</dialog>
-<dialog id="cueInsertDialog" aria-labelledby="cue-insert-heading">
-<h2 id="cue-insert-heading">Insert Slide</h2>
-<fieldset>
-<legend>Position</legend>
-<label><input type="radio" name="cueInsertPos" value="before"> Before</label>
-<label><input type="radio" name="cueInsertPos" value="after" checked> After</label>
-</fieldset>
-<button type="button" id="cueInsertApply">Insert</button>
-<button type="button" id="cueInsertCancel">Cancel</button>
 </dialog>
 {% endif %}
 {% endblock content %}

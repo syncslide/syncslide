@@ -45,7 +45,7 @@ use std::{
 mod db;
 use db::{
     AddUserForm, AuthSession, Backend, ChangePasswordForm, Group, LoginForm,
-    Presentation as DbPresentation, Recording, User,
+    Presentation as DbPresentation, Recording, RecordingSlide, RecordingSlideInput, User,
 };
 
 /// Wraps Tera renderer so that we can force a special render process.
@@ -600,10 +600,99 @@ async fn index(
         .await
 }
 
-async fn update_slides_vtt(
+fn format_vtt_time(seconds: f64) -> String {
+    let ms = ((seconds % 1.0) * 1000.0).round() as u64;
+    let total_s = seconds as u64;
+    let s = total_s % 60;
+    let m = (total_s / 60) % 60;
+    let h = total_s / 3600;
+    format!("{h:02}:{m:02}:{s:02}.{ms:03}")
+}
+
+async fn slides_vtt(
+    State(db): State<SqlitePool>,
+    Path((uname, pid, rid)): Path<(String, i64, i64)>,
+) -> impl IntoResponse {
+    let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != pres_user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(Some(rec)) = Recording::get_by_id(rid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if rec.presentation_id != pid {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let mut vtt = String::from("WEBVTT\n\n");
+    for (i, slide) in slides.iter().enumerate() {
+        let start = format_vtt_time(slide.start_seconds);
+        let end = slides
+            .get(i + 1)
+            .map(|s| format_vtt_time(s.start_seconds))
+            .unwrap_or_else(|| "99:59:59.999".to_string());
+        let json = serde_json::json!({
+            "id": slide.id,
+            "title": slide.title,
+            "content": slide.content,
+        });
+        vtt.push_str(&format!("{start} --> {end}\n{json}\n\n"));
+    }
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/vtt; charset=utf-8")],
+        vtt,
+    )
+        .into_response()
+}
+
+async fn slides_html(
+    State(db): State<SqlitePool>,
+    Path((uname, pid, rid)): Path<(String, i64, i64)>,
+) -> impl IntoResponse {
+    let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != pres_user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(Some(rec)) = Recording::get_by_id(rid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if rec.presentation_id != pid {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let title = rec.name;
+    let mut html = format!(
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>{title} - Slides</title></head><body>\n"
+    );
+    for slide in &slides {
+        html.push_str(&format!("<section>\n{}\n</section>\n", slide.content));
+    }
+    html.push_str("</body></html>");
+    (
+        [(axum::http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        html,
+    )
+        .into_response()
+}
+
+async fn update_slide_time(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
-    Path(rid): Path<i64>,
+    Path((rid, sid)): Path<(i64, i64)>,
     body: String,
 ) -> impl IntoResponse {
     let Some(user) = auth_session.user else {
@@ -621,13 +710,23 @@ async fn update_slides_vtt(
     if !matches!(owner_count, Ok(1)) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    if tokio::fs::write(format!("assets/{rid}/slides.vtt"), body.as_bytes()).await.is_err() {
-        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    let Ok(start_seconds) = body.trim().parse::<f64>() else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    let slide_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM recording_slide WHERE id = ? AND recording_id = ?;",
+    )
+    .bind(sid)
+    .bind(rid)
+    .fetch_one(&db)
+    .await;
+    if !matches!(slide_count, Ok(1)) {
+        return StatusCode::NOT_FOUND.into_response();
     }
-    let _ = sqlx::query!("UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;", rid)
-        .execute(&db)
-        .await;
-    StatusCode::OK.into_response()
+    match RecordingSlide::update_start_seconds(sid, start_seconds, &db).await {
+        Ok(()) => StatusCode::OK.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
 }
 
 async fn update_presentation_name(
@@ -745,7 +844,6 @@ async fn update_recording_files(
     }
 
     let mut video_bytes: Option<(Vec<u8>, String)> = None;
-    let mut vtt_bytes: Option<Vec<u8>> = None;
     let mut captions_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -760,13 +858,6 @@ async fn update_recording_files(
                 if let Ok(b) = field.bytes().await {
                     if !b.is_empty() {
                         video_bytes = Some((b.to_vec(), ext));
-                    }
-                }
-            }
-            "vtt" => {
-                if let Ok(b) = field.bytes().await {
-                    if !b.is_empty() {
-                        vtt_bytes = Some(b.to_vec());
                     }
                 }
             }
@@ -797,16 +888,6 @@ async fn update_recording_files(
         {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
-    }
-
-    if let Some(vtt_data) = vtt_bytes {
-        if tokio::fs::write(format!("{dir}/slides.vtt"), &vtt_data).await.is_err() {
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-        }
-        let _ = sqlx::query("UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;")
-            .bind(rid)
-            .execute(&db)
-            .await;
     }
 
     if let Some(captions_data) = captions_bytes {
@@ -844,7 +925,7 @@ async fn add_recording(
 
     let mut name = String::new();
     let mut video_bytes: Option<(Vec<u8>, String)> = None;
-    let mut vtt_bytes: Option<Vec<u8>> = None;
+    let mut slides_json: Option<String> = None;
     let mut captions_bytes: Option<Vec<u8>> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
@@ -860,12 +941,16 @@ async fn add_recording(
                     .unwrap_or("bin")
                     .to_string();
                 if let Ok(b) = field.bytes().await {
-                    video_bytes = Some((b.to_vec(), ext));
+                    if !b.is_empty() {
+                        video_bytes = Some((b.to_vec(), ext));
+                    }
                 }
             }
-            "vtt" => {
-                if let Ok(b) = field.bytes().await {
-                    vtt_bytes = Some(b.to_vec());
+            "slides" => {
+                if let Ok(text) = field.text().await {
+                    if !text.is_empty() {
+                        slides_json = Some(text);
+                    }
                 }
             }
             "captions" => {
@@ -879,42 +964,40 @@ async fn add_recording(
         }
     }
 
-    let (Some((video_data, video_ext)), Some(vtt_data)) = (video_bytes, vtt_bytes) else {
+    let Some(slides_str) = slides_json else {
         return StatusCode::BAD_REQUEST.into_response();
     };
     if name.is_empty() {
         return StatusCode::BAD_REQUEST.into_response();
     }
+    let Ok(slides) = serde_json::from_str::<Vec<RecordingSlideInput>>(&slides_str) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
 
-    let video_filename = format!("video.{video_ext}");
     let captions_data = captions_bytes.unwrap_or_else(|| b"WEBVTT\n".to_vec());
+    let (video_path, video_data) = match video_bytes {
+        Some((data, ext)) => (Some(format!("video.{ext}")), Some(data)),
+        None => (None, None),
+    };
 
-    let rec = match Recording::create(
-        pid,
-        name,
-        video_filename.clone(),
-        "slides.vtt".to_string(),
-        "captions.vtt".to_string(),
-        &db,
-    )
-    .await
-    {
+    let rec = match Recording::create(pid, name, video_path.clone(), "captions.vtt".to_string(), &db).await {
         Ok(r) => r,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
 
     let dir = format!("assets/{}", rec.id);
-    if tokio::fs::create_dir_all(&dir).await.is_err()
-        || tokio::fs::write(format!("{dir}/{video_filename}"), &video_data)
-            .await
-            .is_err()
-        || tokio::fs::write(format!("{dir}/slides.vtt"), &vtt_data)
-            .await
-            .is_err()
-        || tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data)
-            .await
-            .is_err()
-    {
+    if tokio::fs::create_dir_all(&dir).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    if let (Some(filename), Some(data)) = (video_path, video_data) {
+        if tokio::fs::write(format!("{dir}/{filename}"), &data).await.is_err() {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+    if tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
+    if RecordingSlide::create_batch(rec.id, slides, &db).await.is_err() {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
 
@@ -954,7 +1037,7 @@ async fn main() {
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
         .route("/user/presentations/{pid}/delete", post(delete_presentation))
-        .route("/user/recordings/{rid}/slides_vtt", post(update_slides_vtt))
+        .route("/user/recordings/{rid}/slides/{sid}/time", post(update_slide_time))
         .route("/user/recordings/{rid}/name", post(update_recording_name))
         .route("/user/presentations/{pid}/name", post(update_presentation_name))
         .route("/user/change_pwd", get(change_pwd))
@@ -969,6 +1052,8 @@ async fn main() {
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
         .route("/{uname}/{pid}/{rid}", get(recording))
+        .route("/{uname}/{pid}/{rid}/slides.vtt", get(slides_vtt))
+        .route("/{uname}/{pid}/{rid}/slides.html", get(slides_html))
         .nest_service("/css", ServeDir::new("css/"))
         .nest_service("/js", ServeDir::new("js/"))
         .nest_service("/assets", ServeDir::new("assets/"))

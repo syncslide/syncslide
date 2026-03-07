@@ -3,13 +3,8 @@ use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use serde::{Deserialize, Serialize};
 use sqlx::types::time::OffsetDateTime;
-use sqlx::{self, SqlitePool};
+use sqlx::{self, FromRow, SqlitePool};
 use std::collections::HashSet;
-
-#[derive(Deserialize)]
-pub struct NewRecordingForm {
-    content: String,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresentationRecordings {
@@ -19,15 +14,15 @@ pub struct PresentationRecordings {
     pub name: String,
     pub recordings: Vec<Recording>,
 }
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize)]
+
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, FromRow)]
 pub struct Recording {
     pub id: i64,
     pub presentation_id: i64,
     pub name: String,
     #[serde(with = "time::serde::rfc3339")]
     pub start: OffsetDateTime,
-    pub vtt_path: String,
-    pub video_path: String,
+    pub video_path: Option<String>,
     pub captions_path: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub last_edited: Option<OffsetDateTime>,
@@ -37,12 +32,11 @@ impl Recording {
         pres: Presentation,
         db: &SqlitePool,
     ) -> Result<PresentationRecordings, Error> {
-        let recordings = sqlx::query_as!(
-            Recording,
+        let recordings = sqlx::query_as::<_, Recording>(
             "SELECT * FROM recording WHERE presentation_id = ?;",
-            pres.id
         )
-        .fetch_all(&*db)
+        .bind(pres.id)
+        .fetch_all(db)
         .await
         .map_err(Error::from)?;
         Ok(PresentationRecordings {
@@ -54,46 +48,115 @@ impl Recording {
         })
     }
     pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {
-        sqlx::query_as!(Recording, "SELECT * FROM recording WHERE id = ?;", id)
-            .fetch_optional(&*db)
+        sqlx::query_as::<_, Recording>("SELECT * FROM recording WHERE id = ?;")
+            .bind(id)
+            .fetch_optional(db)
             .await
             .map_err(Error::from)
     }
     pub async fn delete(id: i64, db: &SqlitePool) -> Result<(), Error> {
-        sqlx::query!("DELETE FROM recording WHERE id = ?;", id)
-            .execute(&*db)
+        sqlx::query("DELETE FROM recording_slide WHERE recording_id = ?;")
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)?;
+        sqlx::query("DELETE FROM recording WHERE id = ?;")
+            .bind(id)
+            .execute(db)
             .await
             .map_err(Error::from)
             .map(|_| ())
     }
     pub async fn update_name(id: i64, name: String, db: &SqlitePool) -> Result<(), Error> {
-        sqlx::query!("UPDATE recording SET name = ?, last_edited = strftime('%s', 'now') WHERE id = ?;", name, id)
-            .execute(&*db)
-            .await
-            .map_err(Error::from)
-            .map(|_| ())
+        sqlx::query(
+            "UPDATE recording SET name = ?, last_edited = strftime('%s', 'now') WHERE id = ?;",
+        )
+        .bind(name)
+        .bind(id)
+        .execute(db)
+        .await
+        .map_err(Error::from)
+        .map(|_| ())
     }
     pub async fn create(
         presentation_id: i64,
         name: String,
-        video_path: String,
-        vtt_path: String,
+        video_path: Option<String>,
         captions_path: String,
         db: &SqlitePool,
     ) -> Result<Recording, Error> {
-        sqlx::query_as!(
-            Recording,
-            "INSERT INTO recording (presentation_id, name, video_path, vtt_path, captions_path)
-             VALUES (?, ?, ?, ?, ?) RETURNING *;",
-            presentation_id,
-            name,
-            video_path,
-            vtt_path,
-            captions_path
+        sqlx::query_as::<_, Recording>(
+            "INSERT INTO recording (presentation_id, name, video_path, captions_path)
+             VALUES (?, ?, ?, ?) RETURNING *;",
         )
-        .fetch_one(&*db)
+        .bind(presentation_id)
+        .bind(name)
+        .bind(video_path)
+        .bind(captions_path)
+        .fetch_one(db)
         .await
         .map_err(Error::from)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct RecordingSlide {
+    pub id: i64,
+    pub recording_id: i64,
+    pub start_seconds: f64,
+    pub position: i64,
+    pub title: String,
+    pub content: String,
+}
+#[derive(Debug, Deserialize)]
+pub struct RecordingSlideInput {
+    pub start_seconds: f64,
+    pub title: String,
+    pub content: String,
+}
+impl RecordingSlide {
+    pub async fn get_by_recording(recording_id: i64, db: &SqlitePool) -> Result<Vec<Self>, Error> {
+        sqlx::query_as::<_, RecordingSlide>(
+            "SELECT * FROM recording_slide WHERE recording_id = ? ORDER BY position;",
+        )
+        .bind(recording_id)
+        .fetch_all(db)
+        .await
+        .map_err(Error::from)
+    }
+    pub async fn create_batch(
+        recording_id: i64,
+        slides: Vec<RecordingSlideInput>,
+        db: &SqlitePool,
+    ) -> Result<(), Error> {
+        for (position, slide) in slides.into_iter().enumerate() {
+            sqlx::query(
+                "INSERT INTO recording_slide (recording_id, start_seconds, position, title, content)
+                 VALUES (?, ?, ?, ?, ?);",
+            )
+            .bind(recording_id)
+            .bind(slide.start_seconds)
+            .bind(position as i64)
+            .bind(slide.title)
+            .bind(slide.content)
+            .execute(db)
+            .await
+            .map_err(Error::from)?;
+        }
+        Ok(())
+    }
+    pub async fn update_start_seconds(
+        id: i64,
+        start_seconds: f64,
+        db: &SqlitePool,
+    ) -> Result<(), Error> {
+        sqlx::query("UPDATE recording_slide SET start_seconds = ? WHERE id = ?;")
+            .bind(start_seconds)
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
     }
 }
 
