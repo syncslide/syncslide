@@ -32,9 +32,15 @@
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>
-						<form method="post" action="/user/recordings/{{ rec.id }}/delete" style="display:inline">
-							<button type="submit">Delete</button>
-						</form>
+						<button type="button" data-open-dialog="delete-rec-{{ rec.id }}">Delete</button>
+						<dialog id="delete-rec-{{ rec.id }}" aria-labelledby="delete-rec-heading-{{ rec.id }}">
+							<button type="button" data-close-dialog="delete-rec-{{ rec.id }}">Cancel</button>
+							<h3 id="delete-rec-heading-{{ rec.id }}">Delete {{ rec.name }}?</h3>
+							<p>This will permanently delete the recording.</p>
+							<form method="post" action="/user/recordings/{{ rec.id }}/delete">
+								<button type="submit">Delete</button>
+							</form>
+						</dialog>
 					</td>
 				</tr>
 				{% endfor %}
