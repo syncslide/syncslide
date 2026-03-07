@@ -131,7 +131,7 @@ window.addEventListener("load", () => {
 		}
 	});
 
-	rate.addEventListener('change', () => {
+	rate?.addEventListener('change', () => {
 		video.playbackRate = rate.value;
 	});
 
