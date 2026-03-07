@@ -47,7 +47,7 @@
 				</tbody>
 			</table>
 			{% else %}
-			<p>No recordings yet. Start a recording from the <a href="/{{ user.name }}/{{ pres.id }}">stage</a>.</p>
+			<p>No recordings yet. Start a recording from the <a href="/{{ user.name }}/{{ pres.id }}">{{ pres.name }} stage</a>.</p>
 			{% endif %}
 		</details>
 		<button type="button" data-open-dialog="delete-pres-{{ pres.id }}">Delete: {{ pres.name }}</button>
