@@ -19,14 +19,7 @@ window.addEventListener("load", () => {
 	const shiftSubsequent = document.getElementById("shiftSubsequent");
 	const rid = video.dataset.rid;
 
-	let cueList = Array.from(slidesData.cues).map(c => {
-		const parsed = JSON.parse(c.text);
-		return {
-			startTime: c.startTime,
-			id: parsed.id,
-			title: parsed.title,
-		};
-	});
+	let cueList = [];
 
 	function buildGoTo() {
 		goTo.innerHTML = '';
@@ -46,8 +39,22 @@ window.addEventListener("load", () => {
 		});
 	}
 
-	buildGoTo();
-	renderCueTable();
+	function initFromCues() {
+		if (!slidesData.cues || slidesData.cues.length === 0) return;
+		cueList = Array.from(slidesData.cues).map(c => {
+			const parsed = JSON.parse(c.text);
+			return { startTime: c.startTime, id: parsed.id, title: parsed.title };
+		});
+		buildGoTo();
+		renderCueTable();
+	}
+
+	initFromCues();
+	if (cueList.length === 0) {
+		// Cues not loaded yet (common when no video source) — force load and wait
+		slidesData.mode = 'hidden';
+		slidesData.addEventListener('load', initFromCues);
+	}
 
 	document.getElementById('openEditPresentation')?.addEventListener('click', () => {
 		document.getElementById('editPresentationDialog').showModal();
@@ -100,7 +107,16 @@ window.addEventListener("load", () => {
 	});
 
 	go.addEventListener('click', () => {
-		video.currentTime = goTo.value;
+		const targetTime = parseFloat(goTo.value);
+		video.currentTime = targetTime;
+		// Also render directly — handles the no-video case and avoids waiting for cuechange
+		if (slidesData.cues) {
+			const cue = Array.from(slidesData.cues).find(c => c.startTime === targetTime);
+			if (cue) {
+				const parsed = JSON.parse(cue.text);
+				slidesContainer.innerHTML = parsed.content ?? '';
+			}
+		}
 	});
 
 	document.addEventListener("keydown", (e) => {
