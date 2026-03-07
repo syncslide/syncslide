@@ -982,22 +982,26 @@ async fn add_recording(
 
     let rec = match Recording::create(pid, name, video_path.clone(), "captions.vtt".to_string(), &db).await {
         Ok(r) => r,
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(e) => { eprintln!("add_recording: Recording::create failed: {e:?}"); return StatusCode::INTERNAL_SERVER_ERROR.into_response(); }
     };
 
     let dir = format!("assets/{}", rec.id);
-    if tokio::fs::create_dir_all(&dir).await.is_err() {
+    if let Err(e) = tokio::fs::create_dir_all(&dir).await {
+        eprintln!("add_recording: create_dir_all {dir} failed: {e:?}");
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
     if let (Some(filename), Some(data)) = (video_path, video_data) {
-        if tokio::fs::write(format!("{dir}/{filename}"), &data).await.is_err() {
+        if let Err(e) = tokio::fs::write(format!("{dir}/{filename}"), &data).await {
+            eprintln!("add_recording: write video failed: {e:?}");
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
     }
-    if tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data).await.is_err() {
+    if let Err(e) = tokio::fs::write(format!("{dir}/captions.vtt"), &captions_data).await {
+        eprintln!("add_recording: write captions failed: {e:?}");
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
-    if RecordingSlide::create_batch(rec.id, slides, &db).await.is_err() {
+    if let Err(e) = RecordingSlide::create_batch(rec.id, slides, &db).await {
+        eprintln!("add_recording: create_batch failed: {e:?}");
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     }
 

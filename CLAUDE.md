@@ -64,5 +64,6 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 | `syncslide-websocket/migrations/` | SQLite schema migrations (run automatically on startup) |
 | `config/syncSlide.conf` | Caddy reverse proxy config |
 
-## User constrain
-Do not rewrite git history.
+## User constraints
+- Do not rewrite git history.
+- Never run the server locally. Always push changes and deploy on the VPS to test.
