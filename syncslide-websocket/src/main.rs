@@ -600,6 +600,16 @@ async fn index(
         .await
 }
 
+fn strip_leading_h1(content: &str) -> &str {
+    let t = content.trim_start();
+    if t.to_ascii_lowercase().starts_with("<h1") {
+        if let Some(end) = t.to_ascii_lowercase().find("</h1>") {
+            return t[end + 5..].trim_start();
+        }
+    }
+    content
+}
+
 fn format_vtt_time(seconds: f64) -> String {
     let ms = ((seconds % 1.0) * 1000.0).round() as u64;
     let total_s = seconds as u64;
@@ -674,12 +684,14 @@ async fn slides_html(
     let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
-    let title = rec.name;
+    let rec_name = &rec.name;
+    let pres_name = &pres.name;
     let mut html = format!(
-        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>{title} - Slides</title></head><body>\n"
+        "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>{rec_name} - Slides</title></head><body>\n<h1>{pres_name}</h1>\n"
     );
     for slide in &slides {
-        html.push_str(&format!("<section>\n{}\n</section>\n", slide.content));
+        let content = strip_leading_h1(&slide.content);
+        html.push_str(&format!("<section>\n{content}\n</section>\n"));
     }
     html.push_str("</body></html>");
     (

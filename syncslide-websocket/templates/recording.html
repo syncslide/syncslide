@@ -40,8 +40,8 @@ Your browser does not support the video tag.
 </details>
 </section>
 <nav aria-label="Downloads">
-<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" download>Download VTT</a>
-<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.html" download>Download Slides HTML</a>
+<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" download="{{ pres.name }}_{{ recording.name }}.vtt">Download VTT</a>
+<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.html" download="{{ pres.name }}_{{ recording.name }}.html">Download Slides HTML</a>
 </nav>
 {% if is_owner %}<button id="openEditPresentation" type="button">Edit Timing</button>{% endif %}
 <main>
