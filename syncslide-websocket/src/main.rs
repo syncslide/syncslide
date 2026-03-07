@@ -1019,6 +1019,7 @@ async fn main() {
     // USR1 signal causes cleanup routine
     let sig_handle = Signals::new([SIGUSR1]).unwrap().handle();
     let db_pool = SqlitePool::connect("sqlite://db.sqlite3").await.unwrap();
+    sqlx::migrate!("./migrations").run(&db_pool).await.unwrap();
     let session_store = SqliteStore::new(db_pool.clone());
     session_store.migrate().await.unwrap();
     let session_layer = SessionManagerLayer::new(session_store)
