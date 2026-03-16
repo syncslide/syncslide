@@ -164,12 +164,12 @@ window.addEventListener("load", () => {
 		if (e.shiftKey) {
 			if (current > 0) {
 				goTo.value = String(cueList[current - 1].startTime);
-				video.currentTime = cueList[current - 1].startTime;
+				goToSlide();
 			}
 		} else {
 			if (current < max) {
 				goTo.value = String(cueList[current + 1].startTime);
-				video.currentTime = cueList[current + 1].startTime;
+				goToSlide();
 			}
 		}
 	});
