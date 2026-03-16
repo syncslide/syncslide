@@ -8,6 +8,7 @@
 {% block js %}{% endblock js %}
 {% endblock head %}
 </head><body>
+<script>document.addEventListener('DOMContentLoaded',()=>{document.querySelectorAll('a[href^="http"]').forEach(a=>{const s=document.createElement('span');s.className='ext-label';s.textContent='(external)';a.appendChild(s);});});</script>
 {% block nav %}{% endblock nav %}
 {% block breadcrumb %}{% endblock breadcrumb %}
 {% block content %}{% endblock content %}
