@@ -248,7 +248,6 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, auth
     };
     let channel_handler = async {
         while let Ok(msg) = rx.recv().await {
-            update_slide(&pid, msg.clone(), &mut state);
             let text = serde_json::to_string(&msg).unwrap();
             sock_send.send(Message::from(text)).await.unwrap();
             let id = pid.parse().unwrap();
