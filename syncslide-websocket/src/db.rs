@@ -261,6 +261,14 @@ impl Presentation {
         .map(|_| ())
     }
     pub async fn delete(id: i64, user_id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query(
+            "DELETE FROM recording_slide WHERE recording_id IN \
+             (SELECT id FROM recording WHERE presentation_id = ?)",
+        )
+        .bind(id)
+        .execute(&*db)
+        .await
+        .map_err(Error::from)?;
         sqlx::query("DELETE FROM recording WHERE presentation_id = ?")
             .bind(id)
             .execute(&*db)
