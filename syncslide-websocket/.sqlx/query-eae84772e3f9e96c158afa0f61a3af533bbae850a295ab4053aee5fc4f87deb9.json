@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT groups.name as \"name: Group\"\n            FROM group_users\n            INNER JOIN groups\n            ON groups.id = group_users.group_id\n            WHERE group_users.user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "name: Group",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "eae84772e3f9e96c158afa0f61a3af533bbae850a295ab4053aee5fc4f87deb9"
+}
