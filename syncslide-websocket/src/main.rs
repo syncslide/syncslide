@@ -586,8 +586,17 @@ async fn recording(
         .into_response()
 }
 
-async fn demo() -> impl IntoResponse {
-    Redirect::to("/admin/1/1")
+async fn demo(State(db): State<SqlitePool>) -> impl IntoResponse {
+    let Ok(Some(user)) = User::get_by_name("admin".to_string(), &db).await else {
+        return Redirect::to("/").into_response();
+    };
+    let Ok(presses) = DbPresentation::get_for_user(&user, &db).await else {
+        return Redirect::to("/").into_response();
+    };
+    match presses.into_iter().next() {
+        Some(pres) => Redirect::to(&format!("/{}/{}", user.name, pres.id)).into_response(),
+        None => Redirect::to("/").into_response(),
+    }
 }
 
 async fn index(
