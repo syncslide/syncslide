@@ -47,7 +47,7 @@ function onCommit(el, fn) {
 const textInput = document.getElementById("markdown-input");
 onCommit(textInput, updateMarkdown);
 
-goTo = document.getElementById("goTo");
+const goTo = document.getElementById("goTo");
 onCommit(goTo, updateSlide);
 
 document.addEventListener("keydown", (e) => {
