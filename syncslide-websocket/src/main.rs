@@ -12,7 +12,7 @@ use axum::{
     Form, Router,
     body::Body,
     extract::{
-        DefaultBodyLimit, FromRef, Multipart, Path, State,
+        DefaultBodyLimit, FromRef, Multipart, Path, Query, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::{HeaderMap, StatusCode},
@@ -329,6 +329,11 @@ struct NameForm {
     name: String,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PwdQuery {
+    error: Option<String>,
+}
+
 async fn start_pres(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -486,11 +491,16 @@ async fn change_pwd(
     State(db): State<SqlitePool>,
     State(tera): State<Tera>,
     auth_session: AuthSession,
+    Query(params): Query<PwdQuery>,
 ) -> impl IntoResponse {
-    let Some(ref user) = auth_session.user else {
+    let Some(ref _user) = auth_session.user else {
         return Redirect::to("/auth/login").into_response();
     };
-    tera.render("user/change_pwd.html", Context::new(), auth_session, db)
+    let mut ctx = Context::new();
+    if let Some(ref err) = params.error {
+        ctx.insert("error", err);
+    }
+    tera.render("user/change_pwd.html", ctx, auth_session, db)
         .await
 }
 async fn change_pwd_form(
@@ -502,22 +512,18 @@ async fn change_pwd_form(
         return Redirect::to("/auth/login").into_response();
     };
     if pwd_form.new != pwd_form.confirm {
-        // TODO: send messages with response
-        return Redirect::to("/user/change_pwd").into_response();
+        return Redirect::to("/user/change_pwd?error=Passwords+do+not+match").into_response();
     }
     let phash = PasswordHash::new(&user.password).unwrap();
     if Argon2::default()
         .verify_password(pwd_form.old.as_bytes(), &phash)
         .is_err()
     {
-        // TODO: send messages with response
-        return Redirect::to("/user/change_pwd").into_response();
+        return Redirect::to("/user/change_pwd?error=Current+password+is+incorrect").into_response();
     }
     if user.change_password(pwd_form.new, &db).await.is_err() {
-        // TODO: send messages with response
-        return Redirect::to("/user/change_pwd").into_response();
+        return Redirect::to("/user/change_pwd?error=Failed+to+update+password").into_response();
     }
-    // TODO: send messages with response
     return Redirect::to("/").into_response();
 }
 

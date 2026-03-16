@@ -5,6 +5,7 @@
 {% block content %}
 <main>
 <h1>Change Password</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
 <form method="POST">
 <label for="old">Old Password</label>
 <input type="password" id="now" name="old" required>
