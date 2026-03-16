@@ -1050,6 +1050,11 @@ async fn main() {
     // USR1 signal causes cleanup routine
     let mut signals = Signals::new([SIGUSR1]).unwrap();
     let sig_handle = signals.handle();
+    // Migrations must run without FK enforcement: SQLite cannot disable FK checks
+    // inside a transaction, and DROP TABLE fails when other tables reference it.
+    let migrate_pool = SqlitePool::connect("sqlite://db.sqlite3").await.unwrap();
+    sqlx::migrate!("./migrations").run(&migrate_pool).await.unwrap();
+    migrate_pool.close().await;
     let db_pool = SqlitePool::connect_with(
         SqliteConnectOptions::from_str("sqlite://db.sqlite3")
             .unwrap()
@@ -1057,7 +1062,6 @@ async fn main() {
     )
     .await
     .unwrap();
-    sqlx::migrate!("./migrations").run(&db_pool).await.unwrap();
     let session_store = SqliteStore::new(db_pool.clone());
     session_store.migrate().await.unwrap();
     let session_layer = SessionManagerLayer::new(session_store)
