@@ -23,6 +23,8 @@ use axum_login::{AuthManagerLayerBuilder, AuthzBackend};
 use futures_lite::future::or;
 use futures_util::{SinkExt, StreamExt};
 use sqlx::SqlitePool;
+use sqlx::sqlite::SqliteConnectOptions;
+use std::str::FromStr;
 use tera::{Context, Tera as TeraBase};
 use time::Duration;
 use tower_http::services::ServeDir;
@@ -1048,7 +1050,13 @@ async fn main() {
     // USR1 signal causes cleanup routine
     let mut signals = Signals::new([SIGUSR1]).unwrap();
     let sig_handle = signals.handle();
-    let db_pool = SqlitePool::connect("sqlite://db.sqlite3").await.unwrap();
+    let db_pool = SqlitePool::connect_with(
+        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+            .unwrap()
+            .foreign_keys(true),
+    )
+    .await
+    .unwrap();
     sqlx::migrate!("./migrations").run(&db_pool).await.unwrap();
     let session_store = SqliteStore::new(db_pool.clone());
     session_store.migrate().await.unwrap();
