@@ -42,7 +42,7 @@ function resumeRecording() {
 	paused = false;
 	startTime = Date.now() - elapsedTime;
 	timerInterval = setInterval(updateTimer, 100);
-	recordPauseButton.innerText = "Resume";
+	recordPauseButton.innerText = "Pause";
 }
 
 function stopRecording() {
