@@ -388,7 +388,9 @@ impl AuthzBackend for Backend {
         .map_err(Error::from)
         .map(|vec| HashSet::from_iter(vec.into_iter().map(|gw| gw.name)))
     }
-    // TODO: group perms not set in DB
+    // SyncSlide uses a flat permission model: a user's permissions are the union
+    // of all groups they belong to. There are no group-level permissions separate
+    // from membership, so this delegates to get_user_permissions.
     async fn get_group_permissions(&self, user: &User) -> Result<HashSet<Self::Permission>, Error> {
         Self::get_user_permissions(self, user).await
     }
