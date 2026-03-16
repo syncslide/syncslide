@@ -463,7 +463,7 @@ async fn login(
 }
 async fn new_user_form(
     State(db): State<SqlitePool>,
-    State(tera): State<Tera>,
+    State(_tera): State<Tera>,
     auth_session: AuthSession,
     Form(new_user): Form<AddUserForm>,
 ) -> impl IntoResponse {
@@ -483,7 +483,7 @@ async fn new_user(
     State(tera): State<Tera>,
     auth_session: AuthSession,
 ) -> impl IntoResponse {
-    let Some(ref user) = auth_session.user else {
+    let Some(ref _user) = auth_session.user else {
         return Redirect::to("/auth/login").into_response();
     };
     tera.render("user/add_user.html", Context::new(), auth_session, db)
@@ -1067,7 +1067,7 @@ async fn main() {
     let backend = Backend::new(db_pool.clone());
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
-    let mut state = AppState {
+    let state = AppState {
         tera,
         slides: Arc::new(Mutex::new(HashMap::new())),
         db_pool,

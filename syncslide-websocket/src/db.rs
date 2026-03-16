@@ -1,4 +1,4 @@
-use argon2::password_hash::{PasswordHashString as PwdString, SaltString, rand_core::OsRng};
+use argon2::password_hash::{SaltString, rand_core::OsRng};
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use axum_login::{AuthUser, AuthnBackend, AuthzBackend, UserId};
 use serde::{Deserialize, Serialize};
