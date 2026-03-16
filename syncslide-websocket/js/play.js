@@ -10,8 +10,28 @@ window.addEventListener("load", () => {
 	const rate = document.getElementById("rate");
 	const slidesContainer = document.getElementById("currentSlide");
 	const goTo = document.getElementById("goTo");
-	const go = document.getElementById("go");
 	const cueTableBody = document.getElementById("cueTableBody");
+
+	function onCommit(el, fn) {
+		el.addEventListener('blur', fn);
+		el.addEventListener('change', fn);
+		if (el.tagName !== 'TEXTAREA') {
+			el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
+		}
+	}
+
+	function goToSlide() {
+		const targetTime = parseFloat(goTo.value);
+		video.currentTime = targetTime;
+		if (slidesData.cues) {
+			const cue = Array.from(slidesData.cues).find(c => c.startTime === targetTime);
+			if (cue) {
+				const parsed = JSON.parse(cue.text);
+				slidesContainer.innerHTML = parsed.content ?? parsed.data ?? '';
+			}
+		}
+	}
+
 	const shiftSubsequent = document.getElementById("shiftSubsequent");
 	const rid = video.dataset.rid;
 
@@ -134,18 +154,7 @@ window.addEventListener("load", () => {
 		goTo.value = Number(slide.startTime);
 	});
 
-	go.addEventListener('click', () => {
-		const targetTime = parseFloat(goTo.value);
-		video.currentTime = targetTime;
-		// Also render directly — handles the no-video case and avoids waiting for cuechange
-		if (slidesData.cues) {
-			const cue = Array.from(slidesData.cues).find(c => c.startTime === targetTime);
-			if (cue) {
-				const parsed = JSON.parse(cue.text);
-				slidesContainer.innerHTML = parsed.content ?? '';
-			}
-		}
-	});
+	onCommit(goTo, goToSlide);
 
 	document.addEventListener("keydown", (e) => {
 		if (e.key !== "F8") return;
@@ -153,9 +162,15 @@ window.addEventListener("load", () => {
 		const current = Array.from(goTo.options).findIndex(o => o.selected);
 		const max = goTo.options.length - 1;
 		if (e.shiftKey) {
-			if (current > 0) video.currentTime = cueList[current - 1].startTime;
+			if (current > 0) {
+				goTo.value = String(cueList[current - 1].startTime);
+				video.currentTime = cueList[current - 1].startTime;
+			}
 		} else {
-			if (current < max) video.currentTime = cueList[current + 1].startTime;
+			if (current < max) {
+				goTo.value = String(cueList[current + 1].startTime);
+				video.currentTime = cueList[current + 1].startTime;
+			}
 		}
 	});
 
