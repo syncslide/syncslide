@@ -1052,7 +1052,13 @@ async fn main() {
     let sig_handle = signals.handle();
     // Migrations must run without FK enforcement: SQLite cannot disable FK checks
     // inside a transaction, and DROP TABLE fails when other tables reference it.
-    let migrate_pool = SqlitePool::connect("sqlite://db.sqlite3").await.unwrap();
+    let migrate_pool = SqlitePool::connect_with(
+        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+            .unwrap()
+            .foreign_keys(false),
+    )
+    .await
+    .unwrap();
     sqlx::migrate!("./migrations").run(&migrate_pool).await.unwrap();
     migrate_pool.close().await;
     let db_pool = SqlitePool::connect_with(
