@@ -5,14 +5,14 @@ edition = "2024"
 
 [dependencies]
 argon2 = { version = "0.5.3", default-features = false, features = ["password-hash", "std", "rand"] }
-axum = { version = "0.8.6", default-features = false, features = ["ws", "http1", "form", "multipart"] }
+axum = { version = "0.8.6", default-features = false, features = ["ws", "http1", "form", "multipart", "query"] }
 axum-login = { version = "0.18.0", default-features = false }
 futures-lite = { version = "2.6.1", default-features = false }
 futures-util = "0.3.31"
 serde = { version = "1.0", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "1.0", default-features = false, features = ["std"] }
 signal-hook = { version = "0.3.18", default-features = false }
-signal-hook-tokio = { version = "0.3.1", default-features = false }
+signal-hook-tokio = { version = "0.3.1", default-features = false, features = ["futures-v0_3"] }
 sqlx = { version = "0.8.6", default-features = false, features = ["sqlite", "macros", "runtime-tokio", "time"] }
 qrcode = { version = "0.14.1", default-features = false, features = ["svg"] }
 pulldown-cmark = { version = "0.12", default-features = false, features = ["html"] }
