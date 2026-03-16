@@ -129,6 +129,7 @@ impl RecordingSlide {
         slides: Vec<RecordingSlideInput>,
         db: &SqlitePool,
     ) -> Result<(), Error> {
+        let mut tx = db.begin().await.map_err(Error::from)?;
         for (position, slide) in slides.into_iter().enumerate() {
             sqlx::query(
                 "INSERT INTO recording_slide (recording_id, start_seconds, position, title, content)
@@ -139,11 +140,11 @@ impl RecordingSlide {
             .bind(position as i64)
             .bind(slide.title)
             .bind(slide.content)
-            .execute(db)
+            .execute(&mut *tx)
             .await
             .map_err(Error::from)?;
         }
-        Ok(())
+        tx.commit().await.map_err(Error::from)
     }
     pub async fn update_start_seconds(
         id: i64,
