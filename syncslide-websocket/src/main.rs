@@ -291,12 +291,8 @@ fn render_slide(markdown: &str, slide_index: u32, pres_name: &str) -> String {
     let end = slide_starts.get(idx + 1).copied().unwrap_or(events.len());
     let mut output = String::new();
     if !pres_name.is_empty() {
-        let escaped = pres_name
-            .replace('&', "&amp;")
-            .replace('<', "&lt;")
-            .replace('>', "&gt;");
         output.push_str("<h1>");
-        output.push_str(&escaped);
+        output.push_str(&html_escape(pres_name));
         output.push_str("</h1>");
     }
     cmark_html::push_html(&mut output, events[start..end].iter().cloned());
@@ -608,6 +604,13 @@ async fn index(
         .await
 }
 
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
+
 fn strip_leading_h1(content: &str) -> &str {
     let t = content.trim_start();
     if t.to_ascii_lowercase().starts_with("<h1") {
@@ -692,8 +695,8 @@ async fn slides_html(
     let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
-    let rec_name = &rec.name;
-    let pres_name = &pres.name;
+    let rec_name = html_escape(&rec.name);
+    let pres_name = html_escape(&pres.name);
     let mut html = format!(
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><title>{rec_name} - Slides</title></head><body>\n<h1>{pres_name}</h1>\n"
     );
