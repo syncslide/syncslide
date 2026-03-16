@@ -469,7 +469,7 @@ async fn new_user_form(
         return Redirect::to("/auth/login").into_response();
     };
     if let Ok(is_admin) = auth_session.backend.has_perm(user, Group::Admin).await
-        && is_admin
+        && !is_admin
     {
         return StatusCode::NOT_FOUND.into_response();
     }
