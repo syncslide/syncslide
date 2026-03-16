@@ -65,7 +65,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 function markdownToSlides(markdown) {
-	const sections = markdown.split(/^## /m);
+	const sections = markdown.split(/^##\s+/m);
 	return sections.filter(s => s.trim()).map(s => {
 		const nl = s.indexOf('\n');
 		const title = nl === -1 ? s.trim() : s.slice(0, nl).trim();
