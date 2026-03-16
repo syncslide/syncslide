@@ -370,7 +370,7 @@ impl AuthzBackend for Backend {
             r#"SELECT groups.name as "name: Group"
             FROM group_users
             INNER JOIN groups
-            ON groups.id = group_users.user_id
+            ON groups.id = group_users.group_id
             WHERE group_users.user_id = ?"#,
             user.id
         )
