@@ -474,7 +474,7 @@ async fn new_user_form(
         return StatusCode::NOT_FOUND.into_response();
     }
     User::new(&db, new_user).await.unwrap();
-    tera.render("/", Context::new(), auth_session, db).await
+    Redirect::to("/user/presentations").into_response()
 }
 async fn new_user(
     State(db): State<SqlitePool>,
