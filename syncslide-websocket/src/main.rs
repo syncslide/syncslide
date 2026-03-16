@@ -1040,7 +1040,8 @@ fn cleanup(state: &mut AppState) {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     // USR1 signal causes cleanup routine
-    let sig_handle = Signals::new([SIGUSR1]).unwrap().handle();
+    let mut signals = Signals::new([SIGUSR1]).unwrap();
+    let sig_handle = signals.handle();
     let db_pool = SqlitePool::connect("sqlite://db.sqlite3").await.unwrap();
     sqlx::migrate!("./migrations").run(&db_pool).await.unwrap();
     let session_store = SqliteStore::new(db_pool.clone());
@@ -1094,7 +1095,13 @@ async fn main() {
         .with_state(state.clone())
         .layer(auth_layer);
     let listener = tokio::net::TcpListener::bind("0.0.0.0:5002").await.unwrap();
-    let signal_task = tokio::spawn(async move { cleanup(&mut state) });
+    let mut state_for_signal = state.clone();
+    let signal_task = tokio::spawn(async move {
+        use futures_util::StreamExt;
+        while let Some(_sig) = signals.next().await {
+            cleanup(&mut state_for_signal);
+        }
+    });
     axum::serve(listener, app).await.unwrap();
     sig_handle.close();
     let _ = signal_task.await;
