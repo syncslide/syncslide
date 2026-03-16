@@ -1,7 +1,3 @@
-function sanitize(s) {
-	return s.trim().replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
-}
-
 function escapeHtml(str) {
 	const d = document.createElement('div');
 	d.textContent = str;
@@ -56,11 +52,20 @@ window.addEventListener("load", () => {
 		slidesData.addEventListener('load', initFromCues);
 	}
 
+	const editPresentationDialog = document.getElementById('editPresentationDialog');
+	const saveTimingDialog = document.getElementById('saveTimingDialog');
+	const pendingChanges = new Set();
+
 	document.getElementById('openEditPresentation')?.addEventListener('click', () => {
-		document.getElementById('editPresentationDialog').showModal();
+		editPresentationDialog.showModal();
 	});
+
 	document.getElementById('closeEditPresentation')?.addEventListener('click', () => {
-		document.getElementById('editPresentationDialog').close();
+		if (pendingChanges.size > 0) {
+			saveTimingDialog.showModal();
+		} else {
+			editPresentationDialog.close();
+		}
 	});
 
 	async function saveSlideTime(sid, startSeconds) {
@@ -71,7 +76,32 @@ window.addEventListener("load", () => {
 		});
 	}
 
-	cueTableBody.addEventListener("change", async (event) => {
+	document.getElementById('saveTimingConfirm')?.addEventListener('click', async () => {
+		for (const idx of pendingChanges) {
+			await saveSlideTime(cueList[idx].id, cueList[idx].startTime);
+		}
+		pendingChanges.clear();
+		saveTimingDialog.close();
+		editPresentationDialog.close();
+		location.reload();
+	});
+
+	document.getElementById('discardTimingConfirm')?.addEventListener('click', () => {
+		const inputs = Array.from(cueTableBody.querySelectorAll("input[type='number']"));
+		for (const idx of pendingChanges) {
+			const input = inputs.find(i => parseInt(i.dataset.idx) === idx);
+			if (input) {
+				input.value = input.defaultValue;
+				cueList[idx].startTime = parseFloat(input.defaultValue);
+			}
+		}
+		pendingChanges.clear();
+		buildGoTo();
+		saveTimingDialog.close();
+		editPresentationDialog.close();
+	});
+
+	cueTableBody.addEventListener("change", (event) => {
 		const input = event.target;
 		if (input.type !== "number") return;
 
@@ -86,15 +116,13 @@ window.addEventListener("load", () => {
 					inputs[j].value = Math.max(0, parseFloat(inputs[j].value) + delta).toFixed(3);
 					const jIdx = parseInt(inputs[j].dataset.idx);
 					cueList[jIdx].startTime = parseFloat(inputs[j].value);
-					await saveSlideTime(cueList[jIdx].id, cueList[jIdx].startTime);
-					inputs[j].defaultValue = inputs[j].value;
+					pendingChanges.add(jIdx);
 				}
 			}
-			input.defaultValue = input.value;
 		}
 
 		cueList[idx].startTime = newTime;
-		await saveSlideTime(cueList[idx].id, newTime);
+		pendingChanges.add(idx);
 		buildGoTo();
 	});
 
