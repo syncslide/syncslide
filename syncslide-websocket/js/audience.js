@@ -38,7 +38,7 @@ const handleUpdate = (message) => {
 	const slideIndex = message.data;
 	const htmlString = md.render(TEXT_TO_RENDER);
 	const allHtml = stringToDOM(htmlString);
-	if (isStage()) {
+	if (typeof getH2s === 'function') {
 		getH2s(allHtml)
 	}
 	const newHtml = addSiblings(allHtml)[slideIndex];
