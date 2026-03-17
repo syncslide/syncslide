@@ -39,6 +39,9 @@ const updateMarkdown = async () => {
 function onCommit(el, fn) {
 	el.addEventListener('blur', fn);
 	el.addEventListener('change', fn);
+	if (el.tagName === 'SELECT') {
+		el.addEventListener('input', fn);
+	}
 	if (el.tagName !== 'TEXTAREA') {
 		el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
 	}

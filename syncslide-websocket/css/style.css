@@ -93,4 +93,12 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 #qrToggle[aria-pressed="true"] { outline: 2px solid #7ad; }
 
 
+/* dialog / modal */
+dialog { background: #2a2a2a; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 1.5em; max-width: min(90vw, 600px); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
+dialog h2, dialog h3 { margin-top: 0; }
+dialog button { background: #333; color: #fff; border: 1px solid #666; padding: 4px 10px; cursor: pointer; }
+dialog input[type="text"], dialog input[type="file"], dialog textarea, dialog select { background: #333; color: #fff; border: 1px solid #666; padding: 3px 6px; }
+dialog fieldset { border-color: #666; }
+
 /*# sourceMappingURL=style.css.map */
