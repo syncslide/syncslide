@@ -16,9 +16,9 @@
 	</select>
 </div>
 
-<div id="pres-list">
+<ul id="pres-list">
 	{% for pres in press %}
-	<section class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
+	<li class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
 		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
@@ -59,9 +59,9 @@
 				<button type="submit">Delete</button>
 			</form>
 		</dialog>
-	</section>
+	</li>
 	{% endfor %}
-</div>
+</ul>
 
 <nav class="pagination-controls" aria-label="Pagination">
 	<button id="prev-page" type="button">&#8592; Prev</button>
