@@ -5,9 +5,9 @@
 
 {% block stage %}
 <button type="button" id="qrToggle" aria-pressed="false">QR</button>
-<div id="qrOverlay" hidden aria-label="QR code for this presentation">
+<aside id="qrOverlay" hidden aria-label="QR code for this presentation">
 <a href="/{{ user.name }}/{{ pres.id }}"><img src="/qr/{{ user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
-</div>
+</aside>
 <details>
 <summary><h2>Edit Slides</h2></summary>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>

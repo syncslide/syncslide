@@ -17,9 +17,9 @@
 {% block stage %}{% endblock stage %}
 {% if pres_user %}
 <button type="button" id="qrToggle" aria-pressed="false">QR</button>
-<div id="qrOverlay" hidden aria-label="QR code for this presentation">
+<aside id="qrOverlay" hidden aria-label="QR code for this presentation">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
-</div>
+</aside>
 {% endif %}
 {% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
 <main>
