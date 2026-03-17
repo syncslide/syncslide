@@ -1071,6 +1071,8 @@ async fn main() {
     let session_store = SqliteStore::new(db_pool.clone());
     session_store.migrate().await.unwrap();
     let session_layer = SessionManagerLayer::new(session_store)
+        // with_secure(false): Caddy terminates TLS; this binary binds to localhost:5002 only.
+        // Session cookies are never sent over plain HTTP in production.
         .with_secure(false)
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
     let tera = Tera::new();
