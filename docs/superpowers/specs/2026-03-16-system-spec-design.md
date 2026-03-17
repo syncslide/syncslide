@@ -304,14 +304,8 @@ Three independent implementations:
 
 ## 10. Known Issues & Remaining Technical Debt
 
-### #1 — Three independent slide parsers (minor inconsistency)
-`pulldown_cmark` (server), `remarkable` DOM split (client live), `^##\s+` regex (client recording). The regex was updated to `\s+` to be consistent, but structural edge cases in Markdown (e.g. `##heading` with no space) will still produce different slide boundaries between server and the DOM-based renderer.
+### #1 — `getH2s` architectural coupling
+`audience.js` calls `getH2s(allHtml)` inside `handleUpdate` (guarded by `isStage()`). `getH2s` is defined in `handlers.js`, which only loads on stage. Safe in practice, but the guard uses a DOM element check as a proxy for "is handlers.js loaded?" rather than checking the function directly. Fix: replace `if (isStage())` with `if (typeof getH2s === 'function')`.
 
-### #2 — `getH2s` architectural coupling
-`audience.js` calls `getH2s(allHtml)` at line 42 (inside `handleUpdate`, guarded by `isStage()`). `getH2s` is defined in `handlers.js`, which only loads on stage. This is safe in practice — the guard prevents the call on audience pages — but represents tight coupling: `audience.js` has a dependency on a function from `handlers.js` that is invisible from the file itself.
-
-### #3 — Two `default` attributes on tracks in `recording.html`
-Both the `<video>`-with-source block (line 18) and the no-video fallback block (line 24–26) include `<track id="syncslide-data" default ...>`. The `default` attribute on the metadata track is correct and intentional; the captions track (line 19) should not have `default`. Only one track per media element should be marked default.
-
-### #4 — `with_secure(false)` session cookie (intentional, undocumented)
+### #2 — `with_secure(false)` session cookie (intentional, undocumented)
 `SessionManagerLayer::with_secure(false)` — the cookie is transmitted over plain HTTP at the application layer. Safe only because Caddy terminates TLS and the app binds to localhost only. A clarifying comment should be added in `main.rs` to document this intent.
