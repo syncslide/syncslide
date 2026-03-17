@@ -54,7 +54,8 @@ const handleUpdate = (message) => {
 		htmlOutput.appendChild(nh);
 	}
 	updateRender();
-saveCurrentState();
+	markExternalLinks(htmlOutput);
+	saveCurrentState();
 }
 
 socket.onmessage = handleUpdate

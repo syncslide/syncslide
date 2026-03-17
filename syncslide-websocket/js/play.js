@@ -28,6 +28,7 @@ window.addEventListener("load", () => {
 			if (cue) {
 				const parsed = JSON.parse(cue.text);
 				slidesContainer.innerHTML = parsed.content ?? parsed.data ?? '';
+				markExternalLinks(slidesContainer);
 			}
 		}
 	}
@@ -152,6 +153,7 @@ window.addEventListener("load", () => {
 		if (!slide) return;
 		const parsed = JSON.parse(slide.text);
 		slidesContainer.innerHTML = parsed.content ?? parsed.data ?? '';
+		markExternalLinks(slidesContainer);
 		goTo.value = Number(slide.startTime);
 	});
 
