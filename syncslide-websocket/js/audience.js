@@ -62,5 +62,9 @@ socket.onmessage = handleUpdate
 
 const markdownInput = document.getElementById("markdown-input");
 if (markdownInput && markdownInput.value) {
-	getH2s(stringToDOM(md.render(markdownInput.value)));
+	// getH2s is defined in handlers.js which loads after audience.js;
+	// defer to DOMContentLoaded so all scripts are ready.
+	document.addEventListener('DOMContentLoaded', () => {
+		getH2s(stringToDOM(md.render(markdownInput.value)));
+	});
 }
