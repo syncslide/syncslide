@@ -4,8 +4,8 @@
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endblock breadcrumb %}
 
 {% block stage %}
-<button type="button" id="qrToggle" aria-pressed="false">QR</button>
-<aside id="qrOverlay" hidden aria-label="QR code for this presentation">
+<button type="button" id="qrToggle" aria-pressed="false" aria-controls="qrOverlay">QR</button>
+<aside id="qrOverlay" hidden aria-label="QR code">
 <a href="/{{ user.name }}/{{ pres.id }}"><img src="/qr/{{ user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </aside>
 <details>
