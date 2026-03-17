@@ -35,7 +35,7 @@
 						<button type="button" data-open-dialog="delete-rec-{{ rec.id }}">Delete</button>
 						<dialog id="delete-rec-{{ rec.id }}" aria-labelledby="delete-rec-heading-{{ rec.id }}">
 							<button type="button" data-close-dialog="delete-rec-{{ rec.id }}">Cancel</button>
-							<h3 id="delete-rec-heading-{{ rec.id }}">Delete {{ rec.name }}?</h3>
+							<h1 id="delete-rec-heading-{{ rec.id }}">Delete {{ rec.name }}?</h1>
 							<p>This will permanently delete the recording.</p>
 							<form method="post" action="/user/recordings/{{ rec.id }}/delete">
 								<button type="submit">Delete</button>
@@ -53,7 +53,7 @@
 		<button type="button" data-open-dialog="delete-pres-{{ pres.id }}">Delete: {{ pres.name }}</button>
 		<dialog id="delete-pres-{{ pres.id }}" aria-labelledby="delete-pres-heading-{{ pres.id }}">
 			<button type="button" data-close-dialog="delete-pres-{{ pres.id }}">Cancel</button>
-			<h3 id="delete-pres-heading-{{ pres.id }}">Delete {{ pres.name }}?</h3>
+			<h1 id="delete-pres-heading-{{ pres.id }}">Delete {{ pres.name }}?</h1>
 			<p>This will permanently delete the presentation and all its recordings.</p>
 			<form method="post" action="/user/presentations/{{ pres.id }}/delete">
 				<button type="submit">Delete</button>
