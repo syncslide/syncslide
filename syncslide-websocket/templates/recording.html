@@ -53,7 +53,7 @@ Your browser does not support the video tag.
 {% if is_owner %}
 <dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
 <button id="closeEditPresentation" type="button">Close</button>
-<h2 id="cue-editor-heading">Edit Timing</h2>
+<h1 id="cue-editor-heading">Edit Timing</h1>
 <label><input type="checkbox" id="shiftSubsequent"> Shift subsequent slides when editing a timestamp</label>
 <table>
 <thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
@@ -62,12 +62,12 @@ Your browser does not support the video tag.
 <button id="openReplaceFiles" type="button">Replace Files</button>
 </dialog>
 <dialog id="saveTimingDialog" aria-labelledby="save-timing-heading">
-<h3 id="save-timing-heading">Save timing changes?</h3>
+<h1 id="save-timing-heading">Save timing changes?</h1>
 <button type="button" id="saveTimingConfirm">Save</button>
 <button type="button" id="discardTimingConfirm">Discard</button>
 </dialog>
 <dialog id="replaceFilesDialog" aria-labelledby="replace-files-heading">
-<h2 id="replace-files-heading">Replace Files</h2>
+<h1 id="replace-files-heading">Replace Files</h1>
 <form id="replaceFilesForm">
 <label>Video (optional): <input type="file" name="video" accept="video/*"></label>
 <label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
