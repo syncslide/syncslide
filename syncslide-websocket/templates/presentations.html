@@ -16,9 +16,9 @@
 	</select>
 </div>
 
-<ul id="pres-list">
+<ul id="pres-list" role="list">
 	{% for pres in press %}
-	<li class="pres-item" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
+	<li class="pres-item" role="listitem" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
 		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
