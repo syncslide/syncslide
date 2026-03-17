@@ -67,9 +67,10 @@ window.addEventListener("load", () => {
 
 	initFromCues();
 	if (cueList.length === 0) {
-		// Cues not loaded yet (common when no video source) — force load and wait
+		// Cues not loaded yet (common on mobile / no video source) — force load and wait.
+		// The 'load' event fires on the <track> element, not the TextTrack object.
 		slidesData.mode = 'hidden';
-		slidesData.addEventListener('load', initFromCues);
+		video.querySelector('track#syncslide-data').addEventListener('load', initFromCues);
 	}
 
 	const editPresentationDialog = document.getElementById('editPresentationDialog');
