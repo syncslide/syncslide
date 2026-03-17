@@ -37,13 +37,16 @@ const updateMarkdown = async () => {
 }
 
 function onCommit(el, fn) {
-	el.addEventListener('blur', fn);
-	el.addEventListener('change', fn);
 	if (el.tagName === 'SELECT') {
+		// 'input' fires on both desktop and Android (where 'change' is unreliable).
+		// Do not also add 'change' or 'blur' — they fire redundantly and cause double-calls.
 		el.addEventListener('input', fn);
-	}
-	if (el.tagName !== 'TEXTAREA') {
-		el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
+	} else {
+		el.addEventListener('blur', fn);
+		el.addEventListener('change', fn);
+		if (el.tagName !== 'TEXTAREA') {
+			el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
+		}
 	}
 }
 
@@ -145,6 +148,9 @@ function openSlideDialog(mode, idx) {
 }
 
 renderSlideTable();
+if (textInput && textInput.value) {
+	getH2s(stringToDOM(md.render(textInput.value)));
+}
 
 const presNameInput = document.getElementById('presName');
 if (presNameInput) {
