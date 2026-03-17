@@ -39,9 +39,9 @@
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </nav>
-<dialog id="slideDialog">
+<dialog id="slideDialog" aria-labelledby="slideDialogHeading">
 <button type="button" id="slideDialogCancel">Cancel</button>
-<h2 id="slideDialogHeading"></h2>
+<h1 id="slideDialogHeading"></h1>
 <fieldset id="slideDialogPosition">
 <legend>Position</legend>
 <label><input type="radio" name="insertPos" value="before"> Before</label>
@@ -53,7 +53,7 @@
 <button type="button" id="slideDialogApply"></button>
 </dialog>
 <dialog id="saveRecordingDialog" aria-labelledby="save-recording-heading">
-<h2 id="save-recording-heading">Save Recording</h2>
+<h1 id="save-recording-heading">Save Recording</h1>
 <form id="saveRecordingForm" method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
 <input type="hidden" name="slides" id="slidesData">
 <label>Name: <input type="text" name="name" required></label>
