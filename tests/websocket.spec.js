@@ -45,4 +45,39 @@ test.describe('websocket sync', () => {
         await presCtx.close();
         await audCtx.close();
     });
+
+    // When the presenter changes slide during a live session, the audience's
+    // #currentSlide (aria-live="polite") must update immediately.
+    // This is the core sync guarantee: screen reader users tracking the presentation
+    // on their own device hear the new slide announced without any manual action.
+    test('presenter slide change propagates to connected audience', async ({ browser }) => {
+        // Both contexts connect to the same stage URL simultaneously.
+        const presCtx = await browser.newContext();
+        const presPage = await presCtx.newPage();
+        await loginAsAdmin(presPage);
+        await presPage.goto(STAGE_URL);
+
+        const audCtx = await browser.newContext();
+        const audPage = await audCtx.newPage();
+        await audPage.goto(STAGE_URL);
+
+        // Wait for both WS connections to deliver initial state (Text + Slide(0)).
+        // When the audience's #currentSlide h2 is visible, its WS is connected
+        // and the initial slide has been rendered.
+        await expect(audPage.locator('#currentSlide h2')).toBeVisible();
+
+        // Confirm audience starts on slide 0 ("Introduction to the Problem").
+        await expect(audPage.locator('#currentSlide h2')).toHaveText('Introduction to the Problem');
+
+        // Presenter navigates to slide 1.
+        await expect(presPage.locator('#goTo option')).not.toHaveCount(0);
+        await presPage.selectOption('#goTo', '1');
+
+        // The server broadcasts Slide(1) to all connected clients.
+        // Audience's handleUpdate re-renders #currentSlide with slide 1 content.
+        await expect(audPage.locator('#currentSlide h2')).toHaveText('What is SyncSlide?');
+
+        await presCtx.close();
+        await audCtx.close();
+    });
 });
