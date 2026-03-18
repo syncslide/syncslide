@@ -1,7 +1,7 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { loginAsAdmin } = require('./helpers');
 const AxeBuilder = require('@axe-core/playwright').default;
+const { loginAsAdmin } = require('./helpers');
 
 // WCAG A and AA (both 2.0 and 2.1), plus AAA additions from WCAG 2.1,
 // plus best-practice rules. Note: axe-core does not have a 'wcag2aaa' tag —
