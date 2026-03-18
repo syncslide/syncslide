@@ -21,19 +21,16 @@ test('login with correct credentials redirects to home', async ({ page }) => {
     await expect(page.locator('main h1')).toBeVisible();
 });
 
-// Wrong password → stays on login page, login form is still present.
-// The app currently re-renders the login page without an explicit error message.
-// This is a WCAG 3.3.1 (Error Identification, Level A) violation — the user is
-// given no feedback about what went wrong. The accessibility.spec.js axe audit
-// may not catch this automatically (axe cannot detect absent text). A separate
-// task should add an error message to the login template; once that is done,
-// this test should be updated to assert the error is present.
-test('login with wrong password stays on login page', async ({ page }) => {
+// Wrong password → stays on login page, error message announced, form still present.
+test('login with wrong password shows error message', async ({ page }) => {
     await page.goto('/auth/login');
     await page.fill('[name="username"]', 'admin');
     await page.fill('[name="password"]', 'wrongpassword');
     await page.click('button[type="submit"]');
     await expect(page).toHaveURL('/auth/login');
+    // Error message must be present and announced (role="alert").
+    // WCAG 3.3.1 Error Identification (Level A): errors must be described in text.
+    await expect(page.locator('[role="alert"]')).toContainText('Invalid username or password.');
     // Login form must remain visible so the user can try again.
     await expect(page.locator('form[action="/auth/login"]')).toBeVisible();
 });

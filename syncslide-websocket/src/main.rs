@@ -538,9 +538,9 @@ async fn login_process(
     let user = match auth_session.authenticate(login).await {
         Ok(Some(u)) => u,
         Ok(None) => {
-            return tera
-                .render("login.html", Context::new(), auth_session, db)
-                .await;
+            let mut ctx = Context::new();
+            ctx.insert("error", "Invalid username or password.");
+            return tera.render("login.html", ctx, auth_session, db).await;
         }
         Err(_) => {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
@@ -1261,6 +1261,10 @@ mod tests {
             response.status_code(),
             200,
             "wrong password should return 200 (re-render login page), not redirect"
+        );
+        assert!(
+            response.text().contains("Invalid username or password."),
+            "wrong password must show an error message (WCAG 3.3.1 Error Identification)"
         );
     }
 

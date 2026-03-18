@@ -5,6 +5,7 @@
 {% block content %}
 <main>
 <h1>Login</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
 <form method="POST" action="/auth/login">
 <label for="uname">Username</label>
 <input type="text" id="uname" name="username" required>
