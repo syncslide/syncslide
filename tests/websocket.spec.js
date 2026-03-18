@@ -1,18 +1,10 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
+const { loginAsAdmin } = require('./helpers');
 
 // The Demo presentation is always seeded by migrations.
 // admin owns it; navigating as admin → stage.html; anonymous → audience.html.
 const STAGE_URL = '/admin/1';
-
-// Helper — logs in as admin/admin in the given page.
-async function loginAsAdmin(page) {
-    await page.goto('/auth/login');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/');
-}
 
 test.describe('websocket sync', () => {
     // An audience member connecting after the presenter has already navigated

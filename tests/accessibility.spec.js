@@ -1,5 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
+const { loginAsAdmin } = require('./helpers');
 const AxeBuilder = require('@axe-core/playwright').default;
 
 // WCAG A and AA (both 2.0 and 2.1), plus AAA additions from WCAG 2.1,
@@ -11,15 +12,6 @@ const WCAG_TAGS = [
     'wcag21aaa',
     'best-practice',
 ];
-
-// Helper: logs in as admin/admin and resolves when on /.
-async function loginAsAdmin(page) {
-    await page.goto('/auth/login');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/');
-}
 
 // Helper: runs axe on the current page and asserts no violations.
 // On failure, formats the violations list for readable output.

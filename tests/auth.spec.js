@@ -1,14 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-
-// Reusable helper — logs in as admin/admin and returns after the redirect to /.
-async function loginAsAdmin(page) {
-    await page.goto('/auth/login');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/');
-}
+const { loginAsAdmin } = require('./helpers');
 
 // Correct credentials → redirected to /.
 test('login with correct credentials redirects to home', async ({ page }) => {

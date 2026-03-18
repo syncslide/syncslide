@@ -1,14 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-
-// Helper — logs in as admin/admin and resolves when on /.
-async function loginAsAdmin(page) {
-    await page.goto('/auth/login');
-    await page.fill('[name="username"]', 'admin');
-    await page.fill('[name="password"]', 'admin');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL('/');
-}
+const { loginAsAdmin } = require('./helpers');
 
 // Helper — creates a presentation with the given name and resolves after redirect to stage.
 // Returns the new presentation URL.
