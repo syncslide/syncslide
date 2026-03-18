@@ -1218,7 +1218,7 @@ mod tests {
         .unwrap();
     }
 
-    /// Successful login must redirect to `/` (HTTP 302).
+    /// Successful login must redirect to `/` (HTTP 303 See Other).
     #[tokio::test]
     async fn login_correct_credentials_redirects_to_home() {
         let (server, state) = test_server().await;
