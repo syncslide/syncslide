@@ -428,4 +428,59 @@ impl AuthnBackend for Backend {
     }
 }
 
+#[cfg(test)]
+#[allow(clippy::pedantic, missing_docs)]
+mod tests {
+    use super::*;
+
+    /// Hash should use the argon2id algorithm and be parseable for future verification.
+    #[test]
+    fn hash_produces_argon2id_format() {
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"hunter2", &salt)
+            .unwrap()
+            .to_string();
+        assert!(
+            hash.starts_with("$argon2id$"),
+            "expected argon2id prefix, got: {hash}"
+        );
+        PasswordHash::new(&hash).expect("hash must be parseable by PasswordHash::new");
+    }
+
+    /// The same password that was hashed must pass verification.
+    #[test]
+    fn correct_password_verifies() {
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"correct_horse", &salt)
+            .unwrap()
+            .to_string();
+        let parsed = PasswordHash::new(&hash).unwrap();
+        assert!(
+            Argon2::default()
+                .verify_password(b"correct_horse", &parsed)
+                .is_ok(),
+            "correct password should verify successfully"
+        );
+    }
+
+    /// A different password must not pass verification against a stored hash.
+    #[test]
+    fn wrong_password_fails_verification() {
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"correct_horse", &salt)
+            .unwrap()
+            .to_string();
+        let parsed = PasswordHash::new(&hash).unwrap();
+        assert!(
+            Argon2::default()
+                .verify_password(b"battery_staple", &parsed)
+                .is_err(),
+            "wrong password should fail verification"
+        );
+    }
+}
+
 pub type AuthSession = axum_login::AuthSession<Backend>;
