@@ -612,6 +612,15 @@ async fn index(
         .await
 }
 
+async fn help(
+    State(tera): State<Tera>,
+    auth_session: AuthSession,
+    State(db): State<SqlitePool>,
+) -> impl IntoResponse {
+    tera.render("help.html", Context::new(), auth_session, db)
+        .await
+}
+
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
         .replace('<', "&lt;")
@@ -1088,6 +1097,7 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/qr/{uname}/{pid}", get(qr_code))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
+        .route("/help", get(help))
         .route("/{uname}/{pid}/{rid}", get(recording))
         .route("/{uname}/{pid}/{rid}/slides.vtt", get(slides_vtt))
         .route("/{uname}/{pid}/{rid}/slides.html", get(slides_html))

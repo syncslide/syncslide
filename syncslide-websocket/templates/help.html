@@ -1,0 +1,46 @@
+{% extends "nav.html" %}
+{% block title %}Help{% endblock title %}
+
+{% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">Help</li></ol></nav>{% endblock breadcrumb %}
+{% block content %}
+<main>
+<h1>Presenter Guide</h1>
+
+<h2>Getting Started</h2>
+<ul>
+<li>Create a presentation at <a href="/create">/create</a> and give it a name.</li>
+<li>You land on the stage — your editing and presenting view.</li>
+<li>Share the URL with your audience. They visit the same URL and see the read-only audience view.</li>
+<li>Navigate slides with the <strong>Go to slide</strong> dropdown.</li>
+</ul>
+
+<h2>Editing Slides</h2>
+<ul>
+<li>Write Markdown in the textarea inside the <strong>Edit Slides</strong> section.</li>
+<li>Each <code>## heading</code> starts a new slide. The presentation title is an <code>h1</code> at the top.</li>
+<li>Use the slide table inside the <strong>Slides</strong> section to add, edit, move, or delete slides.</li>
+<li>Rename the presentation via the <strong>Presentation name</strong> field.</li>
+</ul>
+
+<h2>Keyboard Shortcuts</h2>
+<ul>
+<li><kbd>F8</kbd>: advance to next slide</li>
+<li><kbd>Shift+F8</kbd>: go back to previous slide</li>
+</ul>
+
+<h2>Recording</h2>
+<ul>
+<li>Open the <strong>Record</strong> section on the stage.</li>
+<li>Press <strong>Record</strong> to start the timer; <strong>Pause</strong> to pause; <strong>Stop</strong> to end the session.</li>
+<li>A save dialog opens: give the recording a name; optionally attach a video file and a captions VTT file.</li>
+</ul>
+
+<h2>For Your Audience</h2>
+<ul>
+<li>Audience members visit the same URL as the stage.</li>
+<li>They see a read-only view and cannot edit or change slides.</li>
+<li>The current slide updates live as you navigate — no refresh needed.</li>
+<li>The slide area is an <code>aria-live="polite"</code> region; screen readers announce each new slide automatically.</li>
+</ul>
+</main>
+{% endblock content %}
