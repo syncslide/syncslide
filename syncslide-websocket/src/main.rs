@@ -1153,3 +1153,150 @@ async fn main() {
     sig_handle.close();
     let _ = signal_task.await;
 }
+
+#[cfg(test)]
+#[allow(clippy::pedantic, missing_docs)]
+mod tests {
+    use super::*;
+    use axum_test::TestServer;
+    use sqlx::sqlite::SqlitePoolOptions;
+
+    /// Creates a `TestServer` backed by a fresh isolated in-memory database.
+    ///
+    /// Uses `max_connections(1)` so that all queries share one SQLite connection
+    /// (and therefore one in-memory database). Migrations run with FK enforcement
+    /// off (some migrations DROP TABLE), then FK enforcement is enabled before
+    /// handing the pool to `build_app`.
+    ///
+    /// Returns both the server and the app state. The test has access to
+    /// `state.db_pool` for seeding data before making requests.
+    async fn test_server() -> (TestServer, AppState) {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::from_str("sqlite::memory:")
+                    .unwrap()
+                    .foreign_keys(false),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        // Enable FK enforcement on the single connection now that migrations are done.
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let (router, state) = build_app(pool).await;
+        // save_cookies() makes the TestServer persist Set-Cookie headers between
+        // requests, which is how session auth is maintained across test steps.
+        //
+        // API note: if this call does not compile for the installed version of
+        // axum-test, check the crate docs for the equivalent cookie persistence
+        // configuration (look for TestServerConfig, save_cookies, or similar).
+        let server = TestServer::builder()
+            .save_cookies()
+            .build(router)
+            .unwrap();
+        (server, state)
+    }
+
+    /// Seeds one user into the database using the same `User::new` path the app uses.
+    ///
+    /// The groups table row for id=1 ("admin") is created by migrations.
+    /// Do not re-insert it. This user is not added to any group; group membership
+    /// is not needed for basic login and session tests.
+    async fn seed_user(pool: &SqlitePool) {
+        User::new(
+            pool,
+            AddUserForm {
+                name: "testuser".to_string(),
+                email: "test@example.com".to_string(),
+                password: "testpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+    }
+
+    /// Successful login must redirect to `/` (HTTP 302).
+    #[tokio::test]
+    async fn login_correct_credentials_redirects_to_home() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+
+        let response = server
+            .post("/auth/login")
+            .form(&serde_json::json!({
+                "username": "testuser",
+                "password": "testpass"
+            }))
+            .await;
+
+        assert_eq!(response.status_code(), 302);
+        assert_eq!(
+            response.headers()["location"],
+            "/",
+            "successful login must redirect to /"
+        );
+    }
+
+    /// Wrong password must re-render the login page (HTTP 200), not redirect.
+    #[tokio::test]
+    async fn login_wrong_password_returns_login_page() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+
+        let response = server
+            .post("/auth/login")
+            .form(&serde_json::json!({
+                "username": "testuser",
+                "password": "wrongpass"
+            }))
+            .await;
+
+        assert_eq!(
+            response.status_code(),
+            200,
+            "wrong password should return 200 (re-render login page), not redirect"
+        );
+    }
+
+    /// Accessing a protected route without a session must redirect to `/auth/login`.
+    #[tokio::test]
+    async fn presentations_without_session_redirects_to_login() {
+        let (server, _state) = test_server().await;
+
+        let response = server.get("/user/presentations").await;
+
+        assert_eq!(response.status_code(), 302);
+        assert_eq!(
+            response.headers()["location"],
+            "/auth/login",
+            "unauthenticated request must redirect to /auth/login"
+        );
+    }
+
+    /// After a successful login, the session cookie must grant access to protected routes.
+    #[tokio::test]
+    async fn presentations_with_valid_session_returns_200() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+
+        // Establish a session. The TestServer saves the Set-Cookie from this
+        // response and sends it on subsequent requests.
+        server
+            .post("/auth/login")
+            .form(&serde_json::json!({
+                "username": "testuser",
+                "password": "testpass"
+            }))
+            .await;
+
+        let response = server.get("/user/presentations").await;
+        assert_eq!(
+            response.status_code(),
+            200,
+            "authenticated request should return 200"
+        );
+    }
+}
