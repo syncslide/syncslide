@@ -17,7 +17,7 @@ Introduce automated testing to SyncSlide to catch functional regressions and acc
 - No local builds — all compilation and test execution happens on the VPS (`arch@clippycat.ca`)
 - Windows local environment — no local Cargo or Node.js toolchain
 - User is a screen reader user — accessibility correctness is critical and must be verified automatically
-- WCAG 2.1 Level AAA conformance required on all pages
+- WCAG 2.2 Level AAA conformance required on all pages
 
 ---
 
