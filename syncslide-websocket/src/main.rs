@@ -1232,7 +1232,7 @@ mod tests {
             }))
             .await;
 
-        assert_eq!(response.status_code(), 302);
+        assert_eq!(response.status_code(), 303);
         assert_eq!(
             response.headers()["location"],
             "/",
@@ -1268,7 +1268,7 @@ mod tests {
 
         let response = server.get("/user/presentations").await;
 
-        assert_eq!(response.status_code(), 302);
+        assert_eq!(response.status_code(), 303);
         assert_eq!(
             response.headers()["location"],
             "/auth/login",
