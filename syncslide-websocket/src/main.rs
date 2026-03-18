@@ -1039,52 +1039,26 @@ async fn add_recording(
     Redirect::to("/user/presentations").into_response()
 }
 
-/// Dynamic cleanup of still open presentations.
-fn cleanup(state: &mut AppState) {
-    let mut slides = state.slides.lock().unwrap();
-    slides.retain(|_k, v| Arc::strong_count(v) > 1);
-}
-
-#[tokio::main(flavor = "current_thread")]
-async fn main() {
-    // USR1 signal causes cleanup routine
-    let mut signals = Signals::new([SIGUSR1]).unwrap();
-    let sig_handle = signals.handle();
-    // Migrations must run without FK enforcement: SQLite cannot disable FK checks
-    // inside a transaction, and DROP TABLE fails when other tables reference it.
-    let migrate_pool = SqlitePool::connect_with(
-        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
-            .unwrap()
-            .foreign_keys(false),
-    )
-    .await
-    .unwrap();
-    sqlx::migrate!("./migrations").run(&migrate_pool).await.unwrap();
-    migrate_pool.close().await;
-    let db_pool = SqlitePool::connect_with(
-        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
-            .unwrap()
-            .foreign_keys(true),
-    )
-    .await
-    .unwrap();
+/// Builds the application router and state from an already-migrated database pool.
+///
+/// Accepts any `SqlitePool` (file-based or in-memory). The caller is responsible
+/// for running migrations before passing the pool in. Returns both the router (for
+/// serving) and the app state (so the caller can retain it for signal handling).
+pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
     let session_store = SqliteStore::new(db_pool.clone());
     session_store.migrate().await.unwrap();
     let session_layer = SessionManagerLayer::new(session_store)
-        // with_secure(false): Caddy terminates TLS; this binary binds to localhost:5002 only.
-        // Session cookies are never sent over plain HTTP in production.
         .with_secure(false)
         .with_expiry(Expiry::OnInactivity(Duration::days(1)));
     let tera = Tera::new();
     let backend = Backend::new(db_pool.clone());
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
-
     let state = AppState {
         tera,
         slides: Arc::new(Mutex::new(HashMap::new())),
         db_pool,
     };
-    let app = Router::new()
+    let router = Router::new()
         .route("/", get(index))
         .route("/auth/login", get(login))
         .route("/auth/login", post(login_process))
@@ -1092,9 +1066,15 @@ async fn main() {
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
         .route("/user/presentations/{pid}/delete", post(delete_presentation))
-        .route("/user/recordings/{rid}/slides/{sid}/time", post(update_slide_time))
+        .route(
+            "/user/recordings/{rid}/slides/{sid}/time",
+            post(update_slide_time),
+        )
         .route("/user/recordings/{rid}/name", post(update_recording_name))
-        .route("/user/presentations/{pid}/name", post(update_presentation_name))
+        .route(
+            "/user/presentations/{pid}/name",
+            post(update_presentation_name),
+        )
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
         .route("/user/new", get(new_user))
@@ -1114,14 +1094,53 @@ async fn main() {
         .nest_service("/assets", ServeDir::new("assets/"))
         .merge(
             Router::new()
-                .route("/user/presentations/{pid}/recordings", post(add_recording))
-                .route("/user/recordings/{rid}/files", post(update_recording_files))
+                .route(
+                    "/user/presentations/{pid}/recordings",
+                    post(add_recording),
+                )
+                .route(
+                    "/user/recordings/{rid}/files",
+                    post(update_recording_files),
+                )
                 .layer(DefaultBodyLimit::disable()),
         )
         .with_state(state.clone())
         .layer(auth_layer);
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:5002").await.unwrap();
-    let mut state_for_signal = state.clone();
+    (router, state)
+}
+
+/// Dynamic cleanup of still open presentations.
+fn cleanup(state: &mut AppState) {
+    let mut slides = state.slides.lock().unwrap();
+    slides.retain(|_k, v| Arc::strong_count(v) > 1);
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn main() {
+    let port = std::env::var("APP_PORT").unwrap_or_else(|_| "5002".to_string());
+    let mut signals = Signals::new([SIGUSR1]).unwrap();
+    let sig_handle = signals.handle();
+    let migrate_pool = SqlitePool::connect_with(
+        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+            .unwrap()
+            .foreign_keys(false),
+    )
+    .await
+    .unwrap();
+    sqlx::migrate!("./migrations").run(&migrate_pool).await.unwrap();
+    migrate_pool.close().await;
+    let db_pool = SqlitePool::connect_with(
+        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+            .unwrap()
+            .foreign_keys(true),
+    )
+    .await
+    .unwrap();
+    let (app, state) = build_app(db_pool).await;
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{port}"))
+        .await
+        .unwrap();
+    let mut state_for_signal = state;
     let signal_task = tokio::spawn(async move {
         use futures_util::StreamExt;
         while let Some(_sig) = signals.next().await {
