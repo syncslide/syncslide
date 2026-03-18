@@ -49,7 +49,9 @@ test('valid session grants access to presentations page', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/user/presentations');
     await expect(page).toHaveURL('/user/presentations');
-    await expect(page.locator('main h1')).toHaveText('Your Presentations');
+    // Use 'main > h1' (direct child) to avoid matching <h1> elements inside
+    // dialogs nested within <main>; dialogs use <h1> per ARIA heading practice.
+    await expect(page.locator('main > h1')).toHaveText('Your Presentations');
 });
 
 // Logout → session ended → login link visible in nav.
