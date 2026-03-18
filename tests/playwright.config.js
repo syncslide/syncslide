@@ -15,9 +15,9 @@ module.exports = defineConfig({
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
+    // WebKit omitted: Playwright's Linux WebKit build requires libicu74, but
+    // the VPS (Arch Linux) ships ICU 78 — the .so versions are incompatible.
+    // WebKit on Linux does not replicate real Safari/VoiceOver behaviour anyway;
+    // that requires macOS. Re-add when running on a supported OS or macOS CI.
   ],
 });
