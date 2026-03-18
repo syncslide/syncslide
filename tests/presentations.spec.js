@@ -29,8 +29,8 @@ test.describe('presentations list', () => {
     // The Demo presentation is seeded by migrations on every fresh database.
     test('Demo presentation is listed on /user/presentations', async ({ page }) => {
         await page.goto('/user/presentations');
-        // The presentation name links to its stage.
-        await expect(page.locator('#pres-list a', { hasText: 'Demo' })).toBeVisible();
+        // The stage-link is the presentation title link; use it to avoid matching recording links.
+        await expect(page.locator('#pres-list a.stage-link', { hasText: 'Demo' })).toBeVisible();
     });
 
     // The sort control must be labelled and functional.
@@ -104,7 +104,7 @@ test.describe('create presentation', () => {
     test('new presentation appears in presentations list', async ({ page }) => {
         await createPresentation(page, 'My New Presentation');
         await page.goto('/user/presentations');
-        await expect(page.locator('#pres-list a', { hasText: 'My New Presentation' })).toBeVisible();
+        await expect(page.locator('#pres-list a.stage-link', { hasText: 'My New Presentation' })).toBeVisible();
     });
 
     // Sort alphabetical must reorder presentations.

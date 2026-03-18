@@ -23,7 +23,8 @@ fi
 # Start binary from syncslide-websocket/ so relative paths (templates/, js/, css/) resolve correctly.
 # APP_DB tells the binary to open test.sqlite3 instead of db.sqlite3.
 # Migrations run automatically on startup and create admin/admin + the Demo presentation.
-APP_PORT=$PORT APP_DB="sqlite://$DB" ./target/release/syncslide-websocket &
+# Uses the debug binary (target/debug/) since cargo build in update.bat builds debug, not release.
+APP_PORT=$PORT APP_DB="sqlite://$DB" ./target/debug/syncslide-websocket &
 PID=$!
 
 # Retry loop: more reliable than a fixed sleep when the binary startup time varies.
