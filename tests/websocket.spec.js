@@ -51,29 +51,23 @@ test.describe('websocket sync', () => {
     // This is the core sync guarantee: screen reader users tracking the presentation
     // on their own device hear the new slide announced without any manual action.
     test('presenter slide change propagates to connected audience', async ({ browser }) => {
-        // Both contexts connect to the same stage URL simultaneously.
+        // Presenter connects first and resets to slide 0.
+        // Prior tests may have left the server's in-memory state at a different slide.
+        // The round-trip wait ensures server state is known before the audience connects.
         const presCtx = await browser.newContext();
         const presPage = await presCtx.newPage();
         await loginAsAdmin(presPage);
         await presPage.goto(STAGE_URL);
-
-        // Presenter resets to slide 0 first — prior tests may have left the
-        // server's in-memory state at a different slide.  Wait for the round-trip
-        // to complete before the audience connects, so both the server state and
-        // the DB current_slide_index are known-good when the audience page loads.
         await expect(presPage.locator('#goTo option')).not.toHaveCount(0);
         await presPage.selectOption('#goTo', '0');
         await expect(presPage.locator('#currentSlide h2')).toHaveText('Introduction to the Problem');
 
-        // Audience connects after the reset is confirmed.
+        // Audience connects after the reset is confirmed — now both contexts are live.
         const audCtx = await browser.newContext();
         const audPage = await audCtx.newPage();
         await audPage.goto(STAGE_URL);
 
-        // Wait for the audience's WS to deliver initial state and render #currentSlide.
-        await expect(audPage.locator('#currentSlide h2')).toBeVisible();
-
-        // Confirm audience starts on slide 0 ("Introduction to the Problem").
+        // Confirm audience received slide 0 from the server on connect.
         await expect(audPage.locator('#currentSlide h2')).toHaveText('Introduction to the Problem');
 
         // Presenter navigates to slide 1.
