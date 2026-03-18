@@ -1120,10 +1120,11 @@ fn cleanup(state: &mut AppState) {
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
     let port = std::env::var("APP_PORT").unwrap_or_else(|_| "5002".to_string());
+    let db_url = std::env::var("APP_DB").unwrap_or_else(|_| "sqlite://db.sqlite3".to_string());
     let mut signals = Signals::new([SIGUSR1]).unwrap();
     let sig_handle = signals.handle();
     let migrate_pool = SqlitePool::connect_with(
-        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+        SqliteConnectOptions::from_str(&db_url)
             .unwrap()
             .foreign_keys(false),
     )
@@ -1132,7 +1133,7 @@ async fn main() {
     sqlx::migrate!("./migrations").run(&migrate_pool).await.unwrap();
     migrate_pool.close().await;
     let db_pool = SqlitePool::connect_with(
-        SqliteConnectOptions::from_str("sqlite://db.sqlite3")
+        SqliteConnectOptions::from_str(&db_url)
             .unwrap()
             .foreign_keys(true),
     )
