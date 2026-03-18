@@ -57,20 +57,26 @@ test.describe('websocket sync', () => {
         await loginAsAdmin(presPage);
         await presPage.goto(STAGE_URL);
 
+        // Presenter resets to slide 0 first — prior tests may have left the
+        // server's in-memory state at a different slide.  Wait for the round-trip
+        // to complete before the audience connects, so both the server state and
+        // the DB current_slide_index are known-good when the audience page loads.
+        await expect(presPage.locator('#goTo option')).not.toHaveCount(0);
+        await presPage.selectOption('#goTo', '0');
+        await expect(presPage.locator('#currentSlide h2')).toHaveText('Introduction to the Problem');
+
+        // Audience connects after the reset is confirmed.
         const audCtx = await browser.newContext();
         const audPage = await audCtx.newPage();
         await audPage.goto(STAGE_URL);
 
-        // Wait for both WS connections to deliver initial state (Text + Slide(0)).
-        // When the audience's #currentSlide h2 is visible, its WS is connected
-        // and the initial slide has been rendered.
+        // Wait for the audience's WS to deliver initial state and render #currentSlide.
         await expect(audPage.locator('#currentSlide h2')).toBeVisible();
 
         // Confirm audience starts on slide 0 ("Introduction to the Problem").
         await expect(audPage.locator('#currentSlide h2')).toHaveText('Introduction to the Problem');
 
         // Presenter navigates to slide 1.
-        await expect(presPage.locator('#goTo option')).not.toHaveCount(0);
         await presPage.selectOption('#goTo', '1');
 
         // The server broadcasts Slide(1) to all connected clients.
