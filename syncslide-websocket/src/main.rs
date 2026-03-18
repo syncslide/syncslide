@@ -1221,6 +1221,138 @@ mod tests {
         .unwrap();
     }
 
+    async fn seed_admin_user(pool: &SqlitePool) {
+        User::new(
+            pool,
+            AddUserForm {
+                name: "adminuser".to_string(),
+                email: "admin2@example.com".to_string(),
+                password: "adminpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO group_users (user_id, group_id) VALUES ((SELECT id FROM users WHERE name = 'adminuser'), 1)")
+            .execute(pool)
+            .await
+            .unwrap();
+    }
+
+    async fn login_as(server: &axum_test::TestServer, username: &str, password: &str) {
+        server
+            .post("/auth/login")
+            .form(&serde_json::json!({ "username": username, "password": password }))
+            .await;
+    }
+
+    async fn seed_presentation(user_id: i64, name: &str, pool: &SqlitePool) -> i64 {
+        sqlx::query_scalar::<_, i64>(
+            "INSERT INTO presentation (name, user_id, content) VALUES (?, ?, '') RETURNING id",
+        )
+        .bind(name)
+        .bind(user_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    async fn get_user_id(name: &str, pool: &SqlitePool) -> i64 {
+        sqlx::query_scalar::<_, i64>("SELECT id FROM users WHERE name = ?")
+            .bind(name)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    /// POST /create with a valid name must redirect to /{username}/{pid}.
+    #[tokio::test]
+    async fn create_presentation_redirects_to_stage() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post("/create")
+            .form(&serde_json::json!({ "name": "Test Pres" }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let location = response.headers()["location"].to_str().unwrap();
+        assert!(
+            location.starts_with("/testuser/"),
+            "create must redirect to /{{username}}/{{pid}}, got: {location}"
+        );
+    }
+
+    /// Deleting your own presentation must redirect to /user/presentations
+    /// and the row must be gone from the database.
+    #[tokio::test]
+    async fn delete_own_presentation_removes_it() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "To Delete", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/delete"))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        assert_eq!(response.headers()["location"], "/user/presentations");
+
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM presentation WHERE id = ?")
+                .bind(pid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 0, "deleted presentation must not exist in the database");
+    }
+
+    /// Attempting to delete another user's presentation must leave it intact.
+    /// The handler redirects (303) but the ownership check in the SQL means
+    /// no row is deleted when user_id does not match.
+    #[tokio::test]
+    async fn delete_other_users_presentation_is_noop() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        seed_admin_user(&state.db_pool).await;
+        let owner_id = get_user_id("adminuser", &state.db_pool).await;
+        let pid = seed_presentation(owner_id, "Owner's Pres", &state.db_pool).await;
+        // Log in as a different user (testuser) and try to delete adminuser's presentation.
+        login_as(&server, "testuser", "testpass").await;
+
+        server
+            .post(&format!("/user/presentations/{pid}/delete"))
+            .await;
+
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM presentation WHERE id = ?")
+                .bind(pid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 1, "another user's presentation must not be deleted");
+    }
+
+    /// POST /user/presentations/{pid}/name with a plain-text body must return 200.
+    #[tokio::test]
+    async fn rename_presentation_returns_200() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Old Name", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/name"))
+            .text("New Name")
+            .await;
+
+        assert_eq!(response.status_code(), 200);
+    }
+
     /// Successful login must redirect to `/` (HTTP 303 See Other).
     #[tokio::test]
     async fn login_correct_credentials_redirects_to_home() {
@@ -1281,6 +1413,100 @@ mod tests {
             "/auth/login",
             "unauthenticated request must redirect to /auth/login"
         );
+    }
+
+    /// Inserts a recording row for the given presentation and returns its id.
+    async fn seed_recording(presentation_id: i64, pool: &SqlitePool) -> i64 {
+        sqlx::query_scalar::<_, i64>(
+            "INSERT INTO recording (presentation_id, name, start) VALUES (?, 'Test Recording', '2026-01-01') RETURNING id",
+        )
+        .bind(presentation_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    /// Inserts a recording_slide row for the given recording and returns its id.
+    async fn seed_recording_slide(recording_id: i64, pool: &SqlitePool) -> i64 {
+        sqlx::query_scalar::<_, i64>(
+            "INSERT INTO recording_slide (recording_id, start_seconds, position, title, content) VALUES (?, 0.0, 0, 'Slide 1', 'content') RETURNING id",
+        )
+        .bind(recording_id)
+        .fetch_one(pool)
+        .await
+        .unwrap()
+    }
+
+    /// Deleting a presentation must remove all its recording_slide rows.
+    /// recording_slide has no ON DELETE CASCADE — DbPresentation::delete
+    /// performs the cleanup manually. If this ever breaks, recording_slide
+    /// rows become orphaned and FK enforcement will block future deletions.
+    #[tokio::test]
+    async fn delete_presentation_removes_recording_slides() {
+        let (_server, state) = test_server().await;
+        // test_server seeds admin/admin from migrations; use that directly.
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "With Recordings", &state.db_pool).await;
+        let rid = seed_recording(pid, &state.db_pool).await;
+        let sid = seed_recording_slide(rid, &state.db_pool).await;
+
+        DbPresentation::delete(pid, uid, &state.db_pool).await.unwrap();
+
+        let pres_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM presentation WHERE id = ?")
+                .bind(pid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        let rec_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM recording WHERE id = ?")
+                .bind(rid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        let slide_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM recording_slide WHERE id = ?")
+                .bind(sid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+
+        assert_eq!(pres_count, 0, "presentation row must be deleted");
+        assert_eq!(rec_count, 0, "recording row must be deleted");
+        assert_eq!(slide_count, 0, "recording_slide row must be deleted (manual cascade)");
+    }
+
+    /// POST /user/new by a non-admin authenticated user must return 404.
+    /// The handler explicitly returns NOT_FOUND (not 403) to avoid leaking
+    /// the existence of the admin-only endpoint to non-admin users.
+    #[tokio::test]
+    async fn create_user_by_non_admin_returns_404() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        // testuser has no group membership — not in the admin group.
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post("/user/new")
+            .form(&serde_json::json!({
+                "name": "newuser",
+                "email": "new@example.com",
+                "password": "password123"
+            }))
+            .await;
+
+        assert_eq!(
+            response.status_code(),
+            404,
+            "non-admin must not be able to create users"
+        );
+        // The user must not have been created.
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE name = 'newuser'")
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 0, "new user must not exist after rejected request");
     }
 
     /// After a successful login, the session cookie must grant access to protected routes.
