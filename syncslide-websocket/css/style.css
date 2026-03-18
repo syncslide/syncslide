@@ -14,9 +14,9 @@ h2 { text-align: center; line-height: 1.5em; color: #ffffff; margin-bottom: 8px;
 
 hr { border: none; border-bottom: 1px solid #999; }
 
-a { text-decoration: underline; color: #7ad; }
+a { text-decoration: underline; color: #99bbcc; }
 
-a:visited { color: #ff3492; }
+a:visited { color: #ff90c8; }
 
 a.nav-link, a.post-title-link { color: #ffffff; text-decoration: none; }
 
@@ -80,11 +80,11 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 .pres-item { border-bottom: 1px solid #555; padding: .8em 0; }
 .pres-item h2 { text-align: left; margin-bottom: .25em; }
 .pres-item details { margin-top: .4em; }
-.pres-item summary { cursor: pointer; color: #aaa; }
+.pres-item summary { cursor: pointer; color: #bbb; }
 .pagination-controls { margin-top: 1.2em; display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
 .pagination-controls button { background: #333; color: #fff; border: 1px solid #666; padding: 4px 10px; cursor: pointer; }
 .pagination-controls button:disabled { opacity: .4; cursor: default; }
-#page-info { color: #aaa; }
+#page-info { color: #bbb; }
 
 /* in stage: */
 #markdown-input { display: block; width: 90%; margin: auto; height: 12em; }
