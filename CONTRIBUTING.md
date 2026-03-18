@@ -27,15 +27,17 @@ This pulls, builds, reloads Caddy, and restarts the service.
 
 ### Running tests
 
+All test commands must be run on the VPS (`arch@clippycat.ca`). They will not work locally.
+
 ```bash
 # Rust unit + integration tests only
 cargo test
 
-# Full suite (Rust + Playwright)
+# Playwright end-to-end tests only
 config/test.sh
 ```
 
-Tests run on the VPS. The deploy pipeline runs the full suite and blocks on failure.
+The deploy pipeline (`config/update.bat`) runs both in sequence and blocks on failure.
 
 ### After SQL changes
 
