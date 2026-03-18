@@ -1126,6 +1126,7 @@ async fn main() {
     let migrate_pool = SqlitePool::connect_with(
         SqliteConnectOptions::from_str(&db_url)
             .unwrap()
+            .create_if_missing(true)
             .foreign_keys(false),
     )
     .await
@@ -1135,6 +1136,7 @@ async fn main() {
     let db_pool = SqlitePool::connect_with(
         SqliteConnectOptions::from_str(&db_url)
             .unwrap()
+            .create_if_missing(true)
             .foreign_keys(true),
     )
     .await
