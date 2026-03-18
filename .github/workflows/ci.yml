@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            syncslide-websocket/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('syncslide-websocket/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+
+      - name: Build binary
+        working-directory: syncslide-websocket
+        run: cargo build
+
+      - name: Run Rust tests
+        working-directory: syncslide-websocket
+        run: cargo test
+
+      - name: Install Playwright dependencies
+        working-directory: tests
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Start server
+        working-directory: syncslide-websocket
+        run: APP_PORT=5003 APP_DB="sqlite://test.sqlite3" ./target/debug/syncslide-websocket &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:5003/ > /dev/null && echo "Server ready" && exit 0 || true
+            sleep 1
+          done
+          echo "ERROR: server did not become ready after 20s" >&2
+          exit 1
+
+      - name: Run Playwright tests
+        working-directory: tests
+        run: npx playwright test
+
+      - name: Stop server and clean up
+        if: always()
+        working-directory: syncslide-websocket
+        run: |
+          pkill -f syncslide-websocket || true
+          rm -f test.sqlite3

@@ -17,27 +17,23 @@ Clone the repo. Migrations run automatically on startup. `.sqlx/` is committed s
 
 ### Building and running
 
-Builds and test runs happen on the VPS (`arch@clippycat.ca`). The binary must run from `syncslide-websocket/` so relative paths (`css/`, `js/`, `assets/`) resolve correctly. Deploy via:
-
-```bat
-config/update.bat
+```bash
+cd syncslide-websocket && cargo build
+cd syncslide-websocket && cargo run
 ```
 
-This pulls, builds, reloads Caddy, and restarts the service.
+The binary must run from `syncslide-websocket/` so relative paths (`css/`, `js/`, `assets/`) resolve correctly.
 
 ### Running tests
 
-All test commands must be run on the VPS (`arch@clippycat.ca`). They will not work locally.
-
 ```bash
 # Rust unit + integration tests only
-cargo test
+cd syncslide-websocket && cargo test
 
-# Playwright end-to-end tests only
-config/test.sh
+# Playwright end-to-end tests only (requires a running server)
+# Run from syncslide-websocket/
+bash ../config/test.sh
 ```
-
-The deploy pipeline (`config/update.bat`) runs both in sequence and blocks on failure.
 
 ### After SQL changes
 
@@ -53,7 +49,7 @@ Commit the updated `.sqlx/` files alongside your query changes.
 ### Making a PR
 
 - Branch from `main`
-- All tests must pass before merge
+- CI runs the full test suite automatically on every PR — the PR cannot merge until it passes
 - Do not rewrite history (`git push --force` to `main` is not permitted)
 
 ---
