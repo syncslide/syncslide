@@ -1,23 +1,32 @@
 {% extends "base.html" %}
 {% block nav %}
 <nav aria-label="Primary navigation">
-<ul class ="clear-list">
+<ul class="clear-list">
 <li><a href="/">Home</a></li>
+<li><a href="/join">Join presentation</a></li>
 <li><a href="/help">Help</a></li>
 {% if user %}
 <li><a href="/create">Create presentation</a></li>
 <li><a href="/user/presentations">Presentations ({{ pres_num }})</a></li>
-{% if 'admin' in groups %}
-<li><a href="/user/new">Add User (admin)</a></li>
-{% endif %}
-<li><a href="/user/change_pwd">Change Password</a></li>
-<li><a href="/auth/logout">Logout</a></li>
 {% else %}
 <li><a href="/auth/login">Login</a></li>
 {% endif %}
-<li><a href="/join">Join presentation</a></li>
 </ul>
 </nav>
+{% if user %}
+<nav aria-label="Account">
+<details>
+<summary>{{ user.name }}</summary>
+<ul>
+<li><a href="/user/change_pwd">Change Password</a></li>
+{% if 'admin' in groups %}
+<li><a href="/user/new">Add User</a></li>
+{% endif %}
+<li><a href="/auth/logout">Logout</a></li>
+</ul>
+</details>
+</nav>
+{% endif %}
 <button type="button" id="theme-toggle" aria-pressed="false">Dark mode</button>
 {% endblock nav %}
 
