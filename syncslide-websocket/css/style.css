@@ -43,6 +43,7 @@ header { text-align: center; margin-bottom: 18px; }
 summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
 summary::after { content: ""; display: inline-block; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid currentColor; flex-shrink: 0; margin-left: .5em; transition: transform .15s; }
 details[open] > summary::after { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { summary::after { transition: none; } }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1em; }
 
@@ -125,9 +126,9 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 /* in stage: */
 #markdown-input { display: block; width: 90%; margin: auto; height: 12em; }
 
-#qrOverlay { position: fixed; bottom: 1em; right: 1em; background: #fff; padding: 8px; border-radius: 4px; z-index: 100; line-height: 0; }
+#qrOverlay { position: fixed; bottom: 1em; right: 1em; background: #fff; border: 2px solid var(--qr-border); padding: 8px; border-radius: 4px; z-index: 100; line-height: 0; }
 #qrOverlay img { width: 150px; height: 150px; margin: 0; }
-#qrToggle[aria-pressed="true"] { outline: 2px solid var(--qr-outline); }
+#qrToggle[aria-pressed="true"] { outline: 4px solid var(--qr-outline); }
 
 
 /* dialog / modal */
