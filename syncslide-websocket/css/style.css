@@ -39,13 +39,14 @@ html[data-theme="light"] {
 body { background-color: var(--bg); padding: 16px; font-family: -apple-system, helvetica, arial, sans-serif; font-size: 16px; color: var(--text); line-height: 1.5em; overflow-wrap: break-word; }
 .skip-link { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .skip-link:focus { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
+:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
 
 header { text-align: center; margin-bottom: 18px; }
 
 summary { cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-summary::after { content: ""; display: inline-block; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid currentColor; flex-shrink: 0; margin-left: .5em; transition: transform .15s; }
-details[open] > summary::after { transform: rotate(90deg); }
-@media (prefers-reduced-motion: reduce) { summary::after { transition: none; } }
+.pres-item summary::after { content: ""; display: inline-block; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid currentColor; flex-shrink: 0; margin-left: .5em; transition: transform .15s; }
+.pres-item details[open] > summary::after { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .pres-item summary::after, .chevron { transition: none; } }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1em; }
 
@@ -85,7 +86,7 @@ blockquote { font-style: italic; }
 
 address { font-style: normal; }
 
-@media screen and (max-width: 600px) { body { width: 90%; } nav { text-align: left; width: 100%; } nav a { display: block; text-align: left; padding-left: 0; margin-left: 0; } }
+@media screen and (max-width: 600px) { body { width: 90%; } }
 
 .mono { font-family: monospace; }
 
@@ -106,6 +107,34 @@ footer { padding-top: 16px; margin-bottom: 100px; }
 .post-excerpt { margin-left: 24px; }
 
 .post-header { margin-bottom: 8px; }
+
+/* nav: desktop (≥769px) */
+@media screen and (min-width: 769px) {
+  nav[aria-label="Primary navigation"] ul { display: flex; flex-wrap: wrap; align-items: center; }
+  nav[aria-label="Primary navigation"] a { padding: 0.5em 0.75em; }
+  nav[aria-label="Primary navigation"] button[aria-expanded] { display: none; }
+}
+
+/* nav: mobile (≤768px) */
+@media screen and (max-width: 768px) {
+  nav[aria-label="Primary navigation"] button[aria-expanded] { display: inline-flex; align-items: center; gap: 0.4em; }
+  #primary-nav-list { display: none; }
+  #primary-nav-list.is-open { display: flex; flex-direction: column; width: 100%; }
+  #primary-nav-list a { display: block; width: 100%; min-height: 44px; line-height: 44px; box-sizing: border-box; }
+}
+
+/* account submenu: hidden until toggled */
+#account-menu { display: none; }
+#account-menu.is-open { display: block; }
+
+/* hamburger: label swap driven by aria-expanded on the button */
+.close-label { display: none; }
+button[aria-expanded="true"] .menu-label { display: none; }
+button[aria-expanded="true"] .close-label { display: inline-flex; align-items: center; gap: 0.4em; }
+
+/* chevron: rotates when account button is expanded */
+.chevron { transition: transform 0.2s ease; }
+button[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
 /* external link indicator */
 .ext-icon { vertical-align: middle; margin-left: 0.2em; }
