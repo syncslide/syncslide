@@ -765,22 +765,24 @@ New:
 
 ### `nav.html` — add toggle button
 
-- [ ] **Step 3: Add the toggle button as the last `<li>` in the nav list**
+- [ ] **Step 3: Add the toggle button after `</nav>`, inside `{% block nav %}`**
 
-Old (last two items before `</ul>`):
+The button sits in the banner landmark (`<header>`) but outside the navigation landmark — it is not a list item.
+
+Old (end of `{% block nav %}`):
 ```html
-<li><a href="/join">Join presentation</a></li>
-</ul>
+</nav>
+{% endblock nav %}
 ```
 
 New:
 ```html
-<li><a href="/join">Join presentation</a></li>
-<li><button type="button" id="theme-toggle" aria-pressed="false">Dark mode</button></li>
-</ul>
+</nav>
+<button type="button" id="theme-toggle" aria-pressed="false">Dark mode</button>
+{% endblock nav %}
 ```
 
-Note on button label: "Dark mode" names the **action** (activating dark mode), not the current state. `aria-pressed="false"` means dark mode is not currently active. Screen readers announce: "Dark mode, toggle button, not pressed" in light mode; "Dark mode, toggle button, pressed" in dark mode. `theme-init.js` corrects the initial `aria-pressed` value on `DOMContentLoaded`.
+Note on button label: "Dark mode" names the **action** (activating dark mode), not the current state. `aria-pressed="false"` means dark mode is not currently active. `theme-init.js` corrects the initial `aria-pressed` value on `DOMContentLoaded`. The button lives in the `<header>` banner landmark, after the navigation landmark, so screen readers announce it after the nav links.
 
 ### `audience.html` and `recording.html` — add nav
 
