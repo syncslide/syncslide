@@ -1,4 +1,23 @@
-body { background-color: #222222; padding: 16px; font-family: -apple-system, helvetica, arial, sans-serif; font-size: 16px; color: #ffffff; line-height: 1.5em; overflow-wrap: break-word; }
+html[data-theme="dark"] {
+  --bg:               #222222;
+  --text:             #ffffff;
+  --link:             #99bbcc;
+  --link-visited:     #ff90c8;
+  --link-nav:         #ffffff;
+  --slide-border:     #cccccc;
+  --hr-color:         #999999;
+  --table-border:     #aaaaaa;
+  --file-bg:          #444444;
+  --muted:            #bbbbbb;
+  --pres-item-border: #555555;
+  --control-bg:       #333333;
+  --control-border:   #666666;
+  --dialog-bg:        #2a2a2a;
+  --qr-border:        #555555;
+  --qr-outline:       #77aadd;
+}
+
+body { background-color: var(--bg); padding: 16px; font-family: -apple-system, helvetica, arial, sans-serif; font-size: 16px; color: var(--text); line-height: 1.5em; overflow-wrap: break-word; }
 
 header { text-align: center; margin-bottom: 18px; }
 
@@ -8,23 +27,23 @@ details[open] > summary::after { transform: rotate(90deg); }
 
 h1, h2, h3, h4, h5, h6 { line-height: 1em; }
 
-h2 { text-align: center; line-height: 1.5em; color: #ffffff; margin-bottom: 8px; }
+h2 { text-align: center; line-height: 1.5em; color: var(--text); margin-bottom: 8px; }
 
-#currentSlide { border: 1px solid #cccccc; max-width: 800px; margin: auto; }
+#currentSlide { border: 1px solid var(--slide-border); max-width: 800px; margin: auto; }
 
-hr { border: none; border-bottom: 1px solid #999; }
+hr { border: none; border-bottom: 1px solid var(--hr-color); }
 
-a { text-decoration: underline; color: #99bbcc; }
+a { text-decoration: underline; color: var(--link); }
 
-a:visited { color: #ff90c8; }
+a:visited { color: var(--link-visited); }
 
-a.nav-link, a.post-title-link { color: #ffffff; text-decoration: none; }
+a.nav-link, a.post-title-link { color: var(--link-nav); text-decoration: none; }
 
 a.citation-link { text-decoration: none; }
 
 nav { text-align: center; padding: 1em 0px; }
 
-nav a { margin: 1em; color: #ffffff; font-weight: bold; font-style: none; }
+nav a { margin: 1em; color: var(--link-nav); font-weight: bold; font-style: none; }
 
 nav a:hover, a.post-title-link:hover { text-decoration: underline; }
 
@@ -32,7 +51,7 @@ nav li { display: inline;}
 
 li { margin: .5em; }
 
-table, table tr, table td, table th { border: 1px solid #aaa; border-collapse: collapse; padding: 5px; font-weight: normal; }
+table, table tr, table td, table th { border: 1px solid var(--table-border); border-collapse: collapse; padding: 5px; font-weight: normal; }
 
 table th { font-weight: bold; }
 
@@ -56,12 +75,11 @@ footer { padding-top: 16px; margin-bottom: 100px; }
 
 .file { padding: 10px; overflow-x: scroll; }
 
-
-.file { line-height: 1.2em; background-color: #444444; color: #ffffff; }
+.file { line-height: 1.2em; background-color: var(--file-bg); color: var(--text); }
 
 .small-image { width: 100%; }
 
-.post-date { text-transform: uppercase; font-weight: bold; color: #ffffff; }
+.post-date { text-transform: uppercase; font-weight: bold; color: var(--text); }
 
 .post-excerpt { margin-left: 24px; }
 
@@ -74,31 +92,31 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 /* presentations list */
 .pres-controls { margin-bottom: 1em; }
 .pres-controls label, .pagination-controls label { margin-right: .4em; }
-.pres-controls select, .pagination-controls select { background: #333; color: #fff; border: 1px solid #666; padding: 3px 6px; }
+.pres-controls select, .pagination-controls select { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 3px 6px; }
 #pres-list { list-style: none; padding: 0; margin: 0; }
-.pres-item { border-bottom: 1px solid #555; padding: .8em 0; }
+.pres-item { border-bottom: 1px solid var(--pres-item-border); padding: .8em 0; }
 .pres-item h2 { text-align: left; margin-bottom: .25em; }
 .pres-item details { margin-top: .4em; }
-.pres-item summary { cursor: pointer; color: #bbb; }
+.pres-item summary { cursor: pointer; color: var(--muted); }
 .pagination-controls { margin-top: 1.2em; display: flex; align-items: center; gap: .6em; flex-wrap: wrap; }
-.pagination-controls button { background: #333; color: #fff; border: 1px solid #666; padding: 4px 10px; cursor: pointer; }
+.pagination-controls button { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 4px 10px; cursor: pointer; }
 .pagination-controls button:disabled { opacity: .4; cursor: default; }
-#page-info { color: #bbb; }
+#page-info { color: var(--muted); }
 
 /* in stage: */
 #markdown-input { display: block; width: 90%; margin: auto; height: 12em; }
 
 #qrOverlay { position: fixed; bottom: 1em; right: 1em; background: #fff; padding: 8px; border-radius: 4px; z-index: 100; line-height: 0; }
 #qrOverlay img { width: 150px; height: 150px; margin: 0; }
-#qrToggle[aria-pressed="true"] { outline: 2px solid #7ad; }
+#qrToggle[aria-pressed="true"] { outline: 2px solid var(--qr-outline); }
 
 
 /* dialog / modal */
-dialog { background: #2a2a2a; color: #fff; border: 1px solid #666; border-radius: 4px; padding: 1.5em; max-width: min(90vw, 600px); }
+dialog { background: var(--dialog-bg); color: var(--text); border: 1px solid var(--control-border); border-radius: 4px; padding: 1.5em; max-width: min(90vw, 600px); }
 dialog::backdrop { background: rgba(0, 0, 0, 0.65); }
 dialog h1 { margin-top: 0; }
-dialog button { background: #333; color: #fff; border: 1px solid #666; padding: 4px 10px; cursor: pointer; }
-dialog input[type="text"], dialog input[type="file"], dialog textarea, dialog select { background: #333; color: #fff; border: 1px solid #666; padding: 3px 6px; }
-dialog fieldset { border-color: #666; }
+dialog button { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 4px 10px; cursor: pointer; }
+dialog input[type="text"], dialog input[type="file"], dialog textarea, dialog select { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 3px 6px; }
+dialog fieldset { border-color: var(--control-border); }
 
 /*# sourceMappingURL=style.css.map */
