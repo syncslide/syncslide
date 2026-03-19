@@ -37,49 +37,6 @@
   <p>Yes — the audience view is plain HTML, so browser and OS accessibility settings apply directly. High contrast mode, custom fonts, and screen reader fonts all work out of the box.</p>
 </details>
 
-<h3>For Presenters</h3>
-
-<details>
-  <summary>How do I create a presentation?</summary>
-  <p>Log in, then go to <a href="/create">Create Presentation</a>. Give your presentation a title and you'll be taken to the stage, where you can write your content in Markdown and navigate your slides in real time.</p>
-</details>
-
-<details>
-  <summary>How do I format slides?</summary>
-  <p>Slides are written in <a href="https://commonmark.org/help/">Markdown</a>. Each <code>## Heading</code> (level 2) starts a new slide. Content between headings — paragraphs, lists, code blocks, and math — becomes the body of that slide.</p>
-</details>
-
-<details>
-  <summary>Are math equations supported?</summary>
-  <p>Yes. SyncSlide renders LaTeX math client-side using KaTeX. Use <code>$...$</code> for inline math and <code>$$...$$</code> for display math inside your Markdown.</p>
-</details>
-
-<details>
-  <summary>Can I edit slides while presenting live?</summary>
-  <p>Yes. Any change you make in the editor is saved and pushed to every connected audience member instantly — no reload required on their end.</p>
-</details>
-
-<details>
-  <summary>Is my presentation saved automatically?</summary>
-  <p>Yes. Every edit is saved to the database as you type, so your content is preserved even if you close the stage or lose your connection.</p>
-</details>
-
-<h3>Recording &amp; Playback</h3>
-
-<details>
-  <summary>Can I record a presentation?</summary>
-  <p>Yes. On the stage page, start recording before you begin presenting. The recording captures a timestamped log of each slide change and exports it as a WebVTT metadata track paired with your video file, so viewers can replay the slides in sync with the recording.</p>
-</details>
-
-<details>
-  <summary>How do I navigate between slides while watching a recording?</summary>
-  <p>Use the slide dropdown to jump to any slide instantly, or press <kbd>F8</kbd> / <kbd>Shift+F8</kbd> to step forward or backward one slide at a time. The video position updates to match.</p>
-</details>
-
-<details>
-  <summary>How are slides labeled in the recording dropdown?</summary>
-  <p>Each option shows the slide title and its timestamp in the recording — for example, <code>Introduction: 12.5s</code> — so you can quickly scrub to the right moment.</p>
-</details>
 
 </section>
 {% endblock content %}
