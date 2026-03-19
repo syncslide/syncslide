@@ -3,7 +3,6 @@
 
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">Your Presentations</li></ol></nav>{% endblock breadcrumb %}
 {% block content %}
-<main>
 <h1>Your Presentations</h1>
 {% if press | length > 0 %}
 <div class="pres-controls">
@@ -170,6 +169,4 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 {% else %}
 <p>No presentations yet. <a href="/create">Start one now!</a></p>
 {% endif %}
-</main>
-</body></html>
 {% endblock content %}
