@@ -1,28 +1,15 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const AxeBuilder = require('@axe-core/playwright').default;
-const { loginAsAdmin } = require('./helpers');
-
-const WCAG_TAGS = [
-    'wcag2a', 'wcag2aa', 'wcag21aa', 'wcag21aaa', 'best-practice',
-];
-
-async function assertNoViolations(page) {
-    const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-    if (results.violations.length > 0) {
-        const report = results.violations.map(v =>
-            `[${v.impact}] ${v.id}: ${v.description}\n  ${v.helpUrl}\n  ${v.nodes.map(n => n.html).join(', ')}`
-        ).join('\n\n');
-        throw new Error(`axe found ${results.violations.length} violation(s):\n\n${report}`);
-    }
-}
+const { loginAsAdmin, assertNoViolations } = require('./helpers');
 
 test.describe('theme toggle — public pages', () => {
     test('toggle button exists in nav with correct role and label', async ({ page }) => {
         await page.goto('/');
         const btn = page.locator('#theme-toggle');
         await expect(btn).toBeVisible();
-        await expect(btn).toHaveAttribute('aria-pressed');
+        const pressedVal = await btn.getAttribute('aria-pressed');
+        expect(['true', 'false']).toContain(pressedVal);
+        await expect(btn).toHaveText('Dark mode');
     });
 
     test('toggle button switches theme and updates aria-pressed', async ({ page }) => {
@@ -47,6 +34,7 @@ test.describe('theme toggle — public pages', () => {
 
     test('theme persists across page navigation via localStorage', async ({ page }) => {
         await page.goto('/');
+        await page.evaluate(() => localStorage.clear());
         const btn = page.locator('#theme-toggle');
 
         // Force dark theme by toggling until data-theme="dark"
@@ -96,6 +84,9 @@ test.describe('theme toggle — public pages', () => {
         // where DOMContentLoaded does not re-fire — only pageshow fires)
         await page.goto('/auth/login');
         await page.goBack();
+
+        const themeAfter = await page.locator('html').getAttribute('data-theme');
+        expect(themeAfter).toBe('dark');
 
         // aria-pressed must still reflect current theme
         const pressedAfter = await page.locator('#theme-toggle').getAttribute('aria-pressed');
