@@ -3,33 +3,34 @@ const { test, expect } = require('@playwright/test');
 const { loginAsAdmin, assertNoViolations } = require('./helpers');
 
 test.describe('theme toggle — public pages', () => {
-    test('toggle button exists in nav with correct role and label', async ({ page }) => {
+    test('toggle button exists in nav with correct label', async ({ page }) => {
         await page.goto('/');
         const btn = page.locator('#theme-toggle');
         await expect(btn).toBeVisible();
-        const pressedVal = await btn.getAttribute('aria-pressed');
-        expect(['true', 'false']).toContain(pressedVal);
-        await expect(btn).toHaveText('Dark mode');
+        const text = await btn.textContent();
+        expect(['Enable dark mode', 'Enable light mode']).toContain(text.trim());
     });
 
-    test('toggle button switches theme and updates aria-pressed', async ({ page }) => {
+    test('toggle button switches theme and updates label', async ({ page }) => {
         await page.goto('/');
         const btn = page.locator('#theme-toggle');
         const html = page.locator('html');
 
         // Record initial state
         const initialTheme = await html.getAttribute('data-theme');
-        const initialPressed = await btn.getAttribute('aria-pressed');
+        const initialText = await btn.textContent();
 
         // Toggle
         await btn.click();
 
         const newTheme = await html.getAttribute('data-theme');
-        const newPressed = await btn.getAttribute('aria-pressed');
+        const newText = await btn.textContent();
 
         // Theme should have flipped
         expect(newTheme).not.toBe(initialTheme);
-        expect(newPressed).not.toBe(initialPressed);
+        expect(newText.trim()).not.toBe(initialText.trim());
+        // Label should match new theme
+        expect(newText.trim()).toBe(newTheme === 'dark' ? 'Enable light mode' : 'Enable dark mode');
     });
 
     test('theme persists across page navigation via localStorage', async ({ page }) => {
@@ -72,14 +73,13 @@ test.describe('theme toggle — public pages', () => {
         expect(newTheme).not.toBe(theme);
     });
 
-    test('aria-pressed is correct after back-forward cache restore', async ({ page }) => {
+    test('button label is correct after back-forward cache restore', async ({ page }) => {
         await page.goto('/');
         const btn = page.locator('#theme-toggle');
 
-        // Set a known theme state by toggling
+        // Set a known theme state by toggling to dark
         const initialTheme = await page.locator('html').getAttribute('data-theme');
         if (initialTheme !== 'dark') await btn.click();
-        const pressedBefore = await btn.getAttribute('aria-pressed');
 
         // Navigate away, then use browser back button (triggers bfcache restore
         // where DOMContentLoaded does not re-fire — only pageshow fires)
@@ -89,9 +89,9 @@ test.describe('theme toggle — public pages', () => {
         const themeAfter = await page.locator('html').getAttribute('data-theme');
         expect(themeAfter).toBe('dark');
 
-        // aria-pressed must still reflect current theme
-        const pressedAfter = await page.locator('#theme-toggle').getAttribute('aria-pressed');
-        expect(pressedAfter).toBe(pressedBefore);
+        // Label must still reflect current theme
+        const textAfter = await page.locator('#theme-toggle').textContent();
+        expect(textAfter.trim()).toBe('Enable light mode');
     });
 
     test('axe passes in dark theme', async ({ page }) => {
