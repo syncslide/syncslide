@@ -1584,7 +1584,7 @@ mod tests {
             "help page should mention autosave"
         );
         assert!(
-            body.contains("instantly"),
+            body.contains("pushed to all connected audience members instantly"),
             "help page should mention live sync pushing edits instantly"
         );
     }
