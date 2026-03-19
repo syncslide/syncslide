@@ -1542,4 +1542,66 @@ mod tests {
             "authenticated request should return 200"
         );
     }
+
+    // --- FAQ merge tests ---
+
+    #[tokio::test]
+    async fn test_home_faq_presenter_section_removed() {
+        let (server, _state) = test_server().await;
+        let response = server.get("/").await;
+        response.assert_status_ok();
+        let body = response.text();
+        assert!(
+            !body.contains("For Presenters"),
+            "home page should not contain the For Presenters heading after merge"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_home_faq_audience_section_intact() {
+        let (server, _state) = test_server().await;
+        let response = server.get("/").await;
+        response.assert_status_ok();
+        let body = response.text();
+        assert!(
+            body.contains("For Audiences"),
+            "home page should still contain the For Audiences heading"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_help_editing_slides_expanded() {
+        let (server, _state) = test_server().await;
+        let response = server.get("/help").await;
+        response.assert_status_ok();
+        let body = response.text();
+        assert!(
+            body.contains("KaTeX"),
+            "help page should mention KaTeX math support"
+        );
+        assert!(
+            body.contains("saved as you type"),
+            "help page should mention autosave"
+        );
+        assert!(
+            body.contains("instantly"),
+            "help page should mention live sync pushing edits instantly"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_help_recording_expanded() {
+        let (server, _state) = test_server().await;
+        let response = server.get("/help").await;
+        response.assert_status_ok();
+        let body = response.text();
+        assert!(
+            body.contains("WebVTT"),
+            "help page should mention WebVTT export in the Recording section"
+        );
+        assert!(
+            body.contains("12.5s"),
+            "help page should show dropdown label format example including timestamp"
+        );
+    }
 }
