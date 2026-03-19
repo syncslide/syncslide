@@ -9,13 +9,13 @@ test('/help page has correct heading', async ({ page }) => {
 
 test('nav contains Help link visible to logged-out users', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Help' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Help' })).toBeVisible();
 });
 
 test('nav contains Help link visible to logged-in users', async ({ page }) => {
   await loginAsAdmin(page);
   await page.goto('/');
-  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Help' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Primary navigation' }).getByRole('link', { name: 'Help' })).toBeVisible();
 });
 
 test('homepage has presenter guide link', async ({ page }) => {

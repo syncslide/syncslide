@@ -33,8 +33,9 @@ test.describe('theme toggle — public pages', () => {
     });
 
     test('theme persists across page navigation via localStorage', async ({ page }) => {
-        await page.addInitScript(() => { try { localStorage.clear(); } catch(e) {} });
         await page.goto('/');
+        // Clear localStorage once after first load — addInitScript would clear on every navigation
+        await page.evaluate(() => { try { localStorage.clear(); } catch(e) {} });
         const btn = page.locator('#theme-toggle');
 
         // Force dark theme by toggling until data-theme="dark"
