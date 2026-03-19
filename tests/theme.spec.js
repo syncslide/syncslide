@@ -33,8 +33,8 @@ test.describe('theme toggle — public pages', () => {
     });
 
     test('theme persists across page navigation via localStorage', async ({ page }) => {
+        await page.addInitScript(() => { try { localStorage.clear(); } catch(e) {} });
         await page.goto('/');
-        await page.evaluate(() => localStorage.clear());
         const btn = page.locator('#theme-toggle');
 
         // Force dark theme by toggling until data-theme="dark"
