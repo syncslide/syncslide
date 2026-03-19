@@ -11,7 +11,8 @@
 
     // Fall back to OS preference
     if (!theme) {
-        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+        theme = (mq && mq.matches) ? 'dark' : 'light';
     }
 
     document.documentElement.setAttribute('data-theme', theme);
@@ -28,5 +29,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', syncPressed);
-    window.addEventListener('pageshow', syncPressed);
+    window.addEventListener('pageshow', function (e) {
+        if (e.persisted) syncPressed();
+    });
 }());
