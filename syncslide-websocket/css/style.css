@@ -129,11 +129,6 @@ footer { padding-top: 16px; margin-bottom: 100px; }
 #account-menu { display: none; }
 #account-menu.is-open { display: block; }
 
-/* hamburger: label swap driven by aria-expanded on the button */
-.close-label { display: none; }
-header button[aria-expanded="true"] .menu-label { display: none; }
-header button[aria-expanded="true"] .close-label { display: inline-flex; align-items: center; gap: 0.4em; }
-
 /* chevron: rotates when account button is expanded */
 header button[aria-expanded="true"] .chevron { transform: rotate(180deg); }
 
