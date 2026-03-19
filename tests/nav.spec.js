@@ -178,6 +178,7 @@ test('Escape closes open Account submenu', async ({ page }) => {
     await expect(accountBtn).toHaveAttribute('aria-expanded', 'true');
     await page.keyboard.press('Escape');
     await expect(accountBtn).toHaveAttribute('aria-expanded', 'false');
+    await expect(accountBtn).toBeFocused();
 });
 
 test('Escape on desktop does not move focus to hidden hamburger', async ({ page }) => {
@@ -225,7 +226,7 @@ test('account button has aria-expanded="true" when submenu is open', async ({ pa
     await expect(accountBtn).toHaveAttribute('aria-expanded', 'true');
 });
 
-test('account submenu links not in tab sequence when closed', async ({ page }) => {
+test('account submenu is hidden when closed', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/');
     await expect(page.locator('#account-menu')).toBeHidden();
