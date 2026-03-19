@@ -46,14 +46,14 @@ test('account nav exists with username as disclosure trigger', async ({ page }) 
     await page.goto('/');
     const accountNav = page.getByRole('navigation', { name: 'Account' });
     await expect(accountNav).toBeVisible();
-    await expect(accountNav.locator('summary')).toContainText('admin');
+    await expect(accountNav.locator('button[aria-expanded]')).toContainText('admin');
 });
 
 test('account submenu reveals Change Password and Logout when opened', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/');
     const accountNav = page.getByRole('navigation', { name: 'Account' });
-    await accountNav.locator('summary').click();
+    await accountNav.locator('button[aria-expanded]').click();
     await expect(accountNav.getByRole('link', { name: 'Change Password' })).toBeVisible();
     await expect(accountNav.getByRole('link', { name: 'Logout' })).toBeVisible();
 });
@@ -62,7 +62,7 @@ test('account submenu reveals Add User link for admin users', async ({ page }) =
     await loginAsAdmin(page);
     await page.goto('/');
     const accountNav = page.getByRole('navigation', { name: 'Account' });
-    await accountNav.locator('summary').click();
+    await accountNav.locator('button[aria-expanded]').click();
     await expect(accountNav.getByRole('link', { name: 'Add User' })).toBeVisible();
 });
 
@@ -97,4 +97,148 @@ test('theme toggle appears after Primary nav in header DOM order (logged-out)', 
         return !!(primaryNav.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING);
     });
     expect(isAfter).toBe(true);
+});
+
+// -- Hamburger: desktop --
+test('hamburger button is not visible on desktop', async ({ page }) => {
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await expect(hamburger).toBeHidden();
+});
+
+// -- Hamburger: mobile --
+test('hamburger button is visible on mobile viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await expect(hamburger).toBeVisible();
+});
+
+test('primary nav links are hidden by default on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    await expect(page.locator('#primary-nav-list')).toBeHidden();
+});
+
+test('clicking hamburger shows primary nav links on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await hamburger.click();
+    await expect(page.locator('#primary-nav-list')).toBeVisible();
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('clicking hamburger again hides primary nav links on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await hamburger.click();
+    await hamburger.click();
+    await expect(page.locator('#primary-nav-list')).toBeHidden();
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'false');
+});
+
+// -- Keyboard: hamburger --
+test('hamburger toggles with Enter key on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await hamburger.focus();
+    await page.keyboard.press('Enter');
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('hamburger toggles with Space key on mobile', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await hamburger.focus();
+    await page.keyboard.press('Space');
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+});
+
+// -- Escape key --
+test('Escape closes open hamburger menu and returns focus to hamburger', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(hamburger).toHaveAttribute('aria-expanded', 'false');
+    await expect(hamburger).toBeFocused();
+});
+
+test('Escape closes open Account submenu', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    const accountBtn = page.locator('nav[aria-label="Account"] button[aria-expanded]');
+    await accountBtn.click();
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('Escape on desktop does not move focus to hidden hamburger', async ({ page }) => {
+    // Desktop viewport: hamburger is display:none. Escape from Account submenu
+    // must not send focus to the hidden hamburger element — focus stays on Account button.
+    await loginAsAdmin(page);
+    await page.goto('/');
+    const accountBtn = page.locator('nav[aria-label="Account"] button[aria-expanded]');
+    await accountBtn.click();
+    await page.keyboard.press('Escape');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await expect(hamburger).not.toBeFocused();
+    await expect(accountBtn).toBeFocused();
+});
+
+test('Escape while Account submenu open on mobile returns focus to hamburger', async ({ page }) => {
+    // On mobile, both menus are visible. Escape from the Account submenu (without
+    // opening the primary nav) must still return focus to the hamburger — the
+    // spec defines the hamburger as the outermost trigger for focus return.
+    await loginAsAdmin(page);
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    const accountBtn = page.locator('nav[aria-label="Account"] button[aria-expanded]');
+    const hamburger = page.locator('nav[aria-label="Primary navigation"] button[aria-expanded]');
+    await accountBtn.click();
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'true');
+    await page.keyboard.press('Escape');
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'false');
+    await expect(hamburger).toBeFocused();
+});
+
+// -- Account submenu: aria-expanded state --
+test('account button has aria-expanded="false" when submenu is closed', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    const accountBtn = page.locator('nav[aria-label="Account"] button[aria-expanded]');
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('account button has aria-expanded="true" when submenu is open', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    const accountBtn = page.locator('nav[aria-label="Account"] button[aria-expanded]');
+    await accountBtn.click();
+    await expect(accountBtn).toHaveAttribute('aria-expanded', 'true');
+});
+
+test('account submenu links not in tab sequence when closed', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    await expect(page.locator('#account-menu')).toBeHidden();
+});
+
+// -- role="list" on nav ULs --
+test('primary nav ul has role="list"', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.locator('#primary-nav-list')).toHaveAttribute('role', 'list');
+});
+
+test('account menu ul has role="list"', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    await expect(page.locator('#account-menu')).toHaveAttribute('role', 'list');
 });
