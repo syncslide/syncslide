@@ -12,8 +12,9 @@
 <script src="/js/ext-links.js" defer></script>
 <script src="/js/theme.js" defer></script>
 </head><body>
+<a class="skip-link" href="#main">Skip to main content</a>
 <header>{% block nav %}{% endblock nav %}</header>
 {% block breadcrumb %}{% endblock breadcrumb %}
-{% block content %}{% endblock content %}
+<main id="main" tabindex="-1">{% block content %}{% endblock content %}</main>
 {% block footer %}{% endblock footer %}
 </body></html>
