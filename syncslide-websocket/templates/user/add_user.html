@@ -3,7 +3,6 @@
 
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">Add User</li></ol></nav>{% endblock breadcrumb %}
 {% block content %}
-<main>
 <h1>Add User</h1>
 <form method="POST">
 <label for="name">Name</label>
@@ -14,5 +13,4 @@
 <input type="password" id="password" name="password" required>
 <button type="submit">Add User</button>
 </form>
-</main>
 {% endblock content %}
