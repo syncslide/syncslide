@@ -38,7 +38,25 @@ The existing `@media (max-width: 600px)` nav rules in `style.css` (`nav { text-a
 - `id="primary-nav-list"` is added to the primary nav `<ul>` alongside its existing `class="clear-list"`; the class is not removed. Also add `role="list"` to this `<ul>` — Safari/VoiceOver removes list semantics from `<ul>` elements styled with `list-style: none`
 - Visible only at ≤768px via CSS (`display: none` at ≥769px)
 - `.menu-label` shown by default; `.close-label` hidden. Swapped via CSS when `aria-expanded="true"`
+- Both SVGs use `fill="currentColor"` only — no `stroke`. Stroke-based SVGs proved invisible in this codebase (ext-links bug); all new SVGs must be fill-based
 - Accessible name comes from visible text only; SVGs are `aria-hidden="true"` and purely decorative
+
+**Hamburger SVG** (three filled rects, 16×16):
+```html
+<svg width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+  <rect y="2"  width="16" height="2" rx="1"/>
+  <rect y="7"  width="16" height="2" rx="1"/>
+  <rect y="12" width="16" height="2" rx="1"/>
+</svg>
+```
+
+**Close SVG** (two crossed filled rects, 16×16):
+```html
+<svg width="1em" height="1em" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+  <rect x="-1" y="7" width="18" height="2" rx="1" transform="rotate(45 8 8)"/>
+  <rect x="-1" y="7" width="18" height="2" rx="1" transform="rotate(-45 8 8)"/>
+</svg>
+```
 - Announced as e.g. *"Menu, button, collapsed"* / *"Close, button, expanded"*
 - Changing the accessible name between "Menu" and "Close" on activation is expected behaviour. Some screen readers re-announce the name before the `aria-expanded` state change; this is acceptable and consistent with the pattern used by GOV.UK Design System and USWDS.
 
@@ -47,7 +65,10 @@ The existing `@media (max-width: 600px)` nav rules in `style.css` (`nav { text-a
 ```html
 <button type="button" aria-expanded="false" aria-controls="account-menu">
   {{ user.name }}
-  <svg class="chevron" aria-hidden="true"><!-- chevron --></svg>
+  <!-- chevron: fill-based downward-pointing triangle -->
+  <svg class="chevron" width="0.75em" height="0.75em" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <path d="M2 5l6 6 6-6H2z"/>
+  </svg>
 </button>
 <ul id="account-menu" role="list">
   <li><a href="/user/change_pwd">Change Password</a></li>
@@ -238,6 +259,7 @@ Same as non-admin submenu-open, with Add User between Change Password (step 9) a
 - No live region — disclosure patterns do not require one; adding one would cause double announcements
 - Tap targets ≥44×44px on mobile (WCAG 2.5.5)
 - SVG icons carry `aria-hidden="true"` — accessible names from visible text only; chevron is supplemental decoration
+- All SVGs use `fill="currentColor"` only, no `stroke` — stroke-based SVGs proved unreliable in this codebase
 - `:focus-visible` baseline rule added; `prefers-reduced-motion` respected for chevron transition
 - Colour contrast verified: both themes exceed WCAG 1.4.6 (AAA) 7:1 requirement
 - Pattern references: ARIA APG Disclosure Navigation Menu; GOV.UK Design System; USWDS
