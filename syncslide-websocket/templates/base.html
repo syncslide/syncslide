@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 {% block head %}
+<script src="/js/theme-init.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta charset="utf-8" />
 <title>{% block title %}{% endblock title %} - SyncSlide</title>
@@ -8,8 +9,9 @@
 {% block js %}{% endblock js %}
 {% endblock head %}
 <script src="/js/ext-links.js" defer></script>
+<script src="/js/theme.js" defer></script>
 </head><body>
-{% block nav %}{% endblock nav %}
+<header>{% block nav %}{% endblock nav %}</header>
 {% block breadcrumb %}{% endblock breadcrumb %}
 {% block content %}{% endblock content %}
 {% block footer %}{% endblock footer %}
