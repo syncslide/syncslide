@@ -46,7 +46,8 @@ test('valid session grants access to presentations page', async ({ page }) => {
 // Logout → session ended → login link visible in nav.
 test('logout ends session and login link appears in nav', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.click('nav a[href="/auth/logout"]');
+    await page.locator('nav[aria-label="Account"] summary').click();
+    await page.locator('nav[aria-label="Account"] a[href="/auth/logout"]').click();
     // Wait for the redirect to complete before asserting nav state.
     await page.waitForURL('/');
     // After logout, the login link must appear in the navigation.
@@ -56,7 +57,8 @@ test('logout ends session and login link appears in nav', async ({ page }) => {
 // After logout, protected pages redirect to login again.
 test('after logout, protected pages redirect to login', async ({ page }) => {
     await loginAsAdmin(page);
-    await page.click('nav a[href="/auth/logout"]');
+    await page.locator('nav[aria-label="Account"] summary').click();
+    await page.locator('nav[aria-label="Account"] a[href="/auth/logout"]').click();
     await page.waitForURL('/');
     await page.goto('/user/presentations');
     await expect(page).toHaveURL('/auth/login');
