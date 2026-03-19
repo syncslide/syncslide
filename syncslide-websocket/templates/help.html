@@ -7,7 +7,7 @@
 
 <h2>Getting Started</h2>
 <ul>
-<li>Create a presentation at <a href="/create">/create</a> and give it a name.</li>
+<li>Log in, then create a presentation at <a href="/create">/create</a> and give it a name.</li>
 <li>You land on the stage — your editing and presenting view.</li>
 <li>Share the URL with your audience. They visit the same URL and see the read-only audience view.</li>
 <li>Navigate slides with the <strong>Go to slide</strong> dropdown.</li>
@@ -16,9 +16,12 @@
 <h2>Editing Slides</h2>
 <ul>
 <li>Write Markdown in the textarea inside the <strong>Edit Slides</strong> section.</li>
-<li>Each <code>## heading</code> starts a new slide. The presentation title is an <code>h1</code> at the top.</li>
+<li>Each <code>## heading</code> starts a new slide. The presentation title is an <code>h1</code> at the top. See the <a href="https://commonmark.org/help/">CommonMark reference</a> for formatting syntax.</li>
 <li>Use the slide table inside the <strong>Slides</strong> section to add, edit, move, or delete slides.</li>
 <li>Rename the presentation via the <strong>Presentation name</strong> field.</li>
+<li>Math equations are rendered using KaTeX. Use <code>$...$</code> for inline math and <code>$$...$$</code> for display math.</li>
+<li>Every edit is pushed to all connected audience members instantly — no reload needed on their end.</li>
+<li>Every edit is saved to the database as you type, so your content is preserved even if you close the stage.</li>
 </ul>
 
 <h2>Keyboard Shortcuts</h2>
@@ -30,8 +33,10 @@
 <h2>Recording</h2>
 <ul>
 <li>Open the <strong>Record</strong> section on the stage.</li>
-<li>Press <strong>Record</strong> to start the timer; <strong>Pause</strong> to pause; <strong>Stop</strong> to end the session.</li>
+<li>Press <strong>Record</strong> to start the timer; <strong>Pause</strong> to pause; <strong>Stop</strong> to end the session. The recording captures a timestamped log of each slide change and exports it as a WebVTT metadata track paired with your video file.</li>
 <li>A save dialog opens: give the recording a name; optionally attach a video file and a captions VTT file.</li>
+<li>During playback, use the slide dropdown to jump to any slide, or press <kbd>F8</kbd> / <kbd>Shift+F8</kbd> to step forward or backward — the video position updates to match.</li>
+<li>Each option in the playback dropdown shows the slide title and its timestamp — for example, <code>Introduction: 12.5s</code> — so you can scrub to the right moment.</li>
 </ul>
 
 <h2>For Your Audience</h2>
