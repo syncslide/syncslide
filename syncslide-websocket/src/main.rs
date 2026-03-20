@@ -46,8 +46,9 @@ use std::{
 
 mod db;
 use db::{
-    AddUserForm, AuthSession, Backend, ChangePasswordForm, Group, LoginForm,
-    Presentation as DbPresentation, Recording, RecordingSlide, RecordingSlideInput, User,
+    check_access, AccessResult, AddUserForm, AuthSession, Backend, ChangePasswordForm, Group,
+    LoginForm, Presentation as DbPresentation, Recording, RecordingSlide, RecordingSlideInput,
+    User,
 };
 
 /// Wraps Tera renderer so that we can force a special render process.

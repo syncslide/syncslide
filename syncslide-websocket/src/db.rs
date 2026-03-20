@@ -430,6 +430,97 @@ impl AuthnBackend for Backend {
     }
 }
 
+/// The result of an access check for a presentation.
+///
+/// Owners, editors, and controllers bypass password checks. `PasswordOk`
+/// is returned when a provided plaintext password matches the stored Argon2id
+/// hash. `Denied` is returned for all other cases (no password set means
+/// the presentation is publicly viewable, but still `Denied` for write access).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AccessResult {
+    /// The user owns the presentation.
+    Owner,
+    /// The user has editor access (can edit content and control slides).
+    Editor,
+    /// The user has controller access (can move between slides only).
+    Controller,
+    /// A correct password was provided for a password-protected presentation.
+    PasswordOk,
+    /// None of the above conditions were met.
+    Denied,
+}
+
+/// Checks what level of access a user (or unauthenticated visitor) has to a
+/// presentation.
+///
+/// - `user`: The authenticated user, if any.
+/// - `presentation_id`: The presentation to check.
+/// - `provided_pwd`: A plaintext password from the request, if present.
+///
+/// Priority: Owner > Editor > Controller > PasswordOk > Denied.
+/// Owners, editors, and controllers bypass the password check entirely.
+pub async fn check_access(
+    db: &SqlitePool,
+    user: Option<&User>,
+    presentation_id: i64,
+    provided_pwd: Option<&str>,
+) -> Result<AccessResult, Error> {
+    let pres = sqlx::query_as!(
+        Presentation,
+        "SELECT * FROM presentation WHERE id = ?",
+        presentation_id
+    )
+    .fetch_optional(db)
+    .await?;
+
+    let Some(pres) = pres else {
+        return Ok(AccessResult::Denied);
+    };
+
+    if let Some(user) = user {
+        // Check ownership first
+        if user.id == pres.user_id {
+            return Ok(AccessResult::Owner);
+        }
+
+        // Check co-presenter role
+        let row = sqlx::query!(
+            "SELECT role FROM presentation_access WHERE presentation_id = ? AND user_id = ?",
+            presentation_id,
+            user.id
+        )
+        .fetch_optional(db)
+        .await?;
+
+        if let Some(row) = row {
+            return match row.role.as_str() {
+                "editor" => Ok(AccessResult::Editor),
+                "controller" => Ok(AccessResult::Controller),
+                _ => Ok(AccessResult::Denied),
+            };
+        }
+    }
+
+    // Check password if one is set
+    if let Some(stored_hash) = &pres.password {
+        if let Some(provided) = provided_pwd {
+            let parsed = PasswordHash::new(stored_hash)?;
+            if Argon2::default()
+                .verify_password(provided.as_bytes(), &parsed)
+                .is_ok()
+            {
+                return Ok(AccessResult::PasswordOk);
+            }
+        }
+        return Ok(AccessResult::Denied);
+    }
+
+    // No password set — presentation is public but access is still Denied for
+    // write operations. Callers decide what Denied means for their context
+    // (e.g., audience view is allowed; editing is not).
+    Ok(AccessResult::Denied)
+}
+
 #[cfg(test)]
 #[allow(clippy::pedantic, missing_docs)]
 mod tests {
@@ -512,3 +603,204 @@ mod tests {
 }
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
+
+#[cfg(test)]
+mod access_tests {
+    use super::*;
+    use sqlx::sqlite::SqliteConnectOptions;
+    use std::str::FromStr;
+
+    async fn setup_pool() -> SqlitePool {
+        let pool = SqlitePool::connect_with(
+            SqliteConnectOptions::from_str("sqlite::memory:")
+                .unwrap()
+                .foreign_keys(false),
+        )
+        .await
+        .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .unwrap();
+        pool
+    }
+
+    async fn make_user(pool: &SqlitePool, name: &str) -> User {
+        User::new(
+            pool,
+            AddUserForm {
+                name: name.to_string(),
+                email: format!("{name}@example.com"),
+                password: "testpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        sqlx::query_as!(User, "SELECT * FROM users WHERE name = ?", name)
+            .fetch_one(pool)
+            .await
+            .unwrap()
+    }
+
+    async fn make_presentation(owner: &User, pool: &SqlitePool) -> Presentation {
+        Presentation::new(owner, "Test Pres".to_string(), pool)
+            .await
+            .unwrap()
+    }
+
+    /// Owner of a presentation must get AccessResult::Owner.
+    #[tokio::test]
+    async fn check_access_owner() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        let result = check_access(&pool, Some(&owner), pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Owner),
+            "presentation owner must get Owner"
+        );
+    }
+
+    /// A user with editor role in presentation_access must get AccessResult::Editor.
+    #[tokio::test]
+    async fn check_access_editor() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner2").await;
+        let editor = make_user(&pool, "editor2").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'editor')",
+        )
+        .bind(pres.id)
+        .bind(editor.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let result = check_access(&pool, Some(&editor), pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Editor),
+            "editor must get Editor"
+        );
+    }
+
+    /// A user with controller role must get AccessResult::Controller.
+    #[tokio::test]
+    async fn check_access_controller() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner3").await;
+        let controller = make_user(&pool, "controller3").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'controller')",
+        )
+        .bind(pres.id)
+        .bind(controller.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let result = check_access(&pool, Some(&controller), pres.id, None)
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, AccessResult::Controller),
+            "controller must get Controller"
+        );
+    }
+
+    /// An unrelated authenticated user on a presentation with no password must get Denied.
+    #[tokio::test]
+    async fn check_access_unrelated_user_denied() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner4").await;
+        let stranger = make_user(&pool, "stranger4").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        let result = check_access(&pool, Some(&stranger), pres.id, None)
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "unrelated user must get Denied on an unprotected presentation"
+        );
+    }
+
+    /// Unauthenticated access (user = None) on a presentation with no password must get Denied.
+    #[tokio::test]
+    async fn check_access_unauthenticated_denied() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner5").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        let result = check_access(&pool, None, pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "unauthenticated access must get Denied"
+        );
+    }
+
+    /// Correct password on a password-protected presentation must return PasswordOk.
+    #[tokio::test]
+    async fn check_access_correct_password_returns_ok() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner6").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        use argon2::password_hash::{SaltString, rand_core::OsRng};
+        use argon2::{Argon2, PasswordHasher};
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"hunter2", &salt)
+            .unwrap()
+            .to_string();
+        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
+            .bind(&hash)
+            .bind(pres.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let result = check_access(&pool, None, pres.id, Some("hunter2"))
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, AccessResult::PasswordOk),
+            "correct password must return PasswordOk"
+        );
+    }
+
+    /// Wrong password on a password-protected presentation must return Denied.
+    #[tokio::test]
+    async fn check_access_wrong_password_returns_denied() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner7").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        use argon2::password_hash::{SaltString, rand_core::OsRng};
+        use argon2::{Argon2, PasswordHasher};
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"hunter2", &salt)
+            .unwrap()
+            .to_string();
+        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
+            .bind(&hash)
+            .bind(pres.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let result = check_access(&pool, None, pres.id, Some("wrongpass"))
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "wrong password must return Denied"
+        );
+    }
+}
