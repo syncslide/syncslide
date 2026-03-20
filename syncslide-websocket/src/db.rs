@@ -287,6 +287,91 @@ impl Presentation {
     }
 }
 
+/// A co-presenter entry from the `presentation_access` table.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
+pub struct PresentationAccess {
+    pub id: i64,
+    pub presentation_id: i64,
+    pub user_id: i64,
+    pub role: String,
+    pub username: String,  // populated by JOIN
+}
+
+impl PresentationAccess {
+    /// Returns all co-presenter rows for a presentation.
+    pub async fn get_for_presentation(
+        db: &SqlitePool,
+        presentation_id: i64,
+    ) -> Result<Vec<Self>, Error> {
+        sqlx::query_as::<_, PresentationAccess>(
+            "SELECT pa.*, u.name as username FROM presentation_access pa
+             JOIN users u ON u.id = pa.user_id
+             WHERE pa.presentation_id = ?",
+        )
+        .bind(presentation_id)
+        .fetch_all(db)
+        .await
+        .map_err(Error::from)
+    }
+
+    /// Adds a co-presenter. `role` must be `'editor'` or `'controller'`.
+    pub async fn add(
+        db: &SqlitePool,
+        presentation_id: i64,
+        user_id: i64,
+        role: &str,
+    ) -> Result<(), Error> {
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role)
+             VALUES (?, ?, ?)",
+        )
+        .bind(presentation_id)
+        .bind(user_id)
+        .bind(role)
+        .execute(db)
+        .await
+        .map_err(Error::from)
+        .map(|_| ())
+    }
+
+    /// Removes a co-presenter row.
+    pub async fn remove(
+        db: &SqlitePool,
+        presentation_id: i64,
+        user_id: i64,
+    ) -> Result<(), Error> {
+        sqlx::query(
+            "DELETE FROM presentation_access WHERE presentation_id = ? AND user_id = ?",
+        )
+        .bind(presentation_id)
+        .bind(user_id)
+        .execute(db)
+        .await
+        .map_err(Error::from)
+        .map(|_| ())
+    }
+
+    /// Updates the role for an existing co-presenter row.
+    pub async fn change_role(
+        db: &SqlitePool,
+        presentation_id: i64,
+        user_id: i64,
+        new_role: &str,
+    ) -> Result<(), Error> {
+        sqlx::query(
+            "UPDATE presentation_access SET role = ?
+             WHERE presentation_id = ? AND user_id = ?",
+        )
+        .bind(new_role)
+        .bind(presentation_id)
+        .bind(user_id)
+        .execute(db)
+        .await
+        .map_err(Error::from)
+        .map(|_| ())
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
     pub id: i64,
@@ -844,6 +929,49 @@ mod access_tests {
             matches!(result, AccessResult::Owner),
             "owner must bypass password check and get Owner"
         );
+    }
+
+    /// add_access must insert a row and get_access_for_presentation must return it.
+    #[tokio::test]
+    async fn add_and_get_access() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner_a1").await;
+        let editor = make_user(&pool, "editor_a1").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        PresentationAccess::add(&pool, pres.id, editor.id, "editor").await.unwrap();
+        let entries = PresentationAccess::get_for_presentation(&pool, pres.id).await.unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].user_id, editor.id);
+        assert_eq!(entries[0].role, "editor");
+    }
+
+    /// remove_access must delete the row.
+    #[tokio::test]
+    async fn remove_access_deletes_row() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner_a2").await;
+        let editor = make_user(&pool, "editor_a2").await;
+        let pres = make_presentation(&owner, &pool).await;
+        PresentationAccess::add(&pool, pres.id, editor.id, "editor").await.unwrap();
+
+        PresentationAccess::remove(&pool, pres.id, editor.id).await.unwrap();
+        let entries = PresentationAccess::get_for_presentation(&pool, pres.id).await.unwrap();
+        assert!(entries.is_empty());
+    }
+
+    /// change_role must update the role for an existing row.
+    #[tokio::test]
+    async fn change_role_updates_existing_row() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner_a3").await;
+        let editor = make_user(&pool, "editor_a3").await;
+        let pres = make_presentation(&owner, &pool).await;
+        PresentationAccess::add(&pool, pres.id, editor.id, "editor").await.unwrap();
+
+        PresentationAccess::change_role(&pool, pres.id, editor.id, "controller").await.unwrap();
+        let entries = PresentationAccess::get_for_presentation(&pool, pres.id).await.unwrap();
+        assert_eq!(entries[0].role, "controller");
     }
 
     /// An authenticated user who is not the owner can unlock a password-protected
