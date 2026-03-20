@@ -404,17 +404,24 @@ async fn present(
         Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
-    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
-    if !is_owner {
-        let slide_index = current_slide_index(&app_state, pid);
-        let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
-        let mut ctx = Context::new();
-        ctx.insert("pres", &pres);
-        ctx.insert("pres_user", &pres_user);
-        ctx.insert("initial_slide", &initial_slide);
-        return tera.render("audience.html", ctx, auth_session, db).await.into_response();
+    let access = check_access(&db, auth_session.user.as_ref(), pid, None)
+        .await
+        .unwrap_or(AccessResult::Denied);
+
+    match access {
+        AccessResult::Owner | AccessResult::Editor => {
+            stage(tera, db, auth_session, pid, app_state).await.into_response()
+        }
+        _ => {
+            let slide_index = current_slide_index(&app_state, pid);
+            let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
+            let mut ctx = Context::new();
+            ctx.insert("pres", &pres);
+            ctx.insert("pres_user", &pres_user);
+            ctx.insert("initial_slide", &initial_slide);
+            tera.render("audience.html", ctx, auth_session, db).await.into_response()
+        }
     }
-    stage(tera, db, auth_session, pid, app_state).await.into_response()
 }
 
 async fn stage(
@@ -1941,5 +1948,69 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(role, "controller", "role must be updated to controller");
+    }
+
+    /// GET /{uname}/{pid} by an editor must redirect to the stage (same as owner).
+    /// The response is 200 (stage.html is rendered, not a redirect — stage() renders directly).
+    #[tokio::test]
+    async fn editor_gets_stage_access() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Editor Stage Test", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "editoruser".to_string(),
+                email: "ed@example.com".to_string(),
+                password: "edpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let ed_uid = get_user_id("editoruser", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, ed_uid, "editor").await.unwrap();
+        login_as(&server, "editoruser", "edpass").await;
+
+        let response = server.get(&format!("/admin/{pid}")).await;
+
+        // stage() renders stage.html (200), not a redirect. The stage template
+        // contains a textarea; use that as a proxy for "stage was rendered".
+        assert_eq!(response.status_code(), 200);
+        assert!(
+            response.text().contains("stage"),
+            "editor must see the stage page"
+        );
+    }
+
+    /// GET /{uname}/{pid} by a controller must NOT get stage access.
+    #[tokio::test]
+    async fn controller_gets_audience_not_stage() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Controller Audience Test", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "ctrluser".to_string(),
+                email: "ctrl@example.com".to_string(),
+                password: "ctrlpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let ctrl_uid = get_user_id("ctrluser", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, ctrl_uid, "controller").await.unwrap();
+        login_as(&server, "ctrluser", "ctrlpass").await;
+
+        let response = server.get(&format!("/admin/{pid}")).await;
+        assert_eq!(response.status_code(), 200);
+        // The audience template contains the text "audience" in its body/script;
+        // the stage template contains a textarea with id="markdown-input".
+        assert!(
+            !response.text().contains("markdown-input"),
+            "controller must not see the stage textarea"
+        );
     }
 }
