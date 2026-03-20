@@ -1604,4 +1604,45 @@ mod tests {
             "help page should show dropdown label format example including timestamp"
         );
     }
+
+    /// The presentation_access table must exist after migrations and accept
+    /// a valid (presentation_id, user_id, role) row.
+    #[tokio::test]
+    async fn presentation_access_table_exists_and_accepts_rows() {
+        let (_server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Access Test", &state.db_pool).await;
+
+        // Insert a second user to be the co-presenter
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "copresenter".to_string(),
+                email: "co@example.com".to_string(),
+                password: "copass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let co_uid = get_user_id("copresenter", &state.db_pool).await;
+
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'editor')",
+        )
+        .bind(pid)
+        .bind(co_uid)
+        .execute(&state.db_pool)
+        .await
+        .expect("presentation_access table must accept a valid row");
+
+        let role: String = sqlx::query_scalar(
+            "SELECT role FROM presentation_access WHERE presentation_id = ? AND user_id = ?",
+        )
+        .bind(pid)
+        .bind(co_uid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        assert_eq!(role, "editor");
+    }
 }
