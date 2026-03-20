@@ -803,4 +803,77 @@ mod access_tests {
             "wrong password must return Denied"
         );
     }
+
+    /// A non-existent presentation must return Denied.
+    #[tokio::test]
+    async fn check_access_nonexistent_presentation_denied() {
+        let pool = setup_pool().await;
+        let result = check_access(&pool, None, 999999, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "non-existent presentation must return Denied"
+        );
+    }
+
+    /// Owner must get Owner even when the presentation has a password set.
+    /// This guards the priority ordering: ownership short-circuits before the password check.
+    #[tokio::test]
+    async fn check_access_owner_bypasses_password() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner8").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        use argon2::password_hash::{SaltString, rand_core::OsRng};
+        use argon2::{Argon2, PasswordHasher};
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"secret", &salt)
+            .unwrap()
+            .to_string();
+        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
+            .bind(&hash)
+            .bind(pres.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        // Owner with no password provided — must still get Owner
+        let result = check_access(&pool, Some(&owner), pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Owner),
+            "owner must bypass password check and get Owner"
+        );
+    }
+
+    /// An authenticated user who is not the owner can unlock a password-protected
+    /// presentation with the correct password.
+    #[tokio::test]
+    async fn check_access_authenticated_non_owner_can_unlock_with_password() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner9").await;
+        let visitor = make_user(&pool, "visitor9").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        use argon2::password_hash::{SaltString, rand_core::OsRng};
+        use argon2::{Argon2, PasswordHasher};
+        let salt = SaltString::generate(OsRng::default());
+        let hash = Argon2::default()
+            .hash_password(b"open_sesame", &salt)
+            .unwrap()
+            .to_string();
+        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
+            .bind(&hash)
+            .bind(pres.id)
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        let result = check_access(&pool, Some(&visitor), pres.id, Some("open_sesame"))
+            .await
+            .unwrap();
+        assert!(
+            matches!(result, AccessResult::PasswordOk),
+            "authenticated non-owner with correct password must get PasswordOk"
+        );
+    }
 }
