@@ -347,6 +347,23 @@ struct PwdQuery {
     error: Option<String>,
 }
 
+#[derive(Deserialize)]
+struct AddAccessForm {
+    username: String,
+    role: String,
+}
+
+#[derive(Deserialize)]
+struct RemoveAccessForm {
+    user_id: i64,
+}
+
+#[derive(Deserialize)]
+struct ChangeRoleForm {
+    user_id: i64,
+    role: String,
+}
+
 async fn start_pres(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -872,6 +889,82 @@ async fn delete_presentation(
     }
 }
 
+async fn add_access(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    Form(form): Form<AddAccessForm>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if form.role != "editor" && form.role != "controller" {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let Ok(Some(target)) = User::get_by_name(form.username, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    // Don't allow adding the owner as a co-presenter
+    if target.id == user.id {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    match PresentationAccess::add(&db, pid, target.id, &form.role).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+async fn remove_access(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    Form(form): Form<RemoveAccessForm>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    match PresentationAccess::remove(&db, pid, form.user_id).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+async fn change_access_role(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    Form(form): Form<ChangeRoleForm>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if form.role != "editor" && form.role != "controller" {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    match PresentationAccess::change_role(&db, pid, form.user_id, &form.role).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 async fn update_recording_files(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -1088,6 +1181,12 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
         .route("/user/presentations/{pid}/delete", post(delete_presentation))
+        .route("/user/presentations/{pid}/access/add", post(add_access))
+        .route("/user/presentations/{pid}/access/remove", post(remove_access))
+        .route(
+            "/user/presentations/{pid}/access/change-role",
+            post(change_access_role),
+        )
         .route(
             "/user/recordings/{rid}/slides/{sid}/time",
             post(update_slide_time),
@@ -1709,5 +1808,134 @@ mod tests {
             matches!(received, Ok(SlideMessage::Slide(2))),
             "Slide message must be broadcast when sent by Editor"
         );
+    }
+
+    /// POST /user/presentations/{pid}/access/add by the owner must insert the row
+    /// and redirect to /user/presentations.
+    #[tokio::test]
+    async fn add_access_as_owner_inserts_row() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Shared Pres", &state.db_pool).await;
+        // Create a second user to add as co-presenter
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "couser".to_string(),
+                email: "co@example.com".to_string(),
+                password: "copass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/access/add"))
+            .form(&serde_json::json!({ "username": "couser", "role": "editor" }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM presentation_access WHERE presentation_id = ?",
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        assert_eq!(count, 1, "access row must be inserted");
+    }
+
+    /// POST .../access/add by a non-owner must return 404.
+    #[tokio::test]
+    async fn add_access_by_non_owner_returns_404() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        seed_admin_user(&state.db_pool).await;
+        let owner_id = get_user_id("adminuser", &state.db_pool).await;
+        let pid = seed_presentation(owner_id, "Owner Pres", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/access/add"))
+            .form(&serde_json::json!({ "username": "adminuser", "role": "editor" }))
+            .await;
+
+        assert_eq!(response.status_code(), 404);
+    }
+
+    /// POST .../access/remove by the owner must delete the row.
+    #[tokio::test]
+    async fn remove_access_as_owner_deletes_row() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rm Pres", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "couser2".to_string(),
+                email: "co2@example.com".to_string(),
+                password: "copass2".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let co_uid = get_user_id("couser2", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, co_uid, "editor").await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/access/remove"))
+            .form(&serde_json::json!({ "user_id": co_uid }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM presentation_access WHERE presentation_id = ?")
+                .bind(pid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        assert_eq!(count, 0, "access row must be deleted");
+    }
+
+    /// POST .../access/change-role by the owner must update the role in the DB.
+    #[tokio::test]
+    async fn change_access_role_as_owner_updates_role() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Change Role Pres", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "couser3".to_string(),
+                email: "co3@example.com".to_string(),
+                password: "copass3".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let co_uid = get_user_id("couser3", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, co_uid, "editor").await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/presentations/{pid}/access/change-role"))
+            .form(&serde_json::json!({ "user_id": co_uid, "role": "controller" }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let role: String = sqlx::query_scalar(
+            "SELECT role FROM presentation_access WHERE presentation_id = ? AND user_id = ?",
+        )
+        .bind(pid)
+        .bind(co_uid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        assert_eq!(role, "controller", "role must be updated to controller");
     }
 }
