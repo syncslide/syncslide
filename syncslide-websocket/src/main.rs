@@ -1564,8 +1564,8 @@ mod tests {
         response.assert_status_ok();
         let body = response.text();
         assert!(
-            body.contains("For Audiences"),
-            "home page should still contain the For Audiences heading"
+            body.contains("How does an audience member follow along"),
+            "home page should still contain audience FAQ questions"
         );
     }
 
