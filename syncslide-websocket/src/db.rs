@@ -581,11 +581,12 @@ mod tests {
         use sqlx::sqlite::SqliteConnectOptions;
         use std::str::FromStr;
         let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::from_str("sqlite::memory:").unwrap()
+            SqliteConnectOptions::from_str("sqlite::memory:").unwrap().foreign_keys(false),
         )
         .await
         .unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = ON").execute(&pool).await.unwrap();
         let admin: User = sqlx::query_as!(User, "SELECT * FROM users WHERE name = 'admin'")
             .fetch_one(&pool)
             .await
