@@ -217,9 +217,9 @@ fn handle_socket(
         cleanup(state);
         return Err("Closed");
     }
-    let slide_msg: SlideMessage = match serde_json::from_str(raw.to_text().unwrap()) {
-        Ok(m) => m,
-        Err(_) => return Err("Invalid message!"),
+    let slide_msg: SlideMessage = match raw.to_text().ok().and_then(|t| serde_json::from_str(t).ok()) {
+        Some(m) => m,
+        None => return Err("Invalid message!"),
     };
     let permitted = match (role, &slide_msg) {
         (AccessResult::Owner, _) => true,
