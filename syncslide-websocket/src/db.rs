@@ -26,6 +26,7 @@ pub struct Recording {
     pub captions_path: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub last_edited: Option<OffsetDateTime>,
+    pub password: Option<String>,
 }
 impl Recording {
     pub async fn get_by_presentation(
@@ -197,6 +198,7 @@ pub struct Presentation {
     pub user_id: i64,
     pub content: String,
     pub name: String,
+    pub password: Option<String>,
 }
 impl Presentation {
     pub async fn new(user: &User, name: String, db: &SqlitePool) -> Result<Presentation, Error> {
@@ -480,6 +482,32 @@ mod tests {
                 .is_err(),
             "wrong password should fail verification"
         );
+    }
+
+    /// Presentation::new must return password: None when no password is set.
+    #[tokio::test]
+    async fn presentation_password_defaults_to_none() {
+        use sqlx::sqlite::SqliteConnectOptions;
+        use std::str::FromStr;
+        let pool = SqlitePool::connect_with(
+            SqliteConnectOptions::from_str("sqlite::memory:").unwrap()
+        )
+        .await
+        .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let admin: User = sqlx::query_as("SELECT * FROM users WHERE name = 'admin'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        let pres = Presentation::new(&admin, "Password Test".to_string(), &pool)
+            .await
+            .unwrap();
+        assert!(
+            pres.password.is_none(),
+            "password must default to None when not set"
+        );
+        let fetched = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
+        assert!(fetched.password.is_none());
     }
 }
 
