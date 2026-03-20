@@ -586,7 +586,7 @@ mod tests {
         .await
         .unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-        let admin: User = sqlx::query_as("SELECT * FROM users WHERE name = 'admin'")
+        let admin: User = sqlx::query_as!(User, "SELECT * FROM users WHERE name = 'admin'")
             .fetch_one(&pool)
             .await
             .unwrap();
