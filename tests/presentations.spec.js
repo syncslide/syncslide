@@ -68,12 +68,33 @@ test.describe('presentations list', () => {
     });
 
     // The delete dialog cancel button must receive focus when the dialog opens.
-    // This is the first interactive element in the dialog and is where showModal() places focus.
-    test('focus moves to cancel button when delete dialog opens', async ({ page }) => {
+    // After the APG fix, Cancel is last; showModal() focuses the first interactive element (Delete submit button).
+    test('focus moves to first interactive element when delete dialog opens', async ({ page }) => {
         await page.goto('/user/presentations');
         await page.click('button[data-open-dialog="delete-pres-1"]');
-        const cancelBtn = page.locator('#delete-pres-1 button[data-close-dialog="delete-pres-1"]');
-        await expect(cancelBtn).toBeFocused();
+        const deleteBtn = page.locator('#delete-pres-1 button[type="submit"]');
+        await expect(deleteBtn).toBeFocused();
+    });
+
+    // The delete-presentation dialog must follow APG order: heading first, cancel last.
+    test('delete-pres dialog has heading before cancel button', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('button[data-open-dialog="delete-pres-1"]');
+        const dialog = page.locator('#delete-pres-1');
+        await expect(dialog).toBeVisible();
+
+        // Get all focusable elements in order; heading (h1) must come before cancel button.
+        const h1 = dialog.locator('h1');
+        const cancelBtn = dialog.locator('button[data-close-dialog]');
+        // Use DOM order (compareDocumentPosition), not visual position — CSS can
+        // visually reorder elements without changing DOM/tab sequence.
+        const inOrder = await dialog.evaluate(el => {
+            const h = el.querySelector('h1');
+            const c = el.querySelector('button[data-close-dialog]');
+            // DOCUMENT_POSITION_FOLLOWING (4) means h1 precedes cancel in DOM
+            return !!(h.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+        expect(inOrder).toBe(true);
     });
 });
 
