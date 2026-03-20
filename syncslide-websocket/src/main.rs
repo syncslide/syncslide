@@ -139,11 +139,19 @@ async fn broadcast_to_all(
     State(state): State<AppState>,
     auth_session: AuthSession,
 ) -> Response {
-    if auth_session.user.is_some() {
-        ws.on_upgrade(|socket| ws_handle(socket, pid, state, true))
-    } else {
-        ws.on_upgrade(|socket| ws_handle(socket, pid, state, false))
-    }
+    // Resolve role at connect time. Password is not passed — the WebSocket
+    // endpoint does not handle password authentication; the HTTP layer (plan 3)
+    // gates who can reach the audience page in the first place.
+    let pid_i64 = pid.parse::<i64>().unwrap_or(-1);
+    let role = check_access(
+        &state.db_pool,
+        auth_session.user.as_ref(),
+        pid_i64,
+        None,
+    )
+    .await
+    .unwrap_or(AccessResult::Denied);
+    ws.on_upgrade(move |socket| ws_handle(socket, pid, state, role))
 }
 
 fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
@@ -199,33 +207,38 @@ fn handle_socket(
     pid: &str,
     tx: &mut Sender<SlideMessage>,
     state: &mut AppState,
+    role: &AccessResult,
 ) -> Result<bool, &'static str> {
-    let Ok(msg) = msg else {
+    let Ok(raw) = msg else {
         cleanup(state);
         return Err("Disconnected");
     };
-    if let Message::Close(_) = msg {
+    if let Message::Close(_) = raw {
         cleanup(state);
         return Err("Closed");
     }
-    let msg: SlideMessage = match serde_json::from_str(msg.to_text().unwrap()) {
-        Ok(msg) => msg,
-        Err(_e) => {
-            // TODO: proper error handling
-            return Err("Invalid message!");
-        }
+    let slide_msg: SlideMessage = match serde_json::from_str(raw.to_text().unwrap()) {
+        Ok(m) => m,
+        Err(_) => return Err("Invalid message!"),
     };
-    update_slide(pid, msg.clone(), state);
-
-    if tx.send(msg).is_err() {
+    let permitted = match (role, &slide_msg) {
+        (AccessResult::Owner, _) => true,
+        (AccessResult::Editor, SlideMessage::Text(_) | SlideMessage::Slide(_)) => true,
+        (AccessResult::Controller, SlideMessage::Slide(_)) => true,
+        _ => false,
+    };
+    if !permitted {
+        return Ok(true); // silently drop
+    }
+    update_slide(pid, slide_msg.clone(), state);
+    if tx.send(slide_msg).is_err() {
         cleanup(state);
-        // disconnected
         return Err("Channel disconnected!");
     }
     Ok(true)
 }
 
-async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, auth: bool) {
+async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role: AccessResult) {
     let pres = add_client_handler_channel(pid.clone(), &mut state).await;
     let (mut tx, mut rx, text, slide) = {
         let p = pres.lock().unwrap();
@@ -241,10 +254,7 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, auth
     let (mut sock_send, mut sock_recv) = socket.split();
     let socket_handler = async {
         while let Some(msg) = sock_recv.next().await {
-            if !auth {
-                continue;
-            }
-            if handle_socket(msg, &pid, &mut tx, &mut state1).is_err() {
+            if handle_socket(msg, &pid, &mut tx, &mut state1, &role).is_err() {
                 return;
             }
         }
@@ -1645,5 +1655,59 @@ mod tests {
         .await
         .unwrap();
         assert_eq!(role, "editor");
+    }
+
+    /// A Controller role must not be permitted to send a Name message.
+    /// handle_socket must return Ok(true) (keep connection open, message dropped).
+    #[tokio::test]
+    async fn ws_controller_cannot_send_name_message() {
+        let (_server, state) = test_server().await;
+        let (tx, _rx) = tokio::sync::broadcast::channel::<SlideMessage>(8);
+        let mut tx = tx;
+        let msg = axum::extract::ws::Message::text(
+            serde_json::to_string(&SlideMessage::Name("hacked".to_string())).unwrap(),
+        );
+        let mut state_clone = state.clone();
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "WS Test", &state.db_pool).await;
+        let result = handle_socket(Ok(msg), &pid.to_string(), &mut tx, &mut state_clone, &AccessResult::Controller);
+        assert!(
+            matches!(result, Ok(true)),
+            "Controller sending Name must be silently dropped (Ok(true)), not an error"
+        );
+    }
+
+    /// An Editor role must be permitted to send a Slide message.
+    #[tokio::test]
+    async fn ws_editor_can_send_slide_message() {
+        let (_server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "WS Test 2", &state.db_pool).await;
+        let mut state_clone = state.clone();
+
+        {
+            let (tx_inner, rx_inner) = tokio::sync::broadcast::channel::<SlideMessage>(8);
+            state_clone.slides.lock().unwrap().insert(
+                pid.to_string(),
+                Arc::new(Mutex::new(Presentation {
+                    content: String::new(),
+                    slide: 0,
+                    channel: (tx_inner, rx_inner),
+                })),
+            );
+        }
+
+        let (tx, mut rx) = tokio::sync::broadcast::channel::<SlideMessage>(8);
+        let mut tx_clone = tx;
+        let msg = axum::extract::ws::Message::text(
+            serde_json::to_string(&SlideMessage::Slide(2)).unwrap(),
+        );
+        let result = handle_socket(Ok(msg), &pid.to_string(), &mut tx_clone, &mut state_clone, &AccessResult::Editor);
+        assert!(matches!(result, Ok(true)), "Editor must be able to send Slide");
+        let received = rx.try_recv();
+        assert!(
+            matches!(received, Ok(SlideMessage::Slide(2))),
+            "Slide message must be broadcast when sent by Editor"
+        );
     }
 }
