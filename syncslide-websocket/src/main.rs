@@ -404,9 +404,10 @@ async fn present(
         Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
-    let access = check_access(&db, auth_session.user.as_ref(), pid, None)
-        .await
-        .unwrap_or(AccessResult::Denied);
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, None).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
 
     match access {
         AccessResult::Owner | AccessResult::Editor => {
@@ -1975,11 +1976,11 @@ mod tests {
         let response = server.get(&format!("/admin/{pid}")).await;
 
         // stage() renders stage.html (200), not a redirect. The stage template
-        // contains a textarea; use that as a proxy for "stage was rendered".
+        // contains a textarea with id="markdown-input" — use that as the discriminator.
         assert_eq!(response.status_code(), 200);
         assert!(
-            response.text().contains("stage"),
-            "editor must see the stage page"
+            response.text().contains("markdown-input"),
+            "editor must see the stage textarea"
         );
     }
 
