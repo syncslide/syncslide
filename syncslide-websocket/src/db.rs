@@ -288,13 +288,18 @@ impl Presentation {
 }
 
 /// A co-presenter entry from the `presentation_access` table.
+///
+/// NOTE: `username` is not a database column — it is populated only by
+/// `get_for_presentation`, which JOINs the `users` table. Do not use
+/// `query_as::<_, PresentationAccess>` with any other query or `FromRow`
+/// deserialization will fail at runtime.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
 pub struct PresentationAccess {
     pub id: i64,
     pub presentation_id: i64,
     pub user_id: i64,
     pub role: String,
-    pub username: String,  // populated by JOIN
+    pub username: String,  // populated by JOIN — see struct doc
 }
 
 impl PresentationAccess {
