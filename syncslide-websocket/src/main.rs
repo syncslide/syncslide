@@ -347,18 +347,18 @@ struct PwdQuery {
     error: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct AddAccessForm {
     username: String,
     role: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct RemoveAccessForm {
     user_id: i64,
 }
 
-#[derive(Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct ChangeRoleForm {
     user_id: i64,
     role: String,
@@ -934,6 +934,10 @@ async fn remove_access(
     };
     if pres.user_id != user.id {
         return StatusCode::NOT_FOUND.into_response();
+    }
+    // Don't allow removing the owner from their own presentation
+    if form.user_id == user.id {
+        return StatusCode::BAD_REQUEST.into_response();
     }
     match PresentationAccess::remove(&db, pid, form.user_id).await {
         Ok(()) => Redirect::to("/user/presentations").into_response(),
