@@ -33,7 +33,7 @@
 					<td>
 						<button type="button" data-open-dialog="delete-rec-{{ rec.id }}">Delete</button>
 						<dialog id="delete-rec-{{ rec.id }}" aria-labelledby="delete-rec-heading-{{ rec.id }}">
-							<h1 id="delete-rec-heading-{{ rec.id }}">Delete {{ rec.name }}?</h1>
+							<h1 id="delete-rec-heading-{{ rec.id }}" tabindex="-1">Delete {{ rec.name }}?</h1>
 							<p>This will permanently delete the recording.</p>
 							<form method="post" action="/user/recordings/{{ rec.id }}/delete">
 								<button type="submit">Delete</button>
@@ -51,7 +51,7 @@
 		</details>
 		<button type="button" data-open-dialog="delete-pres-{{ pres.id }}">Delete: {{ pres.name }}</button>
 		<dialog id="delete-pres-{{ pres.id }}" aria-labelledby="delete-pres-heading-{{ pres.id }}">
-			<h1 id="delete-pres-heading-{{ pres.id }}">Delete {{ pres.name }}?</h1>
+			<h1 id="delete-pres-heading-{{ pres.id }}" tabindex="-1">Delete {{ pres.name }}?</h1>
 			<p>This will permanently delete the presentation and all its recordings.</p>
 			<form method="post" action="/user/presentations/{{ pres.id }}/delete">
 				<button type="submit">Delete</button>
@@ -78,12 +78,18 @@
 <script>
 document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
 	btn.addEventListener('click', function () {
-		document.getElementById(btn.dataset.openDialog).showModal();
+		var dialog = document.getElementById(btn.dataset.openDialog);
+		dialog.showModal();
+		var heading = dialog.querySelector('h1[tabindex="-1"]');
+		if (heading) heading.focus();
 	});
 });
 document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 	btn.addEventListener('click', function () {
-		document.getElementById(btn.dataset.closeDialog).close();
+		var dialog = document.getElementById(btn.dataset.closeDialog);
+		var opener = document.querySelector('[data-open-dialog="' + btn.dataset.closeDialog + '"]');
+		dialog.close();
+		if (opener) opener.focus();
 	});
 });
 

@@ -67,13 +67,13 @@ test.describe('presentations list', () => {
         await expect(page).toHaveURL('/user/presentations');
     });
 
-    // The delete dialog cancel button must receive focus when the dialog opens.
-    // After the APG fix, Cancel is last; showModal() focuses the first interactive element (Delete submit button).
-    test('focus moves to first interactive element when delete dialog opens', async ({ page }) => {
+    // When the delete dialog opens, focus must move to the dialog heading (tabindex="-1").
+    // This keeps the destructive button out of initial focus and announces the dialog to screen readers.
+    test('focus moves to dialog heading when delete dialog opens', async ({ page }) => {
         await page.goto('/user/presentations');
         await page.click('button[data-open-dialog="delete-pres-1"]');
-        const deleteBtn = page.locator('#delete-pres-1 button[type="submit"]');
-        await expect(deleteBtn).toBeFocused();
+        const heading = page.locator('#delete-pres-1 h1');
+        await expect(heading).toBeFocused();
     });
 
     // The delete-presentation dialog must follow APG order: heading first, cancel last.
