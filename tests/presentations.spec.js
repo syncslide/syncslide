@@ -198,3 +198,63 @@ test.describe('create presentation', () => {
         await expect(first).toHaveText('AAA First Presentation');
     });
 });
+
+// -- Role labels --
+// A presentation owned by admin must NOT show a shared-with label.
+test('owner presentation has no shared-with label', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    const item = page.locator('.pres-item[data-role="owner"]').first();
+    await expect(item).toBeVisible();
+    await expect(item.locator('.role-label')).not.toBeVisible();
+});
+
+// data-role="owner" must be present on owned presentations.
+test('owned presentation has data-role owner', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    const item = page.locator('#pres-list li').first();
+    await expect(item).toHaveAttribute('data-role', 'owner');
+});
+
+// -- Filter control --
+test('filter button is present', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    const filterBtn = page.locator('#filter-toggle');
+    await expect(filterBtn).toBeVisible();
+    await expect(filterBtn).toContainText('Filter');
+});
+
+test('filter button has aria-expanded false by default', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    await expect(page.locator('#filter-toggle')).toHaveAttribute('aria-expanded', 'false');
+});
+
+test('clicking filter button expands the panel', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    await page.click('#filter-toggle');
+    await expect(page.locator('#filter-toggle')).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#filter-panel')).toBeVisible();
+});
+
+test('filter panel has three checkboxes all checked', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    await page.click('#filter-toggle');
+    const panel = page.locator('#filter-panel');
+    const boxes = panel.locator('input[type="checkbox"]');
+    await expect(boxes).toHaveCount(3);
+    for (let i = 0; i < 3; i++) {
+        await expect(boxes.nth(i)).toBeChecked();
+    }
+});
+
+test('result count live region is present', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/user/presentations');
+    const liveRegion = page.locator('#filter-count');
+    await expect(liveRegion).toBeAttached();
+});

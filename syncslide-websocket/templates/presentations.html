@@ -5,6 +5,27 @@
 {% block content %}
 <h1>Your Presentations</h1>
 {% if press | length > 0 %}
+<div class="filter-controls">
+	<button type="button"
+	        id="filter-toggle"
+	        aria-expanded="false"
+	        aria-controls="filter-panel"
+	        aria-label="Filter">
+		<svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 16 16">
+			<path d="M2 3h12l-4.5 5.5V13l-3-1.5V8.5L2 3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+		</svg>
+		Filter <span id="filter-active-count"></span>
+	</button>
+	<div id="filter-panel" role="group" hidden>
+		<fieldset>
+			<legend>Role</legend>
+			<label><input type="checkbox" checked data-filter-role="owner"> My presentations</label>
+			<label><input type="checkbox" checked data-filter-role="editor"> Shared as editor</label>
+			<label><input type="checkbox" checked data-filter-role="controller"> Shared as controller</label>
+		</fieldset>
+	</div>
+	<div id="filter-count" aria-live="polite" aria-atomic="true"></div>
+</div>
 <div class="pres-controls">
 	<label for="sort-by">Sort by:</label>
 	<select id="sort-by">
@@ -17,8 +38,9 @@
 
 <ul id="pres-list" role="list">
 	{% for pres in press %}
-	<li class="pres-item" role="listitem" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}">
+	<li class="pres-item" role="listitem" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}" data-role="{{ pres.role }}">
 		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
+		{% if pres.role != "owner" %}<span class="role-label">Shared with you as {{ pres.role }}</span>{% endif %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
 			{% if pres.recordings | length > 0 %}
@@ -49,6 +71,7 @@
 			<p>No recordings yet. Start a recording from the <a href="/{{ user.name }}/{{ pres.id }}">{{ pres.name }} stage</a>.</p>
 			{% endif %}
 		</details>
+		{% if pres.role == "owner" %}
 		<button type="button" data-open-dialog="delete-pres-{{ pres.id }}">Delete: {{ pres.name }}</button>
 		<dialog id="delete-pres-{{ pres.id }}" aria-labelledby="delete-pres-heading-{{ pres.id }}">
 			<h1 id="delete-pres-heading-{{ pres.id }}" tabindex="-1">Delete {{ pres.name }}?</h1>
@@ -124,6 +147,7 @@
 			</form>
 			<button type="button" data-close-dialog="set-pwd-{{ pres.id }}">Close</button>
 		</dialog>
+		{% endif %}
 	</li>
 	{% endfor %}
 </ul>
@@ -183,10 +207,40 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 	var prevBtn = document.getElementById('prev-page');
 	var nextBtn = document.getElementById('next-page');
 	var pageInfo = document.getElementById('page-info');
+	var filterToggleBtn = document.getElementById('filter-toggle');
+	var filterPanel = document.getElementById('filter-panel');
+	var filterCountEl = document.getElementById('filter-count');
+	var filterActiveCount = document.getElementById('filter-active-count');
 	var currentPage = 1;
 
+	// Toggle filter panel open/close
+	filterToggleBtn.addEventListener('click', function () {
+		var expanded = filterToggleBtn.getAttribute('aria-expanded') === 'true';
+		filterToggleBtn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+		if (expanded) {
+			filterPanel.setAttribute('hidden', '');
+		} else {
+			filterPanel.removeAttribute('hidden');
+		}
+	});
+
+	function getActiveRoles() {
+		var checked = [];
+		filterPanel.querySelectorAll('[data-filter-role]').forEach(function (cb) {
+			if (cb.checked) checked.push(cb.dataset.filterRole);
+		});
+		return checked;
+	}
+
+	function getFiltered() {
+		var roles = getActiveRoles();
+		return allItems.filter(function (item) {
+			return roles.includes(item.dataset.role);
+		});
+	}
+
 	function getSorted() {
-		var items = allItems.slice();
+		var items = getFiltered().slice();
 		var sort = sortSel.value;
 		if (sort === 'newest') {
 			items.sort(function (a, b) { return parseInt(b.dataset.id) - parseInt(a.dataset.id); });
@@ -210,6 +264,7 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 		var perPage = parseInt(perPageSel.value);
 		var sorted = getSorted();
 		var total = sorted.length;
+		var allTotal = allItems.length;
 		var totalPages = Math.max(1, Math.ceil(total / perPage));
 		if (currentPage > totalPages) currentPage = totalPages;
 		var start = (currentPage - 1) * perPage;
@@ -224,14 +279,29 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 		if (pageInfo.textContent !== pageText) pageInfo.textContent = pageText;
 		prevBtn.disabled = currentPage <= 1;
 		nextBtn.disabled = currentPage >= totalPages;
+
+		// Update filter button label and active count badge
+		var activeRoles = getActiveRoles();
+		var activeCount = activeRoles.length;
+		filterActiveCount.textContent = activeCount < 3 ? ' (' + activeCount + ' active)' : '';
+		filterToggleBtn.setAttribute('aria-label', 'Filter' + (activeCount < 3 ? ', ' + activeCount + ' active' : ''));
+
+		// Announce result count to screen readers
+		var countMsg = 'Showing ' + total + ' of ' + allTotal + ' presentations.';
+		if (filterCountEl.textContent !== countMsg) filterCountEl.textContent = countMsg;
 	}
+
+	filterPanel.querySelectorAll('[data-filter-role]').forEach(function (cb) {
+		cb.addEventListener('change', function () { currentPage = 1; render(); });
+	});
 
 	sortSel.addEventListener('change', function () { render(); });
 	perPageSel.addEventListener('change', function () { currentPage = 1; render(); });
 	prevBtn.addEventListener('click', function () { if (currentPage > 1) { currentPage--; render(); } });
 	nextBtn.addEventListener('click', function () {
 		var perPage = parseInt(perPageSel.value);
-		var totalPages = Math.max(1, Math.ceil(allItems.length / perPage));
+		var sorted = getSorted();
+		var totalPages = Math.max(1, Math.ceil(sorted.length / perPage));
 		if (currentPage < totalPages) { currentPage++; render(); }
 	});
 
