@@ -1,6 +1,6 @@
 {% extends "audience.html" %}
 {% block title %}{{ pres.name }} (stage){% endblock title %}
-{% block js %}{{ super() }}<script defer="defer" src="/js/handlers.js"></script>{% endblock js %}
+{% block js %}{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script><script defer="defer" src="/js/handlers.js"></script>{% endblock js %}
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endblock breadcrumb %}
 
 {% block stage %}
@@ -35,10 +35,7 @@
 <p id="timer">00:00:00</p>
 </section>
 </details>
-<nav aria-label="Slide Navigation">
-<label for="goTo">Go to slide:</label>
-<select id="goTo" name="goTo"></select>
-</nav>
+{% include "_slide_nav.html" %}
 <dialog id="slideDialog" aria-labelledby="slideDialogHeading">
 <button type="button" id="slideDialogCancel">Cancel</button>
 <h1 id="slideDialogHeading"></h1>
