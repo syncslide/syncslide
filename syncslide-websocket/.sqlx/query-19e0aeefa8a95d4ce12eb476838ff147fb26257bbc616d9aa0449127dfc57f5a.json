@@ -1,0 +1,50 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT p.id, p.user_id, p.content, p.name, p.password,\n                      pa.role as \"role!: String\"\n               FROM presentation p\n               JOIN presentation_access pa ON pa.presentation_id = p.id\n               WHERE pa.user_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Integer"
+      },
+      {
+        "name": "user_id",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "content",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "name",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "password",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "role!: String",
+        "ordinal": 5,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "19e0aeefa8a95d4ce12eb476838ff147fb26257bbc616d9aa0449127dfc57f5a"
+}
