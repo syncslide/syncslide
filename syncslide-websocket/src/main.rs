@@ -370,6 +370,18 @@ struct SetPasswordForm {
     action: String,
 }
 
+/// Query parameter for the presentation URL: `?pwd=<plaintext>`.
+#[derive(Deserialize)]
+struct JoinPwdQuery {
+    pwd: Option<String>,
+}
+
+/// Form body for the join-password POST.
+#[derive(Deserialize)]
+struct JoinPasswordForm {
+    password: String,
+}
+
 async fn start_pres(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -397,8 +409,9 @@ async fn present(
     State(app_state): State<AppState>,
     auth_session: AuthSession,
     Path((uname, pid)): Path<(String, i64)>,
+    Query(query): Query<JoinPwdQuery>,
 ) -> impl IntoResponse {
-    let pres_user = User::get_by_name(uname, &db).await;
+    let pres_user = User::get_by_name(uname.clone(), &db).await;
     let pres_user = match pres_user {
         Ok(Some(u)) => u,
         Ok(None) => return audience(tera, auth_session, db).await.into_response(),
@@ -410,7 +423,7 @@ async fn present(
         Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
-    let access = match check_access(&db, auth_session.user.as_ref(), pid, None).await {
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, query.pwd.as_deref()).await {
         Ok(a) => a,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
@@ -419,7 +432,7 @@ async fn present(
         AccessResult::Owner | AccessResult::Editor => {
             stage(tera, db, auth_session, pid, app_state).await.into_response()
         }
-        _ => {
+        AccessResult::PasswordOk => {
             let slide_index = current_slide_index(&app_state, pid);
             let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
             let mut ctx = Context::new();
@@ -427,6 +440,73 @@ async fn present(
             ctx.insert("pres_user", &pres_user);
             ctx.insert("initial_slide", &initial_slide);
             tera.render("audience.html", ctx, auth_session, db).await.into_response()
+        }
+        AccessResult::Denied => {
+            if pres.password.is_some() {
+                // Password set but not provided or incorrect — show entry page
+                let mut ctx = Context::new();
+                ctx.insert("pres_name", &pres.name);
+                ctx.insert("pres_owner", &uname);
+                ctx.insert("pres_id", &pid);
+                ctx.insert("error", &false);
+                tera.render("join_password.html", ctx, auth_session, db).await.into_response()
+            } else {
+                // No password — serve audience view (public access)
+                let slide_index = current_slide_index(&app_state, pid);
+                let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
+                let mut ctx = Context::new();
+                ctx.insert("pres", &pres);
+                ctx.insert("pres_user", &pres_user);
+                ctx.insert("initial_slide", &initial_slide);
+                tera.render("audience.html", ctx, auth_session, db).await.into_response()
+            }
+        }
+        _ => {
+            // Controller — serve audience view
+            let slide_index = current_slide_index(&app_state, pid);
+            let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
+            let mut ctx = Context::new();
+            ctx.insert("pres", &pres);
+            ctx.insert("pres_user", &pres_user);
+            ctx.insert("initial_slide", &initial_slide);
+            tera.render("audience.html", ctx, auth_session, db).await.into_response()
+        }
+    }
+}
+
+async fn join_password_submit(
+    State(tera): State<Tera>,
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path((uname, pid)): Path<(String, i64)>,
+    Form(form): Form<JoinPasswordForm>,
+) -> impl IntoResponse {
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Ok(Some(pres_user)) = User::get_by_name(uname.clone(), &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != pres_user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let access = check_access(&db, auth_session.user.as_ref(), pid, Some(&form.password))
+        .await
+        .unwrap_or(AccessResult::Denied);
+    match access {
+        AccessResult::PasswordOk => {
+            let redirect_url = format!("/{uname}/{pid}?pwd={}", form.password);
+            Redirect::to(&redirect_url).into_response()
+        }
+        _ => {
+            let mut ctx = Context::new();
+            ctx.insert("pres_name", &pres.name);
+            ctx.insert("pres_owner", &uname);
+            ctx.insert("pres_id", &pid);
+            ctx.insert("error", &true);
+            tera.render("join_password.html", ctx, auth_session, db)
+                .await
+                .into_response()
         }
     }
 }
@@ -1299,6 +1379,7 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/create", get(start))
         .route("/create", post(start_pres))
         .route("/{uname}/{pid}", get(present))
+        .route("/join-password/{uname}/{pid}", post(join_password_submit))
         .route("/qr/{uname}/{pid}", get(qr_code))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
@@ -2194,6 +2275,67 @@ mod tests {
         assert!(
             !response.text().contains("markdown-input"),
             "controller must not see the stage textarea"
+        );
+    }
+
+    /// GET /{uname}/{pid} on a password-protected presentation without credentials
+    /// must render the password entry page (200, not a redirect).
+    #[tokio::test]
+    async fn password_protected_presentation_shows_entry_page() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Secret Pres", &state.db_pool).await;
+        DbPresentation::set_password(pid, "secretpass", &state.db_pool).await.unwrap();
+        // No login — anonymous visitor
+
+        let response = server.get(&format!("/admin/{pid}")).await;
+
+        assert_eq!(response.status_code(), 200);
+        assert!(
+            response.text().contains("password protected"),
+            "must show the password entry page"
+        );
+    }
+
+    /// POST /join-password/{uname}/{pid} with correct password must redirect
+    /// to the audience URL with ?pwd= appended.
+    #[tokio::test]
+    async fn correct_password_redirects_to_audience() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Redirect Pres", &state.db_pool).await;
+        DbPresentation::set_password(pid, "correctpass", &state.db_pool).await.unwrap();
+
+        let response = server
+            .post(&format!("/join-password/admin/{pid}"))
+            .form(&serde_json::json!({ "password": "correctpass" }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let location = response.headers()["location"].to_str().unwrap();
+        assert!(
+            location.contains("?pwd="),
+            "redirect must include ?pwd= in the URL, got: {location}"
+        );
+    }
+
+    /// POST /join-password/{uname}/{pid} with wrong password must re-render the form (200).
+    #[tokio::test]
+    async fn wrong_password_rerenders_entry_page() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Wrong Pass Pres", &state.db_pool).await;
+        DbPresentation::set_password(pid, "correctpass", &state.db_pool).await.unwrap();
+
+        let response = server
+            .post(&format!("/join-password/admin/{pid}"))
+            .form(&serde_json::json!({ "password": "wrongpass" }))
+            .await;
+
+        assert_eq!(response.status_code(), 200);
+        assert!(
+            response.text().contains("Incorrect password"),
+            "wrong password must show error message"
         );
     }
 }
