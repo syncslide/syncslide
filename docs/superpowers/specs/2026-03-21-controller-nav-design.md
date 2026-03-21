@@ -8,7 +8,7 @@
 Two related issues:
 
 1. The `controller` role has backend permission to send `Slide` messages over WebSocket, but is served `audience.html` which has no UI to do so. Controllers cannot actually control slides.
-2. The `/{uname}/{pid}` route never verifies that `uname` matches the presentation owner. An editor visiting `editor_name/pid` is served the stage with `{{ user.name }}` (the editor) used in the QR URL, producing a non-canonical link.
+2. The `/{uname}/{pid}` route never verifies that `uname` matches the presentation owner. An editor visiting `editor_name/pid` is served the stage with `{{ user.name }}` (the logged-in editor) used in the QR URL, producing a non-canonical link.
 
 ## Goals
 
@@ -25,7 +25,7 @@ Two related issues:
 
 ## Section 1: Canonical URL Redirect
 
-In the `/{uname}/{pid}` route handler, after resolving both `pres` and `pres_user`, add an ownership check before `check_access`:
+In the `/{uname}/{pid}` route handler (`present()`), after resolving both `pres_user` (from the URL's `uname`) and `pres` (from `pid`), add an ownership check before `check_access`:
 
 ```
 if pres.user_id != pres_user.id:
@@ -36,9 +36,18 @@ if pres.user_id != pres_user.id:
 
 The `?pwd=` query param is forwarded so password-protected presentations continue to work after redirect.
 
+**Behaviour change:** Previously, visiting `/{any_valid_user}/{pid}` would proceed to `check_access` and serve the appropriate view (with the wrong user as `pres_user`). After this change, any URL where `uname` is not the owner is redirected to the canonical owner URL before any template is served. This is intentional.
+
 After this check, all branches below it can assume `pres_user` is the presentation owner.
 
-The `stage` function is updated to accept and insert `pres_user` into the template context, replacing the current use of `{{ user.name }}` (the logged-in user) in the stage QR URL with `{{ pres_user.name }}`.
+### Stage QR fix
+
+The `stage` function currently does not pass `pres_user` to its template context, and `stage.html`'s `{% block stage %}` contains a QR button/overlay that uses `{{ user.name }}` (the logged-in user). Two changes are needed:
+
+1. Pass `pres_user` into the `stage` function and insert it into the template context.
+2. In `stage.html`, update the QR `href` and `img alt` in `{% block stage %}` from `{{ user.name }}` to `{{ pres_user.name }}`.
+
+Note: `audience.html` also renders a QR button/overlay (outside `{% block stage %}`) using `{{ pres_user.name }}`. That button is already correct once `pres_user` is the owner. The duplicate QR in `stage.html` is a pre-existing layout issue and is not changed by this spec beyond fixing the username reference.
 
 ## Section 2: Templates
 
@@ -55,12 +64,25 @@ A Tera partial containing only the slide navigation control:
 
 ### New: `controller.html`
 
-Extends `audience.html`. Fills `{% block stage %}` with the slide nav partial only (no editing tools, no recording). Loads `slide-nav.js` in addition to the scripts inherited from `audience.html`.
+Extends `audience.html`. Fills `{% block stage %}` with the slide nav partial only (no editing tools, no recording).
+
+`audience.html` renders a QR button/overlay when `pres_user` is set. This will appear on controller pages — this is intentional. A controller may want to show the QR code to the audience.
+
+**`{% block js %}` is overridden completely** (without `{{ super() }}`) to list scripts explicitly, excluding `recording.js` (which has no null guard and would crash on elements that don't exist on this page) and `handlers.js` (editing only), and adding `slide-nav.js`:
 
 ```
 {% extends "audience.html" %}
 {% block title %}{{ pres.name }} (controller){% endblock title %}
-{% block js %}{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script>{% endblock js %}
+{% block js %}
+<script defer src="/js/remarkable.js"></script>
+<script defer src="/js/katex.js"></script>
+<script defer src="/js/auto-render.js"></script>
+<script defer src="/js/render-a11y-string.js"></script>
+<script defer src="/js/common.js"></script>
+<script defer src="/js/audience.js"></script>
+<script defer src="/js/slide-nav.js"></script>
+<link rel="stylesheet" href="/css/katex.css">
+{% endblock js %}
 {% block stage %}
 {% include "_slide_nav.html" %}
 {% endblock stage %}
@@ -69,28 +91,34 @@ Extends `audience.html`. Fills `{% block stage %}` with the slide nav partial on
 ### Updated: `stage.html`
 
 - Replaces the inline `<nav aria-label="Slide Navigation">` block with `{% include "_slide_nav.html" %}`.
-- Loads `slide-nav.js` alongside `handlers.js`.
+- Updates `{% block js %}` to load `slide-nav.js` before `handlers.js` (required: `handlers.js` calls `getH2s()` at module initialisation, which is defined in `slide-nav.js`):
+
+```
+{% block js %}{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script><script defer="defer" src="/js/handlers.js"></script>{% endblock js %}
+```
 
 ### Updated: Route handler
 
-The `_ =>` (Controller) branch changes from rendering `audience.html` to rendering `controller.html`, with the same context: `pres`, `pres_user`, `initial_slide`.
+The `_ =>` (Controller) branch in `present()` changes from rendering `audience.html` to rendering `controller.html`, with the same context: `pres`, `pres_user`, `initial_slide`.
 
 ## Section 3: JavaScript
 
 ### New: `slide-nav.js`
 
-Extracted from `handlers.js`. Contains:
+Extracted from `handlers.js`. Contains all slide navigation wiring:
 
 - `getH2s(allHtml)` — populates the `#goTo` select with slide titles from parsed HTML
 - `updateSlide()` — sends `{"type":"slide","data":n}` over the WebSocket
-- An `input` event listener on `#goTo` calling `updateSlide`
+- `const goTo = document.getElementById("goTo")` and `onCommit(goTo, updateSlide)` — the input listener on the select (this wiring moves from `handlers.js` lines 56–57 into this file)
 - The F8 / Shift+F8 keyboard handler for next/previous slide
 
-This file is loaded by both `stage.html` and `controller.html`.
+This file is loaded by both `stage.html` and `controller.html`. It must load **before** `handlers.js` on stage.
 
 ### Updated: `handlers.js`
 
-Removes the code extracted into `slide-nav.js`. Retains:
+Removes the code extracted into `slide-nav.js`. `handlers.js` is loaded **only by `stage.html`** — loading it on any other template would crash because it accesses `#markdown-input` at module scope with no null guard.
+
+Retains:
 
 - `onCommit(el, fn)` utility
 - `updateMarkdown()`
@@ -101,20 +129,13 @@ Removes the code extracted into `slide-nav.js`. Retains:
 
 ### Updated: `audience.js`
 
-`isStage()` changes from:
-```js
-return document.getElementById("goTo") !== null
-```
-to:
-```js
-return document.getElementById("markdown-input") !== null
-```
+`isStage()` is currently defined but never called. It is removed entirely.
 
 ## Section 4: Testing
 
 ### Existing tests to update
 
-- `controller_gets_audience_not_stage` — update assertion: response must contain `#goTo` (slide nav present) and must not contain `#markdown-input` (no editor).
+- `controller_gets_audience_not_stage` — update assertion: response must contain `id="goTo"` (slide nav present) and must not contain `id="markdown-input"` (no editor).
 
 ### New tests
 
@@ -123,4 +144,4 @@ return document.getElementById("markdown-input") !== null
 | Canonical URL redirect | `GET /editor_name/pid` as editor → 301 to `/owner_name/pid` |
 | Canonical URL redirect preserves pwd | `GET /wrong_name/pid?pwd=x` → 301 to `/owner_name/pid?pwd=x` |
 | Controller gets slide nav | Controller response HTML contains `id="goTo"` |
-| Nonexistent uname still 404s | `GET /nobody/pid` → 404 (existing behaviour confirmed) |
+| Nonexistent uname returns generic audience | `GET /nobody/pid` → 200 with generic audience (existing behaviour, no change) |
