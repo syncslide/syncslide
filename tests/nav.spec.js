@@ -32,8 +32,7 @@ test('primary nav has correct links when logged in', async ({ page }) => {
     expect(texts[1]).toBe('Join presentation');
     expect(texts[2]).toBe('Help');
     expect(texts[3]).toBe('Create presentation');
-    // Presentations link includes pres count: "Presentations (N)"
-    expect(texts[4]).toMatch(/^Presentations \(\d+\)$/);
+    expect(texts[4]).toBe('Presentations');
     // Account-only links must not appear in Primary nav
     expect(texts).not.toContain('Login');
     expect(texts).not.toContain('Logout');
