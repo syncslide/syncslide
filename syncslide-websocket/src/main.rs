@@ -2374,7 +2374,7 @@ mod tests {
 
         let response = server.get(&format!("/testuser/{pid}")).await;
 
-        assert_eq!(response.status_code(), 301);
+        assert_eq!(response.status_code(), 308);
         let location = response.headers()["location"].to_str().unwrap();
         assert_eq!(location, &format!("/admin/{pid}"));
     }
@@ -2389,7 +2389,7 @@ mod tests {
 
         let response = server.get(&format!("/testuser/{pid}?pwd=secret")).await;
 
-        assert_eq!(response.status_code(), 301);
+        assert_eq!(response.status_code(), 308);
         let location = response.headers()["location"].to_str().unwrap();
         assert_eq!(location, &format!("/admin/{pid}?pwd=secret"));
     }
