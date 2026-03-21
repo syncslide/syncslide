@@ -1024,7 +1024,7 @@ async fn set_recording_password(
         return StatusCode::UNAUTHORIZED.into_response();
     };
     // Ownership: join through presentation
-    let count = sqlx::query_scalar::<_, i64>(
+    let owner_count = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) FROM recording
          JOIN presentation ON presentation.id = recording.presentation_id
          WHERE recording.id = ? AND presentation.user_id = ?",
@@ -1032,9 +1032,8 @@ async fn set_recording_password(
     .bind(rid)
     .bind(user.id)
     .fetch_one(&db)
-    .await
-    .unwrap_or(0);
-    if count == 0 {
+    .await;
+    if !matches!(owner_count, Ok(c) if c > 0) {
         return StatusCode::NOT_FOUND.into_response();
     }
     if form.action == "clear" {
@@ -2123,6 +2122,45 @@ mod tests {
         let response = server
             .post(&format!("/user/presentations/{pid}/password"))
             .form(&serde_json::json!({ "password": "attempt", "action": "set" }))
+            .await;
+
+        assert_eq!(response.status_code(), 404);
+    }
+
+    /// POST /user/recordings/{rid}/password by the owner must store the password.
+    #[tokio::test]
+    async fn set_recording_password_as_owner() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rec Pres", &state.db_pool).await;
+        let rid = seed_recording(pid, &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/recordings/{rid}/password"))
+            .form(&serde_json::json!({ "password": "mysecret1", "action": "set" }))
+            .await;
+
+        assert_eq!(response.status_code(), 303);
+        let rec = Recording::get_by_id(rid, &state.db_pool).await.unwrap().unwrap();
+        assert!(rec.password.is_some(), "password must be stored after set");
+    }
+
+    /// POST /user/recordings/{rid}/password by a non-owner must return 404.
+    #[tokio::test]
+    async fn set_recording_password_by_non_owner_returns_404() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        seed_admin_user(&state.db_pool).await;
+        let owner_id = get_user_id("adminuser", &state.db_pool).await;
+        let pid = seed_presentation(owner_id, "Admin Rec Pres", &state.db_pool).await;
+        let rid = seed_recording(pid, &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server
+            .post(&format!("/user/recordings/{rid}/password"))
+            .form(&serde_json::json!({ "password": "attempt1", "action": "set" }))
             .await;
 
         assert_eq!(response.status_code(), 404);
