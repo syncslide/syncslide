@@ -430,7 +430,7 @@ async fn present(
         } else {
             format!("/{}/{pid}", owner.name)
         };
-        return Redirect::to(&redirect).into_response();
+        return Redirect::permanent(&redirect).into_response();
     }
     let access = match check_access(&db, auth_session.user.as_ref(), pid, query.pwd.as_deref()).await {
         Ok(a) => a,
