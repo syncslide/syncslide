@@ -245,6 +245,8 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		var input = toggle.previousElementSibling;
 		input.type = isShowing ? 'password' : 'text';
 		toggle.setAttribute('aria-pressed', isShowing ? 'false' : 'true');
+		toggle.setAttribute('aria-label', isShowing ? 'Show password' : 'Hide password');
+		toggle.textContent = isShowing ? 'Show' : 'Hide';
 	});
 });
 
