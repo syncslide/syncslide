@@ -1183,7 +1183,7 @@ mod access_tests {
         let pres = make_presentation(&owner, &pool).await;
 
         // No access yet — get_shared_with_user should return empty
-        let shared = DbPresentation::get_shared_with_user(&viewer, &pool).await.unwrap();
+        let shared = Presentation::get_shared_with_user(&viewer, &pool).await.unwrap();
         assert!(shared.is_empty(), "must return empty before access is granted");
 
         // Grant access
@@ -1196,7 +1196,7 @@ mod access_tests {
         .await
         .unwrap();
 
-        let shared = DbPresentation::get_shared_with_user(&viewer, &pool).await.unwrap();
+        let shared = Presentation::get_shared_with_user(&viewer, &pool).await.unwrap();
         assert_eq!(shared.len(), 1, "must return the shared presentation");
         assert_eq!(shared[0].0.id, pres.id);
         assert_eq!(shared[0].1, "editor", "role must be 'editor'");
