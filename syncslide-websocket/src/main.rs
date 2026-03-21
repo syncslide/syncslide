@@ -448,7 +448,7 @@ async fn present(
                 ctx.insert("pres_name", &pres.name);
                 ctx.insert("pres_owner", &uname);
                 ctx.insert("pres_id", &pid);
-                ctx.insert("error", &false);
+                ctx.insert("error", &query.pwd.is_some());
                 tera.render("join_password.html", ctx, auth_session, db).await.into_response()
             } else {
                 // No password — serve audience view (public access)
@@ -495,7 +495,8 @@ async fn join_password_submit(
         .unwrap_or(AccessResult::Denied);
     match access {
         AccessResult::PasswordOk => {
-            let redirect_url = format!("/{uname}/{pid}?pwd={}", form.password);
+            let encoded_pwd = urlencoding::encode(&form.password);
+            let redirect_url = format!("/{uname}/{pid}?pwd={encoded_pwd}");
             Redirect::to(&redirect_url).into_response()
         }
         _ => {
