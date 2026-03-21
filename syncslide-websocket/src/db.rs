@@ -304,15 +304,6 @@ impl Presentation {
             })
             .collect())
     }
-    pub async fn num_for_user(user: &User, db: &SqlitePool) -> Result<i64, Error> {
-        sqlx::query_scalar!(
-            "SELECT COUNT(id) as count FROM presentation WHERE user_id = ?;",
-            user.id
-        )
-        .fetch_one(&*db)
-        .await
-        .map_err(Error::from)
-    }
     pub async fn update_name(id: i64, name: String, db: &SqlitePool) -> Result<(), Error> {
         sqlx::query!("UPDATE presentation SET name = ? WHERE id = ?;", name, id)
             .execute(&*db)

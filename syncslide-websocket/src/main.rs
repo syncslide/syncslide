@@ -68,7 +68,7 @@ impl Tera {
         name: &'static str,
         mut ctx: Context,
         auth_session: AuthSession,
-        db: SqlitePool,
+        _db: SqlitePool,
     ) -> Response<Body> {
         if let Some(ref user) = auth_session.user {
             ctx.insert("user", &user);
