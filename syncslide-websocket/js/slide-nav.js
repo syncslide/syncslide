@@ -5,6 +5,7 @@ function getH2s(allHtml) {
 	const h2s = allHtml.querySelectorAll('h2');
 	for (const [i, e] of h2s.entries()) {
 		const newOption = document.createElement('option');
+		// make sure to preserve the index of the slide selection
 		if (i == oldSelection) {
 			newOption.selected = true;
 		}
