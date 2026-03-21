@@ -1068,6 +1068,38 @@ mod access_tests {
         assert!(updated.password.is_none(), "password must be NULL after clear");
     }
 
+    /// Recording::set_password must store an Argon2id hash.
+    #[tokio::test]
+    async fn set_recording_password_stores_hash() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "rec_pwd_owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        let rec = Recording::create(pres.id, "test rec".to_string(), None, "captions.vtt".to_string(), &pool)
+            .await
+            .unwrap();
+
+        Recording::set_password(rec.id, "hunter2", &pool).await.unwrap();
+        let updated = Recording::get_by_id(rec.id, &pool).await.unwrap().unwrap();
+        let hash = updated.password.expect("password must be set");
+        assert!(hash.starts_with("$argon2id$"), "stored hash must be argon2id");
+    }
+
+    /// Recording::clear_password must set the column back to NULL.
+    #[tokio::test]
+    async fn clear_recording_password_removes_hash() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "rec_pwd_owner2").await;
+        let pres = make_presentation(&owner, &pool).await;
+        let rec = Recording::create(pres.id, "test rec".to_string(), None, "captions.vtt".to_string(), &pool)
+            .await
+            .unwrap();
+        Recording::set_password(rec.id, "hunter2", &pool).await.unwrap();
+
+        Recording::clear_password(rec.id, &pool).await.unwrap();
+        let updated = Recording::get_by_id(rec.id, &pool).await.unwrap().unwrap();
+        assert!(updated.password.is_none(), "password must be NULL after clear");
+    }
+
     /// An authenticated user who is not the owner can unlock a password-protected
     /// presentation with the correct password.
     #[tokio::test]
