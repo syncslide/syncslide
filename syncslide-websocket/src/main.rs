@@ -72,13 +72,11 @@ impl Tera {
     ) -> Response<Body> {
         if let Some(ref user) = auth_session.user {
             ctx.insert("user", &user);
-            let pn = DbPresentation::num_for_user(&user, &db).await.unwrap();
             let groups = auth_session
                 .backend
                 .get_user_permissions(user)
                 .await
                 .unwrap();
-            ctx.insert("pres_num", &pn);
             ctx.insert("groups", &groups);
         }
         let html = self.tera.render(name, &ctx).unwrap();
@@ -560,16 +558,26 @@ async fn presentations(
     let Some(ref user) = auth_session.user else {
         return Redirect::to("/auth/login").into_response();
     };
-    let press = DbPresentation::get_for_user(&user, &db).await;
-    let Ok(press) = press else {
+    let Ok(owned) = DbPresentation::get_for_user(user, &db).await else {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    };
+    let Ok(shared) = DbPresentation::get_shared_with_user(user, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
     let mut press_with_recordings = vec![];
-    for pres in press {
-        let Ok(pres_with_recs) = Recording::get_by_presentation(pres, &db).await else {
+    for pres in owned {
+        let Ok(mut pwr) = Recording::get_by_presentation(pres, &db).await else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
-        press_with_recordings.push(pres_with_recs);
+        pwr.role = "owner".to_string();
+        press_with_recordings.push(pwr);
+    }
+    for (pres, role) in shared {
+        let Ok(mut pwr) = Recording::get_by_presentation(pres, &db).await else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+        pwr.role = role;
+        press_with_recordings.push(pwr);
     }
     let mut ctx = Context::new();
     ctx.insert("press", &press_with_recordings);
@@ -2146,6 +2154,26 @@ mod tests {
         assert!(
             response.text().contains("markdown-input"),
             "editor must see the stage textarea"
+        );
+    }
+
+    /// GET /user/presentations must include presentations shared with the user.
+    #[tokio::test]
+    async fn presentations_list_includes_shared() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let admin_id = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(admin_id, "Shared With Testuser", &state.db_pool).await;
+        let testuser_id = get_user_id("testuser", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, testuser_id, "editor").await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server.get("/user/presentations").await;
+
+        assert_eq!(response.status_code(), 200);
+        assert!(
+            response.text().contains("Shared With Testuser"),
+            "shared presentation must appear in testuser's list"
         );
     }
 

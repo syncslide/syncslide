@@ -243,3 +243,14 @@ test('account menu ul has role="list"', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#account-menu')).toHaveAttribute('role', 'list');
 });
+
+
+// The nav link to presentations must not include a number in parentheses.
+test('nav presentations link has no count', async ({ page }) => {
+    await loginAsAdmin(page);
+    await page.goto('/');
+    const navLink = page.locator('a[href="/user/presentations"]');
+    await expect(navLink).toBeVisible();
+    const text = await navLink.textContent();
+    expect(text).not.toMatch(/\(\d+\)/);
+});
