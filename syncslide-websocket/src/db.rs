@@ -13,6 +13,7 @@ pub struct PresentationRecordings {
     pub content: String,
     pub name: String,
     pub recordings: Vec<Recording>,
+    pub access: Vec<PresentationAccess>,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, FromRow)]
@@ -40,8 +41,10 @@ impl Recording {
         .fetch_all(db)
         .await
         .map_err(Error::from)?;
+        let access = PresentationAccess::get_for_presentation(db, pres.id).await?;
         Ok(PresentationRecordings {
             recordings,
+            access,
             id: pres.id,
             name: pres.name,
             user_id: pres.user_id,

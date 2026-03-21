@@ -58,6 +58,51 @@
 			</form>
 			<button type="button" data-close-dialog="delete-pres-{{ pres.id }}">Cancel</button>
 		</dialog>
+		<button type="button" data-open-dialog="manage-access-{{ pres.id }}">Manage co-presenters</button>
+		<dialog id="manage-access-{{ pres.id }}" aria-labelledby="manage-access-heading-{{ pres.id }}">
+			<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Co-presenters for {{ pres.name }}</h1>
+			{% if pres.access | length > 0 %}
+			<table>
+				<thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+				<tbody>
+				{% for entry in pres.access %}
+				<tr>
+					<td>{{ entry.username }}</td>
+					<td>
+						<form method="post" action="/user/presentations/{{ pres.id }}/access/change-role">
+							<input type="hidden" name="user_id" value="{{ entry.user_id }}">
+							<label for="role-{{ entry.user_id }}-{{ pres.id }}">Role for {{ entry.username }}</label>
+							<select id="role-{{ entry.user_id }}-{{ pres.id }}" name="role">
+								<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
+								<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
+							</select>
+							<button type="submit">Save role</button>
+						</form>
+					</td>
+					<td>
+						<form method="post" action="/user/presentations/{{ pres.id }}/access/remove">
+							<input type="hidden" name="user_id" value="{{ entry.user_id }}">
+							<button type="submit">Remove</button>
+						</form>
+					</td>
+				</tr>
+				{% endfor %}
+				</tbody>
+			</table>
+			{% endif %}
+			<h2>Add co-presenter</h2>
+			<form method="post" action="/user/presentations/{{ pres.id }}/access/add">
+				<label for="copres-username-{{ pres.id }}">Username</label>
+				<input type="text" id="copres-username-{{ pres.id }}" name="username" autocomplete="off" required>
+				<label for="copres-role-{{ pres.id }}">Role</label>
+				<select id="copres-role-{{ pres.id }}" name="role">
+					<option value="editor">Editor</option>
+					<option value="controller">Controller</option>
+				</select>
+				<button type="submit">Add</button>
+			</form>
+			<button type="button" data-close-dialog="manage-access-{{ pres.id }}">Close</button>
+		</dialog>
 	</li>
 	{% endfor %}
 </ul>
@@ -80,8 +125,9 @@ document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
 	btn.addEventListener('click', function () {
 		var dialog = document.getElementById(btn.dataset.openDialog);
 		dialog.showModal();
-		var heading = dialog.querySelector('h1[tabindex="-1"]');
-		if (heading) heading.focus();
+		var firstSelect = dialog.querySelector('tbody select');
+		var first = firstSelect || dialog.querySelector('h1[tabindex="-1"]') || dialog.querySelector('input, select, button');
+		if (first) first.focus();
 	});
 });
 document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {

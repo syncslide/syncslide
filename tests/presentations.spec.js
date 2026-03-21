@@ -120,6 +120,36 @@ test.describe('create presentation', () => {
         await expect(page.locator('#pres-list a.stage-link', { hasText: 'My New Presentation' })).toBeVisible();
     });
 
+    // The "Manage co-presenters" button must be present on each owned presentation.
+    test('manage co-presenters button is present', async ({ page }) => {
+        await page.goto('/user/presentations');
+        const manageBtn = page.locator('button[data-open-dialog="manage-access-1"]');
+        await expect(manageBtn).toBeVisible();
+    });
+
+    // The manage dialog must open with the correct heading first.
+    test('manage co-presenters dialog opens with heading first', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('button[data-open-dialog="manage-access-1"]');
+        const dialog = page.locator('#manage-access-1');
+        await expect(dialog).toBeVisible();
+        await expect(dialog.locator('h1')).toContainText('Co-presenters for');
+    });
+
+    // The Close button in the manage dialog must be the last focusable element (DOM order).
+    test('manage dialog close button is last in DOM order', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('button[data-open-dialog="manage-access-1"]');
+        const dialog = page.locator('#manage-access-1');
+        const inOrder = await dialog.evaluate(el => {
+            const closeBtn = el.querySelector('button[data-close-dialog]');
+            const submitBtn = el.querySelector('button[type="submit"]');
+            // DOCUMENT_POSITION_FOLLOWING means submitBtn precedes closeBtn
+            return !!(submitBtn.compareDocumentPosition(closeBtn) & Node.DOCUMENT_POSITION_FOLLOWING);
+        });
+        expect(inOrder).toBe(true);
+    });
+
     // Sort alphabetical must reorder presentations.
     // Requires at least two presentations (Demo from migrations + one created here).
     test('alphabetical sort reorders presentations', async ({ page }) => {
