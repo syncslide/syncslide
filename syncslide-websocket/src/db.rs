@@ -101,6 +101,35 @@ impl Recording {
         .await
         .map_err(Error::from)
     }
+
+    /// Hashes `plaintext` with Argon2id and stores it. Minimum 8 chars, max 1000 bytes
+    /// should be enforced by the caller before this is invoked.
+    pub async fn set_password(id: i64, plaintext: &str, db: &SqlitePool) -> Result<(), Error> {
+        let hash = Argon2::default()
+            .hash_password(
+                plaintext.as_bytes(),
+                &SaltString::generate(OsRng::default()),
+            )
+            .map_err(Error::from)?
+            .to_string();
+        sqlx::query("UPDATE recording SET password = ? WHERE id = ?")
+            .bind(hash)
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
+
+    /// Sets recording.password to NULL.
+    pub async fn clear_password(id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("UPDATE recording SET password = NULL WHERE id = ?")
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
@@ -284,6 +313,35 @@ impl Presentation {
             .bind(id)
             .bind(user_id)
             .execute(&*db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
+
+    /// Hashes `plaintext` with Argon2id and stores it. Minimum 8 chars, max 1000 bytes
+    /// should be enforced by the caller before this is invoked.
+    pub async fn set_password(id: i64, plaintext: &str, db: &SqlitePool) -> Result<(), Error> {
+        let hash = Argon2::default()
+            .hash_password(
+                plaintext.as_bytes(),
+                &SaltString::generate(OsRng::default()),
+            )
+            .map_err(Error::from)?
+            .to_string();
+        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
+            .bind(hash)
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
+
+    /// Sets presentation.password to NULL.
+    pub async fn clear_password(id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("UPDATE presentation SET password = NULL WHERE id = ?")
+            .bind(id)
+            .execute(db)
             .await
             .map_err(Error::from)
             .map(|_| ())
@@ -980,6 +1038,34 @@ mod access_tests {
         PresentationAccess::change_role(&pool, pres.id, editor.id, "controller").await.unwrap();
         let entries = PresentationAccess::get_for_presentation(&pool, pres.id).await.unwrap();
         assert_eq!(entries[0].role, "controller");
+    }
+
+    /// set_password must store an Argon2id hash; get_by_id must return a non-None password.
+    #[tokio::test]
+    async fn set_password_stores_hash() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "pwd_owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        assert!(pres.password.is_none());
+
+        Presentation::set_password(pres.id, "hunter2", &pool).await.unwrap();
+        let updated = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
+        let hash = updated.password.expect("password must be set");
+        // Must be Argon2id format
+        assert!(hash.starts_with("$argon2id$"), "stored hash must be argon2id");
+    }
+
+    /// clear_password must set the column back to NULL.
+    #[tokio::test]
+    async fn clear_password_removes_hash() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "pwd_owner2").await;
+        let pres = make_presentation(&owner, &pool).await;
+        Presentation::set_password(pres.id, "hunter2", &pool).await.unwrap();
+
+        Presentation::clear_password(pres.id, &pool).await.unwrap();
+        let updated = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
+        assert!(updated.password.is_none(), "password must be NULL after clear");
     }
 
     /// An authenticated user who is not the owner can unlock a password-protected
