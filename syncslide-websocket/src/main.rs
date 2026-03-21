@@ -1714,7 +1714,7 @@ mod tests {
     /// Inserts a recording row for the given presentation and returns its id.
     async fn seed_recording(presentation_id: i64, pool: &SqlitePool) -> i64 {
         sqlx::query_scalar::<_, i64>(
-            "INSERT INTO recording (presentation_id, name, captions_path, start) VALUES (?, 'Test Recording', 'captions.vtt', '2026-01-01') RETURNING id",
+            "INSERT INTO recording (presentation_id, name, captions_path, start) VALUES (?, 'Test Recording', 'captions.vtt', '2026-01-01T00:00:00+00:00') RETURNING id",
         )
         .bind(presentation_id)
         .fetch_one(pool)
