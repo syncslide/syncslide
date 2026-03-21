@@ -1,6 +1,7 @@
 {% extends "audience.html" %}
 {% block title %}{{ pres.name }} (controller){% endblock title %}
 {% block js %}
+{# No super() — audience.html includes recording.js which crashes without its expected DOM elements. #}
 <script defer="defer" src="/js/remarkable.js"></script>
 <script defer="defer" src="/js/katex.js"></script>
 <script defer="defer" src="/js/auto-render.js"></script>
