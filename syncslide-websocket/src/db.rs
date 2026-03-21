@@ -14,6 +14,7 @@ pub struct PresentationRecordings {
     pub name: String,
     pub recordings: Vec<Recording>,
     pub access: Vec<PresentationAccess>,
+    pub role: String,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, FromRow)]
@@ -45,6 +46,7 @@ impl Recording {
         Ok(PresentationRecordings {
             recordings,
             access,
+            role: "owner".to_string(),
             id: pres.id,
             name: pres.name,
             user_id: pres.user_id,
@@ -261,6 +263,46 @@ impl Presentation {
         .fetch_all(&*db)
         .await
         .map_err(Error::from)
+    }
+    pub async fn get_shared_with_user(
+        user: &User,
+        db: &SqlitePool,
+    ) -> Result<Vec<(Self, String)>, Error> {
+        struct Row {
+            id: i64,
+            user_id: i64,
+            content: String,
+            name: String,
+            password: Option<String>,
+            role: String,
+        }
+        let rows = sqlx::query_as!(
+            Row,
+            r#"SELECT p.id, p.user_id, p.content, p.name, p.password,
+                      pa.role as "role!: String"
+               FROM presentation p
+               JOIN presentation_access pa ON pa.presentation_id = p.id
+               WHERE pa.user_id = ?"#,
+            user.id
+        )
+        .fetch_all(&*db)
+        .await
+        .map_err(Error::from)?;
+        Ok(rows
+            .into_iter()
+            .map(|r| {
+                (
+                    Presentation {
+                        id: r.id,
+                        user_id: r.user_id,
+                        content: r.content,
+                        name: r.name,
+                        password: r.password,
+                    },
+                    r.role,
+                )
+            })
+            .collect())
     }
     pub async fn num_for_user(user: &User, db: &SqlitePool) -> Result<i64, Error> {
         sqlx::query_scalar!(
@@ -1130,5 +1172,33 @@ mod access_tests {
             matches!(result, AccessResult::PasswordOk),
             "authenticated non-owner with correct password must get PasswordOk"
         );
+    }
+
+    /// get_shared_with_user must return presentations where the user has a co-presenter row.
+    #[tokio::test]
+    async fn get_shared_with_user_returns_shared_presentations() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "sh_owner").await;
+        let viewer = make_user(&pool, "sh_viewer").await;
+        let pres = make_presentation(&owner, &pool).await;
+
+        // No access yet — get_shared_with_user should return empty
+        let shared = DbPresentation::get_shared_with_user(&viewer, &pool).await.unwrap();
+        assert!(shared.is_empty(), "must return empty before access is granted");
+
+        // Grant access
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'editor')",
+        )
+        .bind(pres.id)
+        .bind(viewer.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let shared = DbPresentation::get_shared_with_user(&viewer, &pool).await.unwrap();
+        assert_eq!(shared.len(), 1, "must return the shared presentation");
+        assert_eq!(shared[0].0.id, pres.id);
+        assert_eq!(shared[0].1, "editor", "role must be 'editor'");
     }
 }
