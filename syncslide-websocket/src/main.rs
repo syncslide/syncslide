@@ -2361,7 +2361,7 @@ mod tests {
         );
     }
 
-    /// GET /{editor_name}/{pid} must redirect 301 to /{owner_name}/{pid}.
+    /// GET /{editor_name}/{pid} must redirect 308 (permanent) to /{owner_name}/{pid}.
     #[tokio::test]
     async fn non_owner_uname_redirects_to_canonical_url() {
         let (server, state) = test_server().await;
@@ -2379,7 +2379,7 @@ mod tests {
         assert_eq!(location, &format!("/admin/{pid}"));
     }
 
-    /// GET /{wrong_name}/{pid}?pwd=x must redirect to /{owner_name}/{pid}?pwd=x.
+    /// GET /{wrong_name}/{pid}?pwd=x must redirect 308 (permanent) to /{owner_name}/{pid}?pwd=x, preserving the pwd param.
     #[tokio::test]
     async fn canonical_redirect_preserves_pwd_param() {
         let (server, state) = test_server().await;
