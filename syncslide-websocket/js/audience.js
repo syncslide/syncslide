@@ -12,10 +12,6 @@ let TEXT_TO_RENDER = "";
 const presNameEl = document.getElementById('pres-name');
 function getPresName() { return presNameEl ? presNameEl.textContent.trim() : ''; }
 
-function isStage() {
-	return document.getElementById("goTo") !== null
-}
-
 function stringToDOM(htmlString) {
 	var tempElement = document.createElement('div');
 	tempElement.innerHTML = htmlString.trim();

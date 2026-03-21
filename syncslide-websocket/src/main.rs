@@ -471,14 +471,14 @@ async fn present(
             }
         }
         _ => {
-            // Controller — serve audience view
+            // Controller — serve controller view (slide nav only)
             let slide_index = current_slide_index(&app_state, pid);
             let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
             let mut ctx = Context::new();
             ctx.insert("pres", &pres);
             ctx.insert("pres_user", &pres_user);
             ctx.insert("initial_slide", &initial_slide);
-            tera.render("audience.html", ctx, auth_session, db).await.into_response()
+            tera.render("controller.html", ctx, auth_session, db).await.into_response()
         }
     }
 }
@@ -2312,8 +2312,10 @@ mod tests {
 
         let response = server.get(&format!("/admin/{pid}")).await;
         assert_eq!(response.status_code(), 200);
-        // The audience template contains the text "audience" in its body/script;
-        // the stage template contains a textarea with id="markdown-input".
+        assert!(
+            response.text().contains(r#"id="goTo""#),
+            "controller must see the slide navigation select"
+        );
         assert!(
             !response.text().contains("markdown-input"),
             "controller must not see the stage textarea"
