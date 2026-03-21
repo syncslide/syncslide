@@ -74,5 +74,54 @@ Your browser does not support the video tag.
 <button type="button" id="cancelReplaceFiles">Cancel</button>
 </form>
 </dialog>
+<button type="button" data-open-dialog="set-rec-pwd-{{ recording.id }}">Set recording password</button>
+<dialog id="set-rec-pwd-{{ recording.id }}" aria-labelledby="set-rec-pwd-heading-{{ recording.id }}">
+	<h1 id="set-rec-pwd-heading-{{ recording.id }}" tabindex="-1">Set password for {{ recording.name }}</h1>
+	<form method="post" action="/user/recordings/{{ recording.id }}/password">
+		<label for="rec-pwd-input">Password</label>
+		<div>
+			<input type="password" id="rec-pwd-input" name="password"
+				   autocomplete="new-password" minlength="8" maxlength="1000">
+			<button type="button" class="show-pwd-toggle" aria-pressed="false" aria-label="Show password">Show</button>
+		</div>
+		<input type="hidden" name="action" value="set">
+		<button type="submit">Save</button>
+	</form>
+	<form method="post" action="/user/recordings/{{ recording.id }}/password">
+		<input type="hidden" name="action" value="clear">
+		<button type="submit">Clear password</button>
+	</form>
+	<form method="post" action="/user/recordings/{{ recording.id }}/password">
+		<input type="hidden" name="action" value="clear">
+		<button type="submit">Reset to inherit from presentation</button>
+	</form>
+	<button type="button" data-close-dialog="set-rec-pwd-{{ recording.id }}">Close</button>
+</dialog>
+<script>
+document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
+	btn.addEventListener('click', function () {
+		var dialog = document.getElementById(btn.dataset.openDialog);
+		dialog.showModal();
+		var first = dialog.querySelector('h1[tabindex="-1"], input, button');
+		if (first) first.focus();
+	});
+});
+document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
+	btn.addEventListener('click', function () {
+		var dialog = document.getElementById(btn.dataset.closeDialog);
+		var opener = document.querySelector('[data-open-dialog="' + btn.dataset.closeDialog + '"]');
+		dialog.close();
+		if (opener) opener.focus();
+	});
+});
+document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
+	toggle.addEventListener('click', function () {
+		var isShowing = toggle.getAttribute('aria-pressed') === 'true';
+		var input = toggle.previousElementSibling;
+		input.type = isShowing ? 'password' : 'text';
+		toggle.setAttribute('aria-pressed', isShowing ? 'false' : 'true');
+	});
+});
+</script>
 {% endif %}
 {% endblock content %}

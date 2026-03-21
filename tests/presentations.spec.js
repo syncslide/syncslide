@@ -150,6 +150,36 @@ test.describe('create presentation', () => {
         expect(inOrder).toBe(true);
     });
 
+    // The "Set password" button must be present on each presentation item.
+    test('set-password button is present for owned presentation', async ({ page }) => {
+        await page.goto('/user/presentations');
+        const setpwdBtn = page.locator('button[data-open-dialog="set-pwd-1"]');
+        await expect(setpwdBtn).toBeVisible();
+    });
+
+    // The set-password dialog must open with heading first.
+    test('set-password dialog opens with heading first', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('button[data-open-dialog="set-pwd-1"]');
+        const dialog = page.locator('#set-pwd-1');
+        await expect(dialog).toBeVisible();
+        await expect(dialog.locator('h1')).toContainText('Set password for');
+    });
+
+    // Show/hide toggle must change aria-pressed and input type.
+    test('set-password show/hide toggle works', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('button[data-open-dialog="set-pwd-1"]');
+        const toggle = page.locator('#set-pwd-1 .show-pwd-toggle');
+        const input = page.locator('#set-pwd-1 input[name="password"]');
+        // Initially hidden
+        await expect(input).toHaveAttribute('type', 'password');
+        await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+        await toggle.click();
+        await expect(input).toHaveAttribute('type', 'text');
+        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    });
+
     // Sort alphabetical must reorder presentations.
     // Requires at least two presentations (Demo from migrations + one created here).
     test('alphabetical sort reorders presentations', async ({ page }) => {

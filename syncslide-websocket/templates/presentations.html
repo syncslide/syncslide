@@ -103,6 +103,27 @@
 			</form>
 			<button type="button" data-close-dialog="manage-access-{{ pres.id }}">Close</button>
 		</dialog>
+		<button type="button" data-open-dialog="set-pwd-{{ pres.id }}">Set password</button>
+		<dialog id="set-pwd-{{ pres.id }}" aria-labelledby="set-pwd-heading-{{ pres.id }}">
+			<h1 id="set-pwd-heading-{{ pres.id }}" tabindex="-1">Set password for {{ pres.name }}</h1>
+			<form method="post" action="/user/presentations/{{ pres.id }}/password">
+				<label for="set-pwd-input-{{ pres.id }}">Password</label>
+				<div>
+					<input type="password" id="set-pwd-input-{{ pres.id }}" name="password"
+						   autocomplete="new-password" minlength="8" maxlength="1000">
+					<button type="button" class="show-pwd-toggle" aria-pressed="false" aria-label="Show password">Show</button>
+				</div>
+				<input type="hidden" name="action" value="set">
+				<button type="submit">Save</button>
+				<button type="button" id="copy-link-{{ pres.id }}" disabled
+						data-pres-id="{{ pres.id }}" data-pres-owner="{{ user.name }}">Copy link with password</button>
+			</form>
+			<form method="post" action="/user/presentations/{{ pres.id }}/password">
+				<input type="hidden" name="action" value="clear">
+				<button type="submit">Clear password</button>
+			</form>
+			<button type="button" data-close-dialog="set-pwd-{{ pres.id }}">Close</button>
+		</dialog>
 	</li>
 	{% endfor %}
 </ul>
@@ -216,6 +237,32 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 
 	render();
 })();
+
+// Password show/hide toggles
+document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
+	toggle.addEventListener('click', function () {
+		var isShowing = toggle.getAttribute('aria-pressed') === 'true';
+		var input = toggle.previousElementSibling;
+		input.type = isShowing ? 'password' : 'text';
+		toggle.setAttribute('aria-pressed', isShowing ? 'false' : 'true');
+	});
+});
+
+// Copy-link-with-password: enabled when password input has >= 8 chars
+document.querySelectorAll('[id^="copy-link-"]').forEach(function (btn) {
+	var dialog = btn.closest('dialog');
+	var input = dialog.querySelector('input[name="password"]');
+	// Enable only when input has >= 8 chars
+	input.addEventListener('input', function () {
+		btn.disabled = input.value.length < 8;
+	});
+	btn.addEventListener('click', function () {
+		var owner = btn.dataset.presOwner;
+		var presId = btn.dataset.presId;
+		var url = window.location.origin + '/' + owner + '/' + presId + '?pwd=' + encodeURIComponent(input.value);
+		navigator.clipboard.writeText(url);
+	});
+});
 </script>
 
 {% else %}
