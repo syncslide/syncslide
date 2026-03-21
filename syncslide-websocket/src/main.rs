@@ -421,6 +421,17 @@ async fn present(
         Ok(None) => return audience(tera, auth_session, db).await.into_response(),
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
+    if pres.user_id != pres_user.id {
+        let Ok(Some(owner)) = User::get_by_id(pres.user_id, &db).await else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+        let redirect = if let Some(ref pwd) = query.pwd {
+            format!("/{}/{pid}?pwd={}", owner.name, urlencoding::encode(pwd))
+        } else {
+            format!("/{}/{pid}", owner.name)
+        };
+        return Redirect::to(&redirect).into_response();
+    }
     let access = match check_access(&db, auth_session.user.as_ref(), pid, query.pwd.as_deref()).await {
         Ok(a) => a,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -428,7 +439,7 @@ async fn present(
 
     match access {
         AccessResult::Owner | AccessResult::Editor => {
-            stage(tera, db, auth_session, pid, app_state).await.into_response()
+            stage(tera, db, auth_session, pid, app_state, pres_user).await.into_response()
         }
         AccessResult::PasswordOk => {
             let slide_index = current_slide_index(&app_state, pid);
@@ -516,6 +527,7 @@ async fn stage(
     auth_session: AuthSession,
     pid: i64,
     app_state: AppState,
+    pres_user: User,
 ) -> impl IntoResponse {
     if auth_session.user.is_none() {
         return Redirect::to("/auth/login").into_response();
@@ -525,6 +537,7 @@ async fn stage(
     let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
     let mut ctx = Context::new();
     ctx.insert("pres", &pres);
+    ctx.insert("pres_user", &pres_user);
     ctx.insert("initial_slide", &initial_slide);
     tera.render("stage.html", ctx, auth_session, db).await
 }
@@ -2346,6 +2359,51 @@ mod tests {
             location.contains("?pwd="),
             "redirect must include ?pwd= in the URL, got: {location}"
         );
+    }
+
+    /// GET /{editor_name}/{pid} must redirect 301 to /{owner_name}/{pid}.
+    #[tokio::test]
+    async fn non_owner_uname_redirects_to_canonical_url() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let owner_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(owner_uid, "Canon Test", &state.db_pool).await;
+        let editor_uid = get_user_id("testuser", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, editor_uid, "editor").await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server.get(&format!("/testuser/{pid}")).await;
+
+        assert_eq!(response.status_code(), 301);
+        let location = response.headers()["location"].to_str().unwrap();
+        assert_eq!(location, &format!("/admin/{pid}"));
+    }
+
+    /// GET /{wrong_name}/{pid}?pwd=x must redirect to /{owner_name}/{pid}?pwd=x.
+    #[tokio::test]
+    async fn canonical_redirect_preserves_pwd_param() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let owner_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(owner_uid, "Pwd Redirect Test", &state.db_pool).await;
+
+        let response = server.get(&format!("/testuser/{pid}?pwd=secret")).await;
+
+        assert_eq!(response.status_code(), 301);
+        let location = response.headers()["location"].to_str().unwrap();
+        assert_eq!(location, &format!("/admin/{pid}?pwd=secret"));
+    }
+
+    /// GET /{nonexistent_name}/{pid} must still return generic audience (no change).
+    #[tokio::test]
+    async fn nonexistent_uname_returns_audience() {
+        let (server, state) = test_server().await;
+        let owner_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(owner_uid, "Uname Test", &state.db_pool).await;
+
+        let response = server.get(&format!("/nobody/{pid}")).await;
+
+        assert_eq!(response.status_code(), 200);
     }
 
     /// POST /join-password/{uname}/{pid} with wrong password must re-render the form (200).

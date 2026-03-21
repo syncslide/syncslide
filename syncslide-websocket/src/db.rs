@@ -523,6 +523,13 @@ impl User {
             .await
             .map_err(Error::from)
     }
+    pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {
+        sqlx::query_as::<_, User>("SELECT * FROM users WHERE id = ?;")
+            .bind(id)
+            .fetch_optional(db)
+            .await
+            .map_err(Error::from)
+    }
 }
 impl AuthUser for User {
     type Id = i64;
