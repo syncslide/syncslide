@@ -22,7 +22,7 @@ async function openActionsMenu(page, presId) {
 async function openManageDialog(page, presId) {
     await openActionsMenu(page, presId);
     await page.locator(`#actions-menu-${presId} [role="menuitem"]`)
-        .filter({ hasText: 'Manage co-presenters' }).click();
+        .filter({ hasText: 'Manage access' }).click();
     await expect(page.locator(`#manage-access-${presId}`)).toBeVisible();
 }
 
@@ -163,12 +163,12 @@ test.describe('presentations list', () => {
     });
 
     // The manage dialog must open with the correct heading first.
-    test('manage co-presenters dialog opens with heading first', async ({ page }) => {
+    test('manage access dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await expect(dialog).toBeVisible();
-        await expect(dialog.locator('h1')).toContainText('Co-presenters for');
+        await expect(dialog.locator('h1')).toContainText('Manage access for');
     });
 
     test('manage dialog table has 2 columns and a caption', async ({ page }) => {
@@ -182,12 +182,12 @@ test.describe('presentations list', () => {
         await expect(headers.nth(1)).toContainText('Role');
     });
 
-    test('manage dialog has Add co-presenter button in table', async ({ page }) => {
+    test('manage dialog has Add person button in table', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await expect(dialog.locator('td .add-copres-btn')).toBeAttached();
-        await expect(dialog.locator('.add-copres-btn')).toContainText('Add co-presenter');
+        await expect(dialog.locator('.add-copres-btn')).toContainText('Add person');
     });
 
     test('manage dialog opens with focus on h1', async ({ page }) => {
@@ -275,7 +275,7 @@ test.describe('presentations list', () => {
         await secondInput.blur();
         await expect(secondInput).toHaveAttribute('aria-invalid', 'true');
         await expect(dialog.locator('tr.new-row').last().locator('[aria-live]'))
-            .toContainText('Already a co-presenter');
+            .toContainText('Already added');
     });
 
     test('typing in errored input clears the error', async ({ page }) => {
@@ -342,29 +342,41 @@ test.describe('presentations list', () => {
         await expect(dialog.locator('.manage-access-close')).toBeFocused();
     });
 
-    // The set-password dialog must open with heading first.
-    test('set-password dialog opens with heading first', async ({ page }) => {
+    test('manage access dialog has Visibility combobox defaulting to Public', async ({ page }) => {
         await page.goto('/user/presentations');
         await openActionsMenu(page, 1);
-        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Set password' }).click();
-        const dialog = page.locator('#set-pwd-1');
-        await expect(dialog).toBeVisible();
-        await expect(dialog.locator('h1')).toContainText('Set password for');
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage access' }).click();
+        const dialog = page.locator('#manage-access-1');
+        await expect(dialog.locator('.visibility-select')).toHaveValue('public');
     });
 
-    // Show/hide toggle must change aria-pressed and input type.
-    test('set-password show/hide toggle works', async ({ page }) => {
+    test('changing Visibility combobox shows unsaved prompt', async ({ page }) => {
         await page.goto('/user/presentations');
         await openActionsMenu(page, 1);
-        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Set password' }).click();
-        const toggle = page.locator('#set-pwd-1 .show-pwd-toggle');
-        const input = page.locator('#set-pwd-1 input[name="password"]');
-        // Initially hidden
-        await expect(input).toHaveAttribute('type', 'password');
-        await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-        await toggle.click();
-        await expect(input).toHaveAttribute('type', 'text');
-        await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage access' }).click();
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.visibility-select').selectOption('private');
+        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
+    });
+
+    test('audience role option appears in new row role select', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage access' }).click();
+        const dialog = page.locator('#manage-access-1');
+        const addBtn = dialog.locator('.add-copres-btn');
+        await addBtn.click();
+        const newRowSelect = dialog.locator('tr.new-row select');
+        await expect(newRowSelect.locator('option[value="audience"]')).toHaveCount(1);
+    });
+
+    test('Shared as audience filter checkbox is present and checked', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.click('#filter-toggle');
+        const panel = page.locator('#filter-panel');
+        const audienceBox = panel.locator('input[data-filter-role="audience"]');
+        await expect(audienceBox).toBeVisible();
+        await expect(audienceBox).toBeChecked();
     });
 });
 
@@ -450,14 +462,14 @@ test('clicking filter button expands the panel', async ({ page }) => {
     await expect(page.locator('#filter-panel')).toBeVisible();
 });
 
-test('filter panel has three checkboxes all checked', async ({ page }) => {
+test('filter panel has four checkboxes all checked', async ({ page }) => {
     await loginAsAdmin(page);
     await page.goto('/user/presentations');
     await page.click('#filter-toggle');
     const panel = page.locator('#filter-panel');
     const boxes = panel.locator('input[type="checkbox"]');
-    await expect(boxes).toHaveCount(3);
-    for (let i = 0; i < 3; i++) {
+    await expect(boxes).toHaveCount(4);
+    for (let i = 0; i < 4; i++) {
         await expect(boxes.nth(i)).toBeChecked();
     }
 });
