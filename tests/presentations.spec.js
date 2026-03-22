@@ -168,7 +168,7 @@ test.describe('presentations list', () => {
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await expect(dialog).toBeVisible();
-        await expect(dialog.locator('h1')).toContainText('Manage access for');
+        await expect(dialog.locator('.manage-access-main h1')).toContainText('Manage access for');
     });
 
     test('manage dialog table has 2 columns and a caption', async ({ page }) => {
@@ -193,7 +193,7 @@ test.describe('presentations list', () => {
     test('manage dialog opens with focus on h1', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
-        await expect(page.locator('#manage-access-1 h1')).toBeFocused();
+        await expect(page.locator('#manage-access-1 .manage-access-main h1')).toBeFocused();
     });
 
     // The Close button in the manage dialog must be the last focusable element (DOM order).
@@ -300,14 +300,14 @@ test.describe('presentations list', () => {
         await expect(page.locator('#actions-btn-1')).toBeFocused();
     });
 
-    test('Close with pending changes shows unsaved prompt and focuses Save', async ({ page }) => {
+    test('Close with pending changes shows unsaved confirm and focuses heading', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await dialog.locator('.add-copres-btn').click(); // creates a pending new row
         await dialog.locator('.manage-access-close').click();
-        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
-        await expect(dialog.locator('.unsaved-save')).toBeFocused();
+        await expect(dialog.locator('.unsaved-confirm')).toBeVisible();
+        await expect(dialog.locator('.unsaved-confirm h1')).toBeFocused();
     });
 
     test('Discard resets state and closes dialog', async ({ page }) => {
@@ -321,24 +321,37 @@ test.describe('presentations list', () => {
         await expect(page.locator('#actions-btn-1')).toBeFocused();
     });
 
-    test('Escape with pending changes shows unsaved prompt', async ({ page }) => {
+    test('Escape with pending changes shows unsaved confirm', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await dialog.locator('.add-copres-btn').click();
         await page.keyboard.press('Escape');
-        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
-        await expect(dialog.locator('.unsaved-save')).toBeFocused();
+        await expect(dialog.locator('.unsaved-confirm')).toBeVisible();
+        await expect(dialog.locator('.unsaved-confirm h1')).toBeFocused();
     });
 
-    test('Escape while prompt visible dismisses prompt and focuses Close button', async ({ page }) => {
+    test('Escape while confirm visible returns to manage access', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await dialog.locator('.add-copres-btn').click();
-        await page.keyboard.press('Escape'); // shows prompt
-        await page.keyboard.press('Escape'); // dismisses prompt
-        await expect(dialog.locator('.unsaved-prompt')).not.toBeVisible();
+        await page.keyboard.press('Escape'); // shows confirm
+        await page.keyboard.press('Escape'); // dismisses confirm
+        await expect(dialog.locator('.unsaved-confirm')).not.toBeVisible();
+        await expect(dialog.locator('.manage-access-close')).toBeFocused();
+    });
+
+    test('Close button in unsaved confirm returns to manage access', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await dialog.locator('.manage-access-close').click();
+        await expect(dialog.locator('.unsaved-confirm')).toBeVisible();
+        await dialog.locator('.unsaved-back').click();
+        await expect(dialog.locator('.unsaved-confirm')).not.toBeVisible();
+        await expect(dialog.locator('.manage-access-main')).toBeVisible();
         await expect(dialog.locator('.manage-access-close')).toBeFocused();
     });
 

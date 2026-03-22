@@ -86,50 +86,51 @@
 		        data-focus-heading="true"
 		        data-owner-username="{{ user.name }}"
 		        data-pres-id="{{ pres.id }}">
-			<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Manage access for {{ pres.name }}</h1>
-			<label for="visibility-select-{{ pres.id }}">Visibility</label>
-			<select id="visibility-select-{{ pres.id }}"
-			        class="visibility-select"
-			        data-original-visibility="{{ pres.access_mode }}">
-			    <option value="public"{% if pres.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
-			    <option value="audience"{% if pres.access_mode == "audience" %} selected{% endif %}>Shared — specific people</option>
-			    <option value="private"{% if pres.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
-			</select>
-			<table>
-				<caption>Access</caption>
-				<thead><tr><th scope="col">Username</th><th scope="col">Role</th></tr></thead>
-				<tbody>
-				{% for entry in pres.access %}
-				<tr>
-					<td data-username="{{ entry.username }}">{{ entry.username }}</td>
-					<td>
-						<select aria-label="Role for {{ entry.username }}"
-						        data-original-role="{{ entry.role }}"
-						        data-user-id="{{ entry.user_id }}">
-							<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
-							<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
-							<option value="audience"{% if entry.role == "audience" %} selected{% endif %}>Audience</option>
-							<option value="remove">Remove</option>
-						</select>
-					</td>
-				</tr>
-				{% endfor %}
-				</tbody>
-				<tbody class="new-rows-tbody"></tbody>
-				<tfoot>
-				<tr>
-					<td colspan="2"><button type="button" class="add-copres-btn">Add person</button></td>
-				</tr>
-				</tfoot>
-			</table>
-			<!-- DOM order: Close button comes before the unsaved-prompt div so that when
-			     the prompt is visible, tab order is: ... Add button → Close → Save → Discard,
-			     matching the spec's tab sequence (Close = item 6, Save/Discard = item 7). -->
-			<button type="button" class="manage-access-close">Close</button>
-			<div class="unsaved-prompt" hidden>
+			<div class="manage-access-main">
+				<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Manage access for {{ pres.name }}</h1>
+				<label for="visibility-select-{{ pres.id }}">Visibility</label>
+				<select id="visibility-select-{{ pres.id }}"
+				        class="visibility-select"
+				        data-original-visibility="{{ pres.access_mode }}">
+				    <option value="public"{% if pres.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
+				    <option value="audience"{% if pres.access_mode == "audience" %} selected{% endif %}>Shared — specific people</option>
+				    <option value="private"{% if pres.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
+				</select>
+				<table>
+					<caption>Access</caption>
+					<thead><tr><th scope="col">Username</th><th scope="col">Role</th></tr></thead>
+					<tbody>
+					{% for entry in pres.access %}
+					<tr>
+						<td data-username="{{ entry.username }}">{{ entry.username }}</td>
+						<td>
+							<select aria-label="Role for {{ entry.username }}"
+							        data-original-role="{{ entry.role }}"
+							        data-user-id="{{ entry.user_id }}">
+								<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
+								<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
+								<option value="audience"{% if entry.role == "audience" %} selected{% endif %}>Audience</option>
+								<option value="remove">Remove</option>
+							</select>
+						</td>
+					</tr>
+					{% endfor %}
+					</tbody>
+					<tbody class="new-rows-tbody"></tbody>
+					<tfoot>
+					<tr>
+						<td colspan="2"><button type="button" class="add-copres-btn">Add person</button></td>
+					</tr>
+					</tfoot>
+				</table>
+				<button type="button" class="manage-access-close">Close</button>
+			</div>
+			<div class="unsaved-confirm" hidden>
+				<h1 id="unsaved-confirm-heading-{{ pres.id }}" tabindex="-1">Unsaved changes</h1>
 				<p>You have unsaved changes.</p>
 				<button type="button" class="unsaved-save">Save</button>
 				<button type="button" class="unsaved-discard">Discard</button>
+				<button type="button" class="unsaved-back">Close</button>
 			</div>
 		</dialog>
 		<button type="button"
@@ -519,12 +520,18 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 	}
 
 	function showPrompt(dialog) {
-		dialog.querySelector('.unsaved-prompt').hidden = false;
-		dialog.querySelector('.unsaved-save').focus();
+		dialog.querySelector('.manage-access-main').hidden = true;
+		var confirm = dialog.querySelector('.unsaved-confirm');
+		confirm.hidden = false;
+		dialog.setAttribute('aria-labelledby', confirm.querySelector('h1').id);
+		confirm.querySelector('h1[tabindex="-1"]').focus();
 	}
 
 	function hidePrompt(dialog) {
-		dialog.querySelector('.unsaved-prompt').hidden = true;
+		dialog.querySelector('.unsaved-confirm').hidden = true;
+		var main = dialog.querySelector('.manage-access-main');
+		main.hidden = false;
+		dialog.setAttribute('aria-labelledby', main.querySelector('h1').id);
 	}
 
 	function handleClose(dialog) {
@@ -551,9 +558,9 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 	function save(dialog) {
 		var presId = dialog.dataset.presId;
 		var saveBtn = dialog.querySelector('.unsaved-save');
-		var discardBtn = dialog.querySelector('.unsaved-discard');
+		var backBtn = dialog.querySelector('.unsaved-back');
 		saveBtn.disabled = true;
-		discardBtn.disabled = true;
+		backBtn.disabled = true;
 
 		var fetches = [];
 
@@ -609,8 +616,9 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		var closeBtn = dialog.querySelector('.manage-access-close');
 		var saveBtn = dialog.querySelector('.unsaved-save');
 		var discardBtn = dialog.querySelector('.unsaved-discard');
+		var backBtn = dialog.querySelector('.unsaved-back');
 		var newRowsTbody = dialog.querySelector('.new-rows-tbody');
-		if (!addBtn || !closeBtn || !saveBtn || !discardBtn || !newRowsTbody) return;
+		if (!addBtn || !closeBtn || !saveBtn || !discardBtn || !backBtn || !newRowsTbody) return;
 
 		closeBtn.addEventListener('click', function () { handleClose(dialog); });
 
@@ -621,11 +629,16 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			dialog.close();
 		});
 
+		backBtn.addEventListener('click', function () {
+			hidePrompt(dialog);
+			closeBtn.focus();
+		});
+
 		dialog.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') return;
 			e.preventDefault();
-			var prompt = dialog.querySelector('.unsaved-prompt');
-			if (!prompt.hidden) {
+			var confirm = dialog.querySelector('.unsaved-confirm');
+			if (!confirm.hidden) {
 				hidePrompt(dialog);
 				closeBtn.focus();
 			} else if (hasPendingChanges(dialog)) {
