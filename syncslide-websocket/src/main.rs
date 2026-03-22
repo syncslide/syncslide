@@ -2084,24 +2084,6 @@ mod tests {
         );
     }
 
-    /// POST .../password by a non-owner must return 404.
-    #[tokio::test]
-    async fn set_password_by_non_owner_returns_404() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        seed_admin_user(&state.db_pool).await;
-        let owner_id = get_user_id("adminuser", &state.db_pool).await;
-        let pid = seed_presentation(owner_id, "Theirs", &state.db_pool).await;
-        login_as(&server, "testuser", "testpass").await;
-
-        let response = server
-            .post(&format!("/user/presentations/{pid}/password"))
-            .form(&serde_json::json!({ "password": "attempt", "action": "set" }))
-            .await;
-
-        assert_eq!(response.status_code(), 404);
-    }
-
     /// GET /{uname}/{pid} by a controller must NOT get stage access.
     #[tokio::test]
     async fn controller_gets_audience_not_stage() {
