@@ -356,6 +356,26 @@ struct RemoveAccessForm {
     user_id: i64,
 }
 
+#[derive(Deserialize)]
+struct UserExistsQuery {
+    username: String,
+}
+
+async fn user_exists(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Query(query): Query<UserExistsQuery>,
+) -> impl IntoResponse {
+    let Some(_) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    match User::get_by_name(query.username, &db).await {
+        Ok(Some(_)) => StatusCode::OK.into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ChangeRoleForm {
     user_id: i64,
@@ -1376,6 +1396,7 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/user/presentations/{pid}/delete", post(delete_presentation))
         .route("/user/presentations/{pid}/access/add", post(add_access))
         .route("/user/presentations/{pid}/access/remove", post(remove_access))
+        .route("/users/exists", get(user_exists))
         .route(
             "/user/presentations/{pid}/access/change-role",
             post(change_access_role),
@@ -2454,5 +2475,53 @@ mod tests {
             response.text().contains("Incorrect password"),
             "wrong password must show error message"
         );
+    }
+
+    /// GET /users/exists?username=testuser returns 200 when user exists and caller is authenticated.
+    #[tokio::test]
+    async fn user_exists_returns_200_for_known_user() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+        let response = server
+            .get("/users/exists")
+            .add_query_param("username", "testuser")
+            .await;
+        assert_eq!(response.status_code(), 200);
+    }
+
+    /// GET /users/exists?username=nobody returns 404 when user does not exist.
+    #[tokio::test]
+    async fn user_exists_returns_404_for_unknown_user() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+        let response = server
+            .get("/users/exists")
+            .add_query_param("username", "nobody")
+            .await;
+        assert_eq!(response.status_code(), 404);
+    }
+
+    /// GET /users/exists without the username query param must return 400 Bad Request.
+    #[tokio::test]
+    async fn user_exists_returns_400_when_username_missing() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+        let response = server.get("/users/exists").await;
+        assert_eq!(response.status_code(), 400);
+    }
+
+    /// GET /users/exists without a session must return 401 Unauthorized.
+    #[tokio::test]
+    async fn user_exists_requires_auth() {
+        let (server, _state) = test_server().await;
+        // axum-test does not follow redirects — the raw response status is returned.
+        let response = server
+            .get("/users/exists")
+            .add_query_param("username", "admin")
+            .await;
+        assert_eq!(response.status_code(), 401u16);
     }
 }
