@@ -1148,7 +1148,7 @@ async fn update_recording_files(
     .fetch_one(&db)
     .await;
     if !matches!(owner_count, Ok(1)) {
-        return StatusCode::FORBIDDEN.into_response();
+        return StatusCode::NOT_FOUND.into_response();
     }
 
     let mut video_bytes: Option<(Vec<u8>, String)> = None;
