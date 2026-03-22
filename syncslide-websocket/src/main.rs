@@ -2234,13 +2234,13 @@ mod tests {
         );
     }
 
-    /// GET /{uname}/{pid} by a controller must NOT get stage access.
+    /// GET /{uname}/{pid} by a controller must get stage access.
     #[tokio::test]
-    async fn controller_gets_audience_not_stage() {
+    async fn controller_gets_stage_access() {
         let (server, state) = test_server().await;
         seed_user(&state.db_pool).await;
         let uid = get_user_id("admin", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Controller Audience Test", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Controller Stage Test", &state.db_pool).await;
         User::new(
             &state.db_pool,
             AddUserForm {
@@ -2258,12 +2258,12 @@ mod tests {
         let response = server.get(&format!("/admin/{pid}")).await;
         assert_eq!(response.status_code(), 200);
         assert!(
-            response.text().contains(r#"id="goTo""#),
-            "controller must see the slide navigation select"
+            response.text().contains(r#"id="recordPause""#),
+            "controller must see the record button on stage"
         );
         assert!(
-            !response.text().contains("markdown-input"),
-            "controller must not see the stage textarea"
+            !response.text().contains(r#"id="markdown-input""#),
+            "controller must not see the markdown editor"
         );
     }
 
