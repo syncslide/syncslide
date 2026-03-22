@@ -74,28 +74,26 @@ Your browser does not support the video tag.
 <button type="button" id="cancelReplaceFiles">Cancel</button>
 </form>
 </dialog>
-<button type="button" data-open-dialog="set-rec-pwd-{{ recording.id }}">Set recording password</button>
-<dialog id="set-rec-pwd-{{ recording.id }}" aria-labelledby="set-rec-pwd-heading-{{ recording.id }}">
-	<h1 id="set-rec-pwd-heading-{{ recording.id }}" tabindex="-1">Set password for {{ recording.name }}</h1>
-	<form method="post" action="/user/recordings/{{ recording.id }}/password">
-		<label for="rec-pwd-input">Password</label>
-		<div>
-			<input type="password" id="rec-pwd-input" name="password"
-				   autocomplete="new-password" minlength="8" maxlength="1000">
-			<button type="button" class="show-pwd-toggle" aria-pressed="false" aria-label="Show password">Show</button>
-		</div>
+<button type="button" data-open-dialog="manage-rec-access-{{ recording.id }}">Manage recording access</button>
+<dialog id="manage-rec-access-{{ recording.id }}"
+        aria-labelledby="manage-rec-access-heading-{{ recording.id }}"
+        data-focus-heading="true">
+	<h1 id="manage-rec-access-heading-{{ recording.id }}" tabindex="-1">Manage recording access for {{ recording.name }}</h1>
+	<form method="post" action="/user/recordings/{{ recording.id }}/access/mode">
+		<label for="rec-access-mode-{{ recording.id }}">Access</label>
+		<select id="rec-access-mode-{{ recording.id }}" name="mode">
+			<option value="public"{% if recording.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
+			<option value="audience"{% if recording.access_mode == "audience" %} selected{% endif %}>Shared — same audience list as presentation</option>
+			<option value="private"{% if recording.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
+		</select>
 		<input type="hidden" name="action" value="set">
 		<button type="submit">Save</button>
 	</form>
-	<form method="post" action="/user/recordings/{{ recording.id }}/password">
-		<input type="hidden" name="action" value="clear">
-		<button type="submit">Clear password</button>
+	<form method="post" action="/user/recordings/{{ recording.id }}/access/mode">
+		<input type="hidden" name="action" value="inherit">
+		<button type="submit">Inherit from presentation</button>
 	</form>
-	<form method="post" action="/user/recordings/{{ recording.id }}/password">
-		<input type="hidden" name="action" value="clear">
-		<button type="submit">Reset to inherit from presentation</button>
-	</form>
-	<button type="button" data-close-dialog="set-rec-pwd-{{ recording.id }}">Close</button>
+	<button type="button" data-close-dialog="manage-rec-access-{{ recording.id }}">Close</button>
 </dialog>
 <script>
 document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
@@ -112,16 +110,6 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 		var opener = document.querySelector('[data-open-dialog="' + btn.dataset.closeDialog + '"]');
 		dialog.close();
 		if (opener) opener.focus();
-	});
-});
-document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
-	toggle.addEventListener('click', function () {
-		var isShowing = toggle.getAttribute('aria-pressed') === 'true';
-		var input = toggle.previousElementSibling;
-		input.type = isShowing ? 'password' : 'text';
-		toggle.setAttribute('aria-pressed', isShowing ? 'false' : 'true');
-		toggle.setAttribute('aria-label', isShowing ? 'Show password' : 'Hide password');
-		toggle.textContent = isShowing ? 'Show' : 'Hide';
 	});
 });
 </script>
