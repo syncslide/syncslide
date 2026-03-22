@@ -6,7 +6,6 @@
 //!
 #![deny(clippy::all, clippy::pedantic, rustdoc::all, unsafe_code, missing_docs)]
 
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use qrcode::{QrCode, render::svg};
 use axum::{
     Form, Router,
@@ -385,24 +384,6 @@ struct ChangeRoleForm {
     role: String,
 }
 
-#[derive(Deserialize)]
-struct SetPasswordForm {
-    password: Option<String>,
-    action: String,
-}
-
-/// Query parameter for the presentation URL: `?pwd=<plaintext>`.
-#[derive(Deserialize)]
-struct JoinPwdQuery {
-    pwd: Option<String>,
-}
-
-/// Form body for the join-password POST.
-#[derive(Deserialize)]
-struct JoinPasswordForm {
-    password: String,
-}
-
 async fn start_pres(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -430,7 +411,6 @@ async fn present(
     State(app_state): State<AppState>,
     auth_session: AuthSession,
     Path((uname, pid)): Path<(String, i64)>,
-    Query(query): Query<JoinPwdQuery>,
 ) -> impl IntoResponse {
     let pres_user = User::get_by_name(uname.clone(), &db).await;
     let pres_user = match pres_user {
@@ -448,14 +428,10 @@ async fn present(
         let Ok(Some(owner)) = User::get_by_id(pres.user_id, &db).await else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
-        let redirect = if let Some(ref pwd) = query.pwd {
-            format!("/{}/{pid}?pwd={}", owner.name, urlencoding::encode(pwd))
-        } else {
-            format!("/{}/{pid}", owner.name)
-        };
+        let redirect = format!("/{}/{pid}", owner.name);
         return Redirect::permanent(&redirect).into_response();
     }
-    let access = match check_access(&db, auth_session.user.as_ref(), pid, query.pwd.as_deref()).await {
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, None).await {
         Ok(a) => a,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
@@ -464,7 +440,16 @@ async fn present(
         AccessResult::Owner | AccessResult::Editor => {
             stage(tera, db, auth_session, pid, app_state, pres_user).await.into_response()
         }
-        AccessResult::PasswordOk => {
+        AccessResult::Controller => {
+            let slide_index = current_slide_index(&app_state, pid);
+            let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
+            let mut ctx = Context::new();
+            ctx.insert("pres", &pres);
+            ctx.insert("pres_user", &pres_user);
+            ctx.insert("initial_slide", &initial_slide);
+            tera.render("controller.html", ctx, auth_session, db).await.into_response()
+        }
+        AccessResult::Audience | AccessResult::PublicOk => {
             let slide_index = current_slide_index(&app_state, pid);
             let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
             let mut ctx = Context::new();
@@ -474,72 +459,7 @@ async fn present(
             tera.render("audience.html", ctx, auth_session, db).await.into_response()
         }
         AccessResult::Denied => {
-            if pres.password.is_some() {
-                // Password set but not provided or incorrect — show entry page
-                let mut ctx = Context::new();
-                ctx.insert("pres_name", &pres.name);
-                ctx.insert("pres_owner", &uname);
-                ctx.insert("pres_id", &pid);
-                ctx.insert("error", &query.pwd.is_some());
-                tera.render("join_password.html", ctx, auth_session, db).await.into_response()
-            } else {
-                // No password — serve audience view (public access)
-                let slide_index = current_slide_index(&app_state, pid);
-                let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
-                let mut ctx = Context::new();
-                ctx.insert("pres", &pres);
-                ctx.insert("pres_user", &pres_user);
-                ctx.insert("initial_slide", &initial_slide);
-                tera.render("audience.html", ctx, auth_session, db).await.into_response()
-            }
-        }
-        _ => {
-            // Controller — serve controller view (slide nav only)
-            let slide_index = current_slide_index(&app_state, pid);
-            let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
-            let mut ctx = Context::new();
-            ctx.insert("pres", &pres);
-            ctx.insert("pres_user", &pres_user);
-            ctx.insert("initial_slide", &initial_slide);
-            tera.render("controller.html", ctx, auth_session, db).await.into_response()
-        }
-    }
-}
-
-async fn join_password_submit(
-    State(tera): State<Tera>,
-    State(db): State<SqlitePool>,
-    auth_session: AuthSession,
-    Path((uname, pid)): Path<(String, i64)>,
-    Form(form): Form<JoinPasswordForm>,
-) -> impl IntoResponse {
-    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let Ok(Some(pres_user)) = User::get_by_name(uname.clone(), &db).await else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    if pres.user_id != pres_user.id {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    let access = check_access(&db, auth_session.user.as_ref(), pid, Some(&form.password))
-        .await
-        .unwrap_or(AccessResult::Denied);
-    match access {
-        AccessResult::PasswordOk => {
-            let encoded_pwd = urlencoding::encode(&form.password);
-            let redirect_url = format!("/{uname}/{pid}?pwd={encoded_pwd}");
-            Redirect::to(&redirect_url).into_response()
-        }
-        _ => {
-            let mut ctx = Context::new();
-            ctx.insert("pres_name", &pres.name);
-            ctx.insert("pres_owner", &uname);
-            ctx.insert("pres_id", &pid);
-            ctx.insert("error", &true);
-            tera.render("join_password.html", ctx, auth_session, db)
-                .await
-                .into_response()
+            StatusCode::FORBIDDEN.into_response()
         }
     }
 }
@@ -1112,75 +1032,6 @@ async fn change_access_role(
     }
 }
 
-async fn set_presentation_password(
-    State(db): State<SqlitePool>,
-    auth_session: AuthSession,
-    Path(pid): Path<i64>,
-    Form(form): Form<SetPasswordForm>,
-) -> impl IntoResponse {
-    let Some(user) = auth_session.user else {
-        return StatusCode::UNAUTHORIZED.into_response();
-    };
-    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    if pres.user_id != user.id {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    if form.action == "clear" {
-        match DbPresentation::clear_password(pid, &db).await {
-            Ok(()) => return Redirect::to("/user/presentations").into_response(),
-            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
-    let pwd = match &form.password {
-        Some(p) if p.len() >= 8 && p.len() <= 1000 => p.as_str(),
-        _ => return StatusCode::BAD_REQUEST.into_response(),
-    };
-    match DbPresentation::set_password(pid, pwd, &db).await {
-        Ok(()) => Redirect::to("/user/presentations").into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-}
-
-async fn set_recording_password(
-    State(db): State<SqlitePool>,
-    auth_session: AuthSession,
-    Path(rid): Path<i64>,
-    Form(form): Form<SetPasswordForm>,
-) -> impl IntoResponse {
-    let Some(user) = auth_session.user else {
-        return StatusCode::UNAUTHORIZED.into_response();
-    };
-    // Ownership: join through presentation
-    let owner_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM recording
-         JOIN presentation ON presentation.id = recording.presentation_id
-         WHERE recording.id = ? AND presentation.user_id = ?",
-    )
-    .bind(rid)
-    .bind(user.id)
-    .fetch_one(&db)
-    .await;
-    if !matches!(owner_count, Ok(c) if c > 0) {
-        return StatusCode::NOT_FOUND.into_response();
-    }
-    if form.action == "clear" {
-        match Recording::clear_password(rid, &db).await {
-            Ok(()) => return Redirect::to("/user/presentations").into_response(),
-            Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-        }
-    }
-    let pwd = match &form.password {
-        Some(p) if p.len() >= 8 && p.len() <= 1000 => p.as_str(),
-        _ => return StatusCode::BAD_REQUEST.into_response(),
-    };
-    match Recording::set_password(rid, pwd, &db).await {
-        Ok(()) => Redirect::to("/user/presentations").into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
-    }
-}
-
 async fn update_recording_files(
     State(db): State<SqlitePool>,
     auth_session: AuthSession,
@@ -1413,14 +1264,6 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
             "/user/presentations/{pid}/name",
             post(update_presentation_name),
         )
-        .route(
-            "/user/presentations/{pid}/password",
-            post(set_presentation_password),
-        )
-        .route(
-            "/user/recordings/{rid}/password",
-            post(set_recording_password),
-        )
         .route("/user/change_pwd", get(change_pwd))
         .route("/user/change_pwd", post(change_pwd_form))
         .route("/user/new", get(new_user))
@@ -1429,7 +1272,6 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/create", get(start))
         .route("/create", post(start_pres))
         .route("/{uname}/{pid}", get(present))
-        .route("/join-password/{uname}/{pid}", post(join_password_submit))
         .route("/qr/{uname}/{pid}", get(qr_code))
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
@@ -2242,48 +2084,6 @@ mod tests {
         );
     }
 
-    /// POST /user/presentations/{pid}/password by the owner must hash and store the password.
-    #[tokio::test]
-    async fn set_presentation_password_as_owner() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        let uid = get_user_id("testuser", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Protected Pres", &state.db_pool).await;
-        login_as(&server, "testuser", "testpass").await;
-
-        let response = server
-            .post(&format!("/user/presentations/{pid}/password"))
-            .form(&serde_json::json!({ "password": "mysecret1", "action": "set" }))
-            .await;
-
-        assert_eq!(response.status_code(), 303);
-        let pres = DbPresentation::get_by_id(pid, &state.db_pool).await.unwrap().unwrap();
-        assert!(
-            pres.password.is_some(),
-            "password must be stored after set"
-        );
-    }
-
-    /// POST .../password with action=clear must null out the password.
-    #[tokio::test]
-    async fn clear_presentation_password_as_owner() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        let uid = get_user_id("testuser", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Clear Pres", &state.db_pool).await;
-        DbPresentation::set_password(pid, "mysecret1", &state.db_pool).await.unwrap();
-        login_as(&server, "testuser", "testpass").await;
-
-        let response = server
-            .post(&format!("/user/presentations/{pid}/password"))
-            .form(&serde_json::json!({ "action": "clear" }))
-            .await;
-
-        assert_eq!(response.status_code(), 303);
-        let pres = DbPresentation::get_by_id(pid, &state.db_pool).await.unwrap().unwrap();
-        assert!(pres.password.is_none(), "password must be NULL after clear");
-    }
-
     /// POST .../password by a non-owner must return 404.
     #[tokio::test]
     async fn set_password_by_non_owner_returns_404() {
@@ -2300,26 +2100,6 @@ mod tests {
             .await;
 
         assert_eq!(response.status_code(), 404);
-    }
-
-    /// POST /user/recordings/{rid}/password by the owner must store the password.
-    #[tokio::test]
-    async fn set_recording_password_as_owner() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        let uid = get_user_id("testuser", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Rec Pres", &state.db_pool).await;
-        let rid = seed_recording(pid, &state.db_pool).await;
-        login_as(&server, "testuser", "testpass").await;
-
-        let response = server
-            .post(&format!("/user/recordings/{rid}/password"))
-            .form(&serde_json::json!({ "password": "mysecret1", "action": "set" }))
-            .await;
-
-        assert_eq!(response.status_code(), 303);
-        let rec = Recording::get_by_id(rid, &state.db_pool).await.unwrap().unwrap();
-        assert!(rec.password.is_some(), "password must be stored after set");
     }
 
     /// POST /user/recordings/{rid}/password by a non-owner must return 404.
