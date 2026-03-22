@@ -13,6 +13,12 @@ async function createPresentation(page, name) {
     return page.url();
 }
 
+// Helper — opens the Actions menu for a given presentation ID.
+async function openActionsMenu(page, presId) {
+    await page.locator(`#actions-btn-${presId}`).click();
+    await expect(page.locator(`#actions-menu-${presId}`)).toBeVisible();
+}
+
 test.describe('presentations list', () => {
     test.beforeEach(async ({ page }) => {
         await loginAsAdmin(page);
@@ -47,7 +53,8 @@ test.describe('presentations list', () => {
     test('delete dialog opens when delete button is activated', async ({ page }) => {
         await page.goto('/user/presentations');
         // Click the "Delete: Demo" button.
-        await page.click('button[data-open-dialog="delete-pres-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Delete' }).click();
         // The dialog must be open and its heading must be announced.
         const dialog = page.locator('#delete-pres-1');
         await expect(dialog).toBeVisible();
@@ -57,7 +64,8 @@ test.describe('presentations list', () => {
     // The Cancel button in the delete dialog closes it without navigating away.
     test('cancel button closes delete dialog', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="delete-pres-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Delete' }).click();
         const dialog = page.locator('#delete-pres-1');
         await expect(dialog).toBeVisible();
         // Click Cancel.
@@ -71,7 +79,8 @@ test.describe('presentations list', () => {
     // This keeps the destructive button out of initial focus and announces the dialog to screen readers.
     test('focus moves to dialog heading when delete dialog opens', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="delete-pres-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Delete' }).click();
         const heading = page.locator('#delete-pres-1 h1');
         await expect(heading).toBeFocused();
     });
@@ -79,7 +88,8 @@ test.describe('presentations list', () => {
     // The delete-presentation dialog must follow APG order: heading first, cancel last.
     test('delete-pres dialog has heading before cancel button', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="delete-pres-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Delete' }).click();
         const dialog = page.locator('#delete-pres-1');
         await expect(dialog).toBeVisible();
 
@@ -95,6 +105,52 @@ test.describe('presentations list', () => {
             return !!(h.compareDocumentPosition(c) & Node.DOCUMENT_POSITION_FOLLOWING);
         });
         expect(inOrder).toBe(true);
+    });
+
+    test('actions button is present with correct ARIA attributes', async ({ page }) => {
+        await page.goto('/user/presentations');
+        const btn = page.locator('#actions-btn-1');
+        await expect(btn).toBeVisible();
+        await expect(btn).toHaveAttribute('aria-haspopup', 'menu');
+        await expect(btn).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    test('actions menu opens on click and focuses first item', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.locator('#actions-btn-1').click();
+        await expect(page.locator('#actions-menu-1')).toBeVisible();
+        await expect(page.locator('#actions-menu-1 [role="menuitem"]').first()).toBeFocused();
+    });
+
+    test('ArrowDown moves focus to next menu item', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.locator('#actions-btn-1').click();
+        await page.keyboard.press('ArrowDown');
+        await expect(page.locator('#actions-menu-1 [role="menuitem"]').nth(1)).toBeFocused();
+    });
+
+    test('Escape closes actions menu and returns focus to button', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.locator('#actions-btn-1').click();
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#actions-menu-1')).not.toBeVisible();
+        await expect(page.locator('#actions-btn-1')).toBeFocused();
+    });
+
+    test('closing delete dialog returns focus to actions button', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Delete' }).click();
+        const dialog = page.locator('#delete-pres-1');
+        await expect(dialog).toBeVisible();
+        await dialog.locator('button[data-close-dialog="delete-pres-1"]').click();
+        await expect(dialog).not.toBeVisible();
+        await expect(page.locator('#actions-btn-1')).toBeFocused();
+    });
+
+    test('clipboard live region is present in DOM', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await expect(page.locator('#clipboard-status')).toBeAttached();
     });
 });
 
@@ -123,14 +179,15 @@ test.describe('create presentation', () => {
     // The "Manage co-presenters" button must be present on each owned presentation.
     test('manage co-presenters button is present', async ({ page }) => {
         await page.goto('/user/presentations');
-        const manageBtn = page.locator('button[data-open-dialog="manage-access-1"]');
-        await expect(manageBtn).toBeVisible();
+        const actionsBtn = page.locator('#actions-btn-1');
+        await expect(actionsBtn).toBeVisible();
     });
 
     // The manage dialog must open with the correct heading first.
     test('manage co-presenters dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="manage-access-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage co-presenters' }).click();
         const dialog = page.locator('#manage-access-1');
         await expect(dialog).toBeVisible();
         await expect(dialog.locator('h1')).toContainText('Co-presenters for');
@@ -139,7 +196,8 @@ test.describe('create presentation', () => {
     // The Close button in the manage dialog must be the last focusable element (DOM order).
     test('manage dialog close button is last in DOM order', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="manage-access-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage co-presenters' }).click();
         const dialog = page.locator('#manage-access-1');
         const inOrder = await dialog.evaluate(el => {
             const closeBtn = el.querySelector('button[data-close-dialog]');
@@ -153,14 +211,15 @@ test.describe('create presentation', () => {
     // The "Set password" button must be present on each presentation item.
     test('set-password button is present for owned presentation', async ({ page }) => {
         await page.goto('/user/presentations');
-        const setpwdBtn = page.locator('button[data-open-dialog="set-pwd-1"]');
-        await expect(setpwdBtn).toBeVisible();
+        const actionsBtn = page.locator('#actions-btn-1');
+        await expect(actionsBtn).toBeVisible();
     });
 
     // The set-password dialog must open with heading first.
     test('set-password dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="set-pwd-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Set password' }).click();
         const dialog = page.locator('#set-pwd-1');
         await expect(dialog).toBeVisible();
         await expect(dialog.locator('h1')).toContainText('Set password for');
@@ -169,7 +228,8 @@ test.describe('create presentation', () => {
     // Show/hide toggle must change aria-pressed and input type.
     test('set-password show/hide toggle works', async ({ page }) => {
         await page.goto('/user/presentations');
-        await page.click('button[data-open-dialog="set-pwd-1"]');
+        await openActionsMenu(page, 1);
+        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Set password' }).click();
         const toggle = page.locator('#set-pwd-1 .show-pwd-toggle');
         const input = page.locator('#set-pwd-1 input[name="password"]');
         // Initially hidden
