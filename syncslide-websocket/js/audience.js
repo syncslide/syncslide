@@ -28,7 +28,12 @@ const handleUpdate = (message) => {
 		if (presNameEl) presNameEl.textContent = message.data;
 		const slideH1 = document.querySelector('#currentSlide h1');
 		if (slideH1) slideH1.textContent = message.data;
-		document.title = `${message.data} - SyncSlide`;
+		const mode = window.presPageMode;
+		document.title = mode === 'stage'
+		    ? `${message.data} \u2013 Stage - SyncSlide`
+		    : mode === 'edit'
+		    ? `${message.data} \u2013 Edit - SyncSlide`
+		    : `${message.data} - SyncSlide`;
 		return;
 	}
 	const slideIndex = message.data;
@@ -39,6 +44,7 @@ const handleUpdate = (message) => {
 	}
 	const newHtml = addSiblings(allHtml)[slideIndex];
 	const htmlOutput = document.getElementById("currentSlide");
+	if (!htmlOutput) return;
 	htmlOutput.innerHTML = "";
 	const presName = getPresName();
 	if (presName) {
