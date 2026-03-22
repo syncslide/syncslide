@@ -175,7 +175,7 @@ test.describe('presentations list', () => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
-        await expect(dialog.locator('table caption')).toContainText('Co-presenters');
+        await expect(dialog.locator('table caption')).toContainText('Access');
         const headers = dialog.locator('thead th');
         await expect(headers).toHaveCount(2);
         await expect(headers.nth(0)).toContainText('Username');
@@ -261,7 +261,7 @@ test.describe('presentations list', () => {
         await expect(input).toHaveAttribute('aria-invalid', 'true');
     });
 
-    test('duplicate username across two new rows shows Already a co-presenter', async ({ page }) => {
+    test('duplicate username across two new rows shows Already added', async ({ page }) => {
         await page.goto('/user/presentations');
         await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
