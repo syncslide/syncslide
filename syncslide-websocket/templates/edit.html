@@ -1,0 +1,47 @@
+{% extends "nav.html" %}
+{% block title %}{{ pres.name }} – Edit{% endblock title %}
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb"><ol>
+  <li><a href="/">Home</a></li>
+  <li><a href="/user/presentations">Your Presentations</a></li>
+  <li aria-current="page">{{ pres.name }}</li>
+</ol></nav>
+{% endblock breadcrumb %}
+{% block js %}
+<script>window.presPageMode = 'edit';</script>
+<script defer src="/js/remarkable.js"></script>
+<script defer src="/js/common.js"></script>
+<script defer src="/js/audience.js"></script>
+<script defer src="/js/handlers.js"></script>
+{% endblock js %}
+{% block content %}
+<h1 id="edit-heading" tabindex="-1">{{ pres.name }}</h1>
+<label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
+<button type="button" id="addSlide">Add Slide</button>
+<section aria-labelledby="slides-heading">
+  <h2 id="slides-heading">Slides</h2>
+  <table>
+    <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
+    <tbody id="slideTableBody"></tbody>
+  </table>
+</section>
+<section aria-labelledby="markdown-heading">
+  <h2 id="markdown-heading">Markdown</h2>
+  <label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
+  <textarea id="markdown-input">{{ pres.content }}</textarea>
+</section>
+<dialog id="slideDialog" aria-labelledby="slideDialogHeading">
+<button type="button" id="slideDialogCancel">Cancel</button>
+<h1 id="slideDialogHeading"></h1>
+<fieldset id="slideDialogPosition">
+<legend>Position</legend>
+<label><input type="radio" name="insertPos" value="before"> Before</label>
+<label><input type="radio" name="insertPos" value="after" checked> After</label>
+</fieldset>
+<label id="slideDialogRefLabel">Slide: <select id="insertRefSlide"></select></label>
+<label>Title: <input type="text" id="insertTitle"></label><br>
+<label>Content (Markdown):<br><textarea id="insertBody" rows="6" style="width:100%"></textarea></label><br>
+<button type="button" id="slideDialogApply"></button>
+</dialog>
+<script>document.getElementById('edit-heading').focus();</script>
+{% endblock content %}
