@@ -15,6 +15,7 @@ pub struct PresentationRecordings {
     pub recordings: Vec<Recording>,
     pub access: Vec<PresentationAccess>,
     pub role: String,
+    pub owner_name: String,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, FromRow)]
@@ -33,6 +34,7 @@ pub struct Recording {
 impl Recording {
     pub async fn get_by_presentation(
         pres: Presentation,
+        owner_name: String,
         db: &SqlitePool,
     ) -> Result<PresentationRecordings, Error> {
         let recordings = sqlx::query_as::<_, Recording>(
@@ -51,6 +53,7 @@ impl Recording {
             name: pres.name,
             user_id: pres.user_id,
             content: pres.content,
+            owner_name,
         })
     }
     pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {

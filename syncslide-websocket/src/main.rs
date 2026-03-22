@@ -579,14 +579,18 @@ async fn presentations(
     };
     let mut press_with_recordings = vec![];
     for pres in owned {
-        let Ok(mut pwr) = Recording::get_by_presentation(pres, &db).await else {
+        let Ok(mut pwr) = Recording::get_by_presentation(pres, user.name.clone(), &db).await else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
         pwr.role = "owner".to_string();
         press_with_recordings.push(pwr);
     }
     for (pres, role) in shared {
-        let Ok(mut pwr) = Recording::get_by_presentation(pres, &db).await else {
+        let owner_name = match User::get_by_id(pres.user_id, &db).await {
+            Ok(Some(owner)) => owner.name,
+            _ => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        };
+        let Ok(mut pwr) = Recording::get_by_presentation(pres, owner_name, &db).await else {
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         };
         pwr.role = role;
@@ -2187,6 +2191,30 @@ mod tests {
         assert!(
             response.text().contains("Shared With Testuser"),
             "shared presentation must appear in testuser's list"
+        );
+    }
+
+    /// GET /user/presentations must link shared presentations using the owner's username, not the viewer's.
+    #[tokio::test]
+    async fn presentations_list_shared_link_uses_owner_name() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let admin_id = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(admin_id, "Owner Link Test", &state.db_pool).await;
+        let testuser_id = get_user_id("testuser", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, testuser_id, "editor").await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let response = server.get("/user/presentations").await;
+        let body = response.text();
+
+        assert!(
+            body.contains(&format!("/admin/{pid}")),
+            "shared presentation link must use owner's username (admin), not viewer's"
+        );
+        assert!(
+            !body.contains(&format!("/testuser/{pid}")),
+            "shared presentation link must not use viewer's username"
         );
     }
 

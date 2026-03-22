@@ -39,7 +39,7 @@
 <ul id="pres-list" role="list">
 	{% for pres in press %}
 	<li class="pres-item" role="listitem" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}" data-role="{{ pres.role }}">
-		<h2><a class="stage-link" href="/{{ user.name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
+		<h2><a class="stage-link" href="/{{ pres.owner_name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
 		{% if pres.role != "owner" %}<span class="role-label">Shared with you as {{ pres.role }}</span>{% endif %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
@@ -49,7 +49,7 @@
 				<tbody>
 				{% for rec in pres.recordings %}
 				<tr>
-					<td><a href="/{{ user.name }}/{{ pres.id }}/{{ rec.id }}">{{ rec.name }}</a></td>
+					<td><a href="/{{ pres.owner_name }}/{{ pres.id }}/{{ rec.id }}">{{ rec.name }}</a></td>
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>
@@ -68,7 +68,7 @@
 				</tbody>
 			</table>
 			{% else %}
-			<p>No recordings yet. Start a recording from the <a href="/{{ user.name }}/{{ pres.id }}">{{ pres.name }} stage</a>.</p>
+			<p>No recordings yet. Start a recording from the <a href="/{{ pres.owner_name }}/{{ pres.id }}">{{ pres.name }} stage</a>.</p>
 			{% endif %}
 		</details>
 		{% if pres.role == "owner" %}
