@@ -105,15 +105,27 @@ pub enum AccessResult {
 
 ### `check_access` signature change
 
-Remove `provided_pwd: Option<&str>`. New signature:
+Remove `provided_pwd: Option<&str>`. Add `recording_id: Option<i64>` to support recording-level access mode overrides. New signature:
 
 ```rust
-async fn check_access(db: &SqlitePool, user: Option<&User>, presentation_id: i64) -> Result<AccessResult, sqlx::Error>
+async fn check_access(
+    db: &SqlitePool,
+    user: Option<&User>,
+    presentation_id: i64,
+    recording_id: Option<i64>,
+) -> Result<AccessResult, sqlx::Error>
 ```
 
-Update both call sites in `main.rs`:
-- `present` handler: currently passes `query.pwd.as_deref()` as the fourth argument — remove it.
-- WebSocket connect handler: currently passes `None` as the fourth argument — remove it.
+When `recording_id` is `Some(rid)`, the function loads `recording.access_mode WHERE id = rid`. If that value is non-NULL, it is used as the effective mode; otherwise the presentation's `access_mode` is used. When `recording_id` is `None`, only the presentation's `access_mode` is used. This keeps the access logic in one place and correctly handles per-recording overrides.
+
+Update all call sites in `main.rs`:
+- `present` handler: remove `query.pwd.as_deref()`; pass `None` for `recording_id`.
+- WebSocket connect handler: remove the `None` fourth argument; pass `None` for `recording_id`.
+- `recording` handler: pass `Some(recording_id)`.
+- `slides_vtt` handler: pass `Some(recording_id)`.
+- `slides_html` handler: pass `Some(recording_id)`.
+
+`slides_vtt` and `slides_html` currently take no `auth_session` parameter. Add `AuthSession` as an extractor to both handlers so `user: Option<&User>` can be derived for the `check_access` call.
 
 Remove the `JoinPwdQuery` struct that extracted `?pwd=` from the URL — it is no longer used.
 
@@ -164,7 +176,9 @@ Apply the same change to `change_access_role` (~line 1106).
 
 ## Recording Handler Access Check
 
-The `recording` handler currently renders the recording page for any visitor without checking access. Add a `check_access` call at the start of the handler (using the presentation's `id` derived from the recording row). Apply the same `AccessResult` routing table as the `present` handler: `Denied` → 403, `Owner`/`Editor`/`Controller` → render with owner controls, `Audience`/`PublicOk` → render without owner controls.
+The `recording` handler currently renders the recording page for any visitor without checking access. Add a `check_access` call using `presentation_id = rec.presentation_id` and `recording_id = Some(rec.id)`. Apply the same `AccessResult` routing table as the `present` handler: `Denied` → 403, `Owner`/`Editor`/`Controller` → render with owner controls, `Audience`/`PublicOk` → render without owner controls.
+
+The `slides_vtt` and `slides_html` handlers use the same `presentation_id` and `recording_id` from their path segments (the path already extracts both). Call `check_access` with those values. Both handlers require `AuthSession` added as an extractor (see `check_access` signature section).
 
 The current handler sets `is_owner` as a boolean (`user.id == pres_user.id`). Replace this with a check against `AccessResult`: the template context variable should be true for `Owner`, `Editor`, and `Controller` — not just `Owner`. Rename the variable to `has_owner_controls` to make the intent clear, and update the template references accordingly.
 
@@ -372,6 +386,8 @@ The dialog element carries `data-focus-heading="true"` so the existing recording
 - Add: selecting Remove in role select stages removal and shows unsaved prompt
 - Add: "Shared as audience" filter checkbox appears and filters list
 - Update existing "filter panel has three checkboxes all checked" assertion → four checkboxes
+- Add: `slides_vtt` returns 403 for unauthenticated user when presentation is private
+- Add: `slides_html` returns 403 for unauthenticated user when presentation is private
 
 ---
 
