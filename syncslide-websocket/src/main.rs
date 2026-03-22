@@ -358,7 +358,7 @@ struct RemoveAccessForm {
 
 #[derive(Deserialize)]
 struct UserExistsQuery {
-    username: String,
+    username: Option<String>,
 }
 
 async fn user_exists(
@@ -369,7 +369,10 @@ async fn user_exists(
     let Some(_) = auth_session.user else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    match User::get_by_name(query.username, &db).await {
+    let Some(username) = query.username else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    match User::get_by_name(username, &db).await {
         Ok(Some(_)) => StatusCode::OK.into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
@@ -2522,6 +2525,14 @@ mod tests {
             .get("/users/exists")
             .add_query_param("username", "admin")
             .await;
+        assert_eq!(response.status_code(), 401u16);
+    }
+
+    /// GET /users/exists without session AND without username param must return 401, not 400.
+    #[tokio::test]
+    async fn user_exists_unauthenticated_missing_param_returns_401() {
+        let (server, _state) = test_server().await;
+        let response = server.get("/users/exists").await;
         assert_eq!(response.status_code(), 401u16);
     }
 }
