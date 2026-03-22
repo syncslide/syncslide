@@ -16,6 +16,7 @@ pub struct PresentationRecordings {
     pub access: Vec<PresentationAccess>,
     pub role: String,
     pub owner_name: String,
+    pub access_mode: String,
 }
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq, Serialize, Deserialize, FromRow)]
@@ -29,7 +30,7 @@ pub struct Recording {
     pub captions_path: String,
     #[serde(with = "time::serde::rfc3339::option")]
     pub last_edited: Option<OffsetDateTime>,
-    pub password: Option<String>,
+    pub access_mode: Option<String>,
 }
 impl Recording {
     pub async fn get_by_presentation(
@@ -54,6 +55,7 @@ impl Recording {
             user_id: pres.user_id,
             content: pres.content,
             owner_name,
+            access_mode: pres.access_mode,
         })
     }
     pub async fn get_by_id(id: i64, db: &SqlitePool) -> Result<Option<Self>, Error> {
@@ -107,28 +109,10 @@ impl Recording {
         .map_err(Error::from)
     }
 
-    /// Hashes `plaintext` with Argon2id and stores it. Minimum 8 chars, max 1000 bytes
-    /// should be enforced by the caller before this is invoked.
-    pub async fn set_password(id: i64, plaintext: &str, db: &SqlitePool) -> Result<(), Error> {
-        let hash = Argon2::default()
-            .hash_password(
-                plaintext.as_bytes(),
-                &SaltString::generate(OsRng::default()),
-            )
-            .map_err(Error::from)?
-            .to_string();
-        sqlx::query("UPDATE recording SET password = ? WHERE id = ?")
-            .bind(hash)
-            .bind(id)
-            .execute(db)
-            .await
-            .map_err(Error::from)
-            .map(|_| ())
-    }
-
-    /// Sets recording.password to NULL.
-    pub async fn clear_password(id: i64, db: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("UPDATE recording SET password = NULL WHERE id = ?")
+    /// Sets the access mode override. Pass `None` to inherit from the presentation.
+    pub async fn set_access_mode(id: i64, mode: Option<&str>, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("UPDATE recording SET access_mode = ? WHERE id = ?")
+            .bind(mode)
             .bind(id)
             .execute(db)
             .await
@@ -235,7 +219,7 @@ pub struct Presentation {
     pub user_id: i64,
     pub content: String,
     pub name: String,
-    pub password: Option<String>,
+    pub access_mode: String,
 }
 impl Presentation {
     pub async fn new(user: &User, name: String, db: &SqlitePool) -> Result<Presentation, Error> {
@@ -276,12 +260,12 @@ impl Presentation {
             user_id: i64,
             content: String,
             name: String,
-            password: Option<String>,
+            access_mode: String,
             role: String,
         }
         let rows = sqlx::query_as!(
             Row,
-            r#"SELECT p.id, p.user_id, p.content, p.name, p.password,
+            r#"SELECT p.id, p.user_id, p.content, p.name, p.access_mode,
                       pa.role as "role!: String"
                FROM presentation p
                JOIN presentation_access pa ON pa.presentation_id = p.id
@@ -300,7 +284,7 @@ impl Presentation {
                         user_id: r.user_id,
                         content: r.content,
                         name: r.name,
-                        password: r.password,
+                        access_mode: r.access_mode,
                     },
                     r.role,
                 )
@@ -331,6 +315,18 @@ impl Presentation {
         .map_err(Error::from)
         .map(|_| ())
     }
+
+    /// Sets the access mode. `mode` must be `'public'`, `'audience'`, or `'private'`.
+    pub async fn set_access_mode(id: i64, mode: &str, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query("UPDATE presentation SET access_mode = ? WHERE id = ?")
+            .bind(mode)
+            .bind(id)
+            .execute(db)
+            .await
+            .map_err(Error::from)
+            .map(|_| ())
+    }
+
     pub async fn delete(id: i64, user_id: i64, db: &SqlitePool) -> Result<(), Error> {
         sqlx::query(
             "DELETE FROM recording_slide WHERE recording_id IN \
@@ -354,34 +350,6 @@ impl Presentation {
             .map(|_| ())
     }
 
-    /// Hashes `plaintext` with Argon2id and stores it. Minimum 8 chars, max 1000 bytes
-    /// should be enforced by the caller before this is invoked.
-    pub async fn set_password(id: i64, plaintext: &str, db: &SqlitePool) -> Result<(), Error> {
-        let hash = Argon2::default()
-            .hash_password(
-                plaintext.as_bytes(),
-                &SaltString::generate(OsRng::default()),
-            )
-            .map_err(Error::from)?
-            .to_string();
-        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
-            .bind(hash)
-            .bind(id)
-            .execute(db)
-            .await
-            .map_err(Error::from)
-            .map(|_| ())
-    }
-
-    /// Sets presentation.password to NULL.
-    pub async fn clear_password(id: i64, db: &SqlitePool) -> Result<(), Error> {
-        sqlx::query("UPDATE presentation SET password = NULL WHERE id = ?")
-            .bind(id)
-            .execute(db)
-            .await
-            .map_err(Error::from)
-            .map(|_| ())
-    }
 }
 
 /// A co-presenter entry from the `presentation_access` table.
@@ -416,7 +384,7 @@ impl PresentationAccess {
         .map_err(Error::from)
     }
 
-    /// Adds a co-presenter. `role` must be `'editor'` or `'controller'`.
+    /// Adds a user. `role` must be `'editor'`, `'controller'`, or `'audience'`.
     pub async fn add(
         db: &SqlitePool,
         presentation_id: i64,
@@ -623,12 +591,10 @@ impl AuthnBackend for Backend {
     }
 }
 
-/// The result of an access check for a presentation.
+/// The result of an access check for a presentation or recording.
 ///
-/// Owners, editors, and controllers bypass password checks. `PasswordOk`
-/// is returned when a provided plaintext password matches the stored Argon2id
-/// hash. `Denied` is returned for all other cases (no password set means
-/// the presentation is publicly viewable, but still `Denied` for write access).
+/// Priority order: Owner > Editor > Controller > Audience > PublicOk > Denied.
+/// Owners, editors, and controllers bypass the visibility mode check entirely.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccessResult {
     /// The user owns the presentation.
@@ -637,26 +603,29 @@ pub enum AccessResult {
     Editor,
     /// The user has controller access (can move between slides only).
     Controller,
-    /// A correct password was provided for a password-protected presentation.
-    PasswordOk,
-    /// None of the above conditions were met.
+    /// The user is explicitly listed as an audience member.
+    Audience,
+    /// The presentation is public and the user has no named role.
+    PublicOk,
+    /// Access is denied. No password fallback exists.
     Denied,
 }
 
 /// Checks what level of access a user (or unauthenticated visitor) has to a
-/// presentation.
+/// presentation, optionally scoped to a specific recording.
 ///
 /// - `user`: The authenticated user, if any.
 /// - `presentation_id`: The presentation to check.
-/// - `provided_pwd`: A plaintext password from the request, if present.
+/// - `recording_id`: If `Some`, the recording's `access_mode` overrides the
+///   presentation's when non-NULL (recording-level visibility). Pass `None`
+///   for pure presentation access checks.
 ///
-/// Priority: Owner > Editor > Controller > PasswordOk > Denied.
-/// Owners, editors, and controllers bypass the password check entirely.
+/// Priority: Owner > Editor > Controller > Audience (when mode allows) > PublicOk > Denied.
 pub async fn check_access(
     db: &SqlitePool,
     user: Option<&User>,
     presentation_id: i64,
-    provided_pwd: Option<&str>,
+    recording_id: Option<i64>,
 ) -> Result<AccessResult, Error> {
     let pres = sqlx::query_as!(
         Presentation,
@@ -670,13 +639,24 @@ pub async fn check_access(
         return Ok(AccessResult::Denied);
     };
 
+    // Determine effective access mode. Recording overrides presentation when non-NULL.
+    let effective_mode = if let Some(rid) = recording_id {
+        let rec_mode = sqlx::query_scalar!(
+            "SELECT access_mode FROM recording WHERE id = ?",
+            rid
+        )
+        .fetch_optional(db)
+        .await?
+        .flatten(); // Option<Option<String>> -> Option<String>
+        rec_mode.unwrap_or_else(|| pres.access_mode.clone())
+    } else {
+        pres.access_mode.clone()
+    };
+
     if let Some(user) = user {
-        // Check ownership first
         if user.id == pres.user_id {
             return Ok(AccessResult::Owner);
         }
-
-        // Check co-presenter role
         let row = sqlx::query!(
             "SELECT role FROM presentation_access WHERE presentation_id = ? AND user_id = ?",
             presentation_id,
@@ -689,29 +669,17 @@ pub async fn check_access(
             return match row.role.as_str() {
                 "editor" => Ok(AccessResult::Editor),
                 "controller" => Ok(AccessResult::Controller),
+                // Audience role is ignored in private mode
+                "audience" if effective_mode != "private" => Ok(AccessResult::Audience),
                 _ => Ok(AccessResult::Denied),
             };
         }
     }
 
-    // Check password if one is set
-    if let Some(stored_hash) = &pres.password {
-        if let Some(provided) = provided_pwd {
-            let parsed = PasswordHash::new(stored_hash)?;
-            if Argon2::default()
-                .verify_password(provided.as_bytes(), &parsed)
-                .is_ok()
-            {
-                return Ok(AccessResult::PasswordOk);
-            }
-        }
-        return Ok(AccessResult::Denied);
+    match effective_mode.as_str() {
+        "public" => Ok(AccessResult::PublicOk),
+        _ => Ok(AccessResult::Denied),
     }
-
-    // No password set — presentation is public but access is still Denied for
-    // write operations. Callers decide what Denied means for their context
-    // (e.g., audience view is allowed; editing is not).
-    Ok(AccessResult::Denied)
 }
 
 #[cfg(test)]
@@ -768,32 +736,6 @@ mod tests {
         );
     }
 
-    /// Presentation::new must return password: None when no password is set.
-    #[tokio::test]
-    async fn presentation_password_defaults_to_none() {
-        use sqlx::sqlite::SqliteConnectOptions;
-        use std::str::FromStr;
-        let pool = SqlitePool::connect_with(
-            SqliteConnectOptions::from_str("sqlite::memory:").unwrap().foreign_keys(false),
-        )
-        .await
-        .unwrap();
-        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
-        sqlx::query("PRAGMA foreign_keys = ON").execute(&pool).await.unwrap();
-        let admin: User = sqlx::query_as!(User, "SELECT * FROM users WHERE name = 'admin'")
-            .fetch_one(&pool)
-            .await
-            .unwrap();
-        let pres = Presentation::new(&admin, "Password Test".to_string(), &pool)
-            .await
-            .unwrap();
-        assert!(
-            pres.password.is_none(),
-            "password must default to None when not set"
-        );
-        let fetched = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
-        assert!(fetched.password.is_none());
-    }
 }
 
 pub type AuthSession = axum_login::AuthSession<Backend>;
@@ -907,94 +849,36 @@ mod access_tests {
         );
     }
 
-    /// An unrelated authenticated user on a presentation with no password must get Denied.
+    /// An unrelated authenticated user on a private presentation must get Denied.
     #[tokio::test]
     async fn check_access_unrelated_user_denied() {
         let pool = setup_pool().await;
         let owner = make_user(&pool, "owner4").await;
         let stranger = make_user(&pool, "stranger4").await;
         let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'private' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
 
-        let result = check_access(&pool, Some(&stranger), pres.id, None)
-            .await
-            .unwrap();
+        let result = check_access(&pool, Some(&stranger), pres.id, None).await.unwrap();
         assert!(
             matches!(result, AccessResult::Denied),
-            "unrelated user must get Denied on an unprotected presentation"
+            "unrelated user must get Denied on a private presentation"
         );
     }
 
-    /// Unauthenticated access (user = None) on a presentation with no password must get Denied.
+    /// Unauthenticated access on an audience-mode presentation must get Denied.
     #[tokio::test]
     async fn check_access_unauthenticated_denied() {
         let pool = setup_pool().await;
         let owner = make_user(&pool, "owner5").await;
         let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'audience' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
 
         let result = check_access(&pool, None, pres.id, None).await.unwrap();
         assert!(
             matches!(result, AccessResult::Denied),
-            "unauthenticated access must get Denied"
-        );
-    }
-
-    /// Correct password on a password-protected presentation must return PasswordOk.
-    #[tokio::test]
-    async fn check_access_correct_password_returns_ok() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "owner6").await;
-        let pres = make_presentation(&owner, &pool).await;
-
-        use argon2::password_hash::{SaltString, rand_core::OsRng};
-        use argon2::{Argon2, PasswordHasher};
-        let salt = SaltString::generate(OsRng::default());
-        let hash = Argon2::default()
-            .hash_password(b"hunter2", &salt)
-            .unwrap()
-            .to_string();
-        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
-            .bind(&hash)
-            .bind(pres.id)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        let result = check_access(&pool, None, pres.id, Some("hunter2"))
-            .await
-            .unwrap();
-        assert!(
-            matches!(result, AccessResult::PasswordOk),
-            "correct password must return PasswordOk"
-        );
-    }
-
-    /// Wrong password on a password-protected presentation must return Denied.
-    #[tokio::test]
-    async fn check_access_wrong_password_returns_denied() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "owner7").await;
-        let pres = make_presentation(&owner, &pool).await;
-
-        use argon2::password_hash::{SaltString, rand_core::OsRng};
-        use argon2::{Argon2, PasswordHasher};
-        let salt = SaltString::generate(OsRng::default());
-        let hash = Argon2::default()
-            .hash_password(b"hunter2", &salt)
-            .unwrap()
-            .to_string();
-        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
-            .bind(&hash)
-            .bind(pres.id)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        let result = check_access(&pool, None, pres.id, Some("wrongpass"))
-            .await
-            .unwrap();
-        assert!(
-            matches!(result, AccessResult::Denied),
-            "wrong password must return Denied"
+            "unauthenticated access must get Denied on an audience-mode presentation"
         );
     }
 
@@ -1006,36 +890,6 @@ mod access_tests {
         assert!(
             matches!(result, AccessResult::Denied),
             "non-existent presentation must return Denied"
-        );
-    }
-
-    /// Owner must get Owner even when the presentation has a password set.
-    /// This guards the priority ordering: ownership short-circuits before the password check.
-    #[tokio::test]
-    async fn check_access_owner_bypasses_password() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "owner8").await;
-        let pres = make_presentation(&owner, &pool).await;
-
-        use argon2::password_hash::{SaltString, rand_core::OsRng};
-        use argon2::{Argon2, PasswordHasher};
-        let salt = SaltString::generate(OsRng::default());
-        let hash = Argon2::default()
-            .hash_password(b"secret", &salt)
-            .unwrap()
-            .to_string();
-        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
-            .bind(&hash)
-            .bind(pres.id)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        // Owner with no password provided — must still get Owner
-        let result = check_access(&pool, Some(&owner), pres.id, None).await.unwrap();
-        assert!(
-            matches!(result, AccessResult::Owner),
-            "owner must bypass password check and get Owner"
         );
     }
 
@@ -1082,98 +936,6 @@ mod access_tests {
         assert_eq!(entries[0].role, "controller");
     }
 
-    /// set_password must store an Argon2id hash; get_by_id must return a non-None password.
-    #[tokio::test]
-    async fn set_password_stores_hash() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "pwd_owner1").await;
-        let pres = make_presentation(&owner, &pool).await;
-        assert!(pres.password.is_none());
-
-        Presentation::set_password(pres.id, "hunter2", &pool).await.unwrap();
-        let updated = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
-        let hash = updated.password.expect("password must be set");
-        // Must be Argon2id format
-        assert!(hash.starts_with("$argon2id$"), "stored hash must be argon2id");
-    }
-
-    /// clear_password must set the column back to NULL.
-    #[tokio::test]
-    async fn clear_password_removes_hash() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "pwd_owner2").await;
-        let pres = make_presentation(&owner, &pool).await;
-        Presentation::set_password(pres.id, "hunter2", &pool).await.unwrap();
-
-        Presentation::clear_password(pres.id, &pool).await.unwrap();
-        let updated = Presentation::get_by_id(pres.id, &pool).await.unwrap().unwrap();
-        assert!(updated.password.is_none(), "password must be NULL after clear");
-    }
-
-    /// Recording::set_password must store an Argon2id hash.
-    #[tokio::test]
-    async fn set_recording_password_stores_hash() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "rec_pwd_owner1").await;
-        let pres = make_presentation(&owner, &pool).await;
-        let rec = Recording::create(pres.id, "test rec".to_string(), None, "captions.vtt".to_string(), &pool)
-            .await
-            .unwrap();
-
-        Recording::set_password(rec.id, "hunter2", &pool).await.unwrap();
-        let updated = Recording::get_by_id(rec.id, &pool).await.unwrap().unwrap();
-        let hash = updated.password.expect("password must be set");
-        assert!(hash.starts_with("$argon2id$"), "stored hash must be argon2id");
-    }
-
-    /// Recording::clear_password must set the column back to NULL.
-    #[tokio::test]
-    async fn clear_recording_password_removes_hash() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "rec_pwd_owner2").await;
-        let pres = make_presentation(&owner, &pool).await;
-        let rec = Recording::create(pres.id, "test rec".to_string(), None, "captions.vtt".to_string(), &pool)
-            .await
-            .unwrap();
-        Recording::set_password(rec.id, "hunter2", &pool).await.unwrap();
-
-        Recording::clear_password(rec.id, &pool).await.unwrap();
-        let updated = Recording::get_by_id(rec.id, &pool).await.unwrap().unwrap();
-        assert!(updated.password.is_none(), "password must be NULL after clear");
-    }
-
-    /// An authenticated user who is not the owner can unlock a password-protected
-    /// presentation with the correct password.
-    #[tokio::test]
-    async fn check_access_authenticated_non_owner_can_unlock_with_password() {
-        let pool = setup_pool().await;
-        let owner = make_user(&pool, "owner9").await;
-        let visitor = make_user(&pool, "visitor9").await;
-        let pres = make_presentation(&owner, &pool).await;
-
-        use argon2::password_hash::{SaltString, rand_core::OsRng};
-        use argon2::{Argon2, PasswordHasher};
-        let salt = SaltString::generate(OsRng::default());
-        let hash = Argon2::default()
-            .hash_password(b"open_sesame", &salt)
-            .unwrap()
-            .to_string();
-        sqlx::query("UPDATE presentation SET password = ? WHERE id = ?")
-            .bind(&hash)
-            .bind(pres.id)
-            .execute(&pool)
-            .await
-            .unwrap();
-
-        let result = check_access(&pool, Some(&visitor), pres.id, Some("open_sesame"))
-            .await
-            .unwrap();
-        assert!(
-            matches!(result, AccessResult::PasswordOk),
-            "authenticated non-owner with correct password must get PasswordOk"
-        );
-    }
-
     /// get_shared_with_user must return presentations where the user has a co-presenter row.
     #[tokio::test]
     async fn get_shared_with_user_returns_shared_presentations() {
@@ -1200,5 +962,97 @@ mod access_tests {
         assert_eq!(shared.len(), 1, "must return the shared presentation");
         assert_eq!(shared[0].0.id, pres.id);
         assert_eq!(shared[0].1, "editor", "role must be 'editor'");
+    }
+
+    /// Unauthenticated access on a public presentation must get PublicOk.
+    #[tokio::test]
+    async fn check_access_public_returns_public_ok() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "pub_owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        // Default is 'public', so no UPDATE needed.
+        let result = check_access(&pool, None, pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::PublicOk),
+            "unauthenticated on public presentation must get PublicOk"
+        );
+    }
+
+    /// Unauthenticated access on an audience-mode presentation must get Denied.
+    #[tokio::test]
+    async fn check_access_audience_mode_denies_unauthenticated() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "aud_owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'audience' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
+        let result = check_access(&pool, None, pres.id, None).await.unwrap();
+        assert!(matches!(result, AccessResult::Denied));
+    }
+
+    /// A user with role='audience' on an audience-mode presentation must get Audience.
+    #[tokio::test]
+    async fn check_access_audience_member_gets_audience_result() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "aud_owner2").await;
+        let viewer = make_user(&pool, "aud_viewer2").await;
+        let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'audience' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'audience')"
+        )
+        .bind(pres.id).bind(viewer.id).execute(&pool).await.unwrap();
+        let result = check_access(&pool, Some(&viewer), pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Audience),
+            "audience member must get Audience on audience-mode presentation"
+        );
+    }
+
+    /// A user with role='audience' on a private presentation must get Denied.
+    #[tokio::test]
+    async fn check_access_private_ignores_audience_role() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "priv_owner1").await;
+        let viewer = make_user(&pool, "priv_viewer1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'private' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
+        sqlx::query(
+            "INSERT INTO presentation_access (presentation_id, user_id, role) VALUES (?, ?, 'audience')"
+        )
+        .bind(pres.id).bind(viewer.id).execute(&pool).await.unwrap();
+        let result = check_access(&pool, Some(&viewer), pres.id, None).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "audience role must be ignored on private presentation"
+        );
+    }
+
+    /// A recording with NULL access_mode must inherit the presentation's mode.
+    #[tokio::test]
+    async fn check_access_recording_inherits_presentation_mode() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "rec_owner1").await;
+        let pres = make_presentation(&owner, &pool).await;
+        sqlx::query("UPDATE presentation SET access_mode = 'private' WHERE id = ?")
+            .bind(pres.id).execute(&pool).await.unwrap();
+
+        // Create a recording with NULL access_mode (inherit)
+        let rec = sqlx::query_as::<_, Recording>(
+            "INSERT INTO recording (presentation_id, name, captions_path)
+             VALUES (?, 'Test', 'test.vtt') RETURNING *;"
+        )
+        .bind(pres.id)
+        .fetch_one(&pool).await.unwrap();
+        assert!(rec.access_mode.is_none(), "recording access_mode must default to NULL");
+
+        // Unauthenticated access to recording must inherit 'private' -> Denied
+        let result = check_access(&pool, None, pres.id, Some(rec.id)).await.unwrap();
+        assert!(
+            matches!(result, AccessResult::Denied),
+            "recording with NULL access_mode must inherit presentation's private mode"
+        );
     }
 }
