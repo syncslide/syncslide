@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT p.id, p.user_id, p.content, p.name, p.password,\n                      pa.role as \"role!: String\"\n               FROM presentation p\n               JOIN presentation_access pa ON pa.presentation_id = p.id\n               WHERE pa.user_id = ?",
+  "query": "SELECT p.id, p.user_id, p.content, p.name, p.access_mode,\n                      pa.role as \"role!: String\"\n               FROM presentation p\n               JOIN presentation_access pa ON pa.presentation_id = p.id\n               WHERE pa.user_id = ?",
   "describe": {
     "columns": [
       {
@@ -24,7 +24,7 @@
         "type_info": "Text"
       },
       {
-        "name": "password",
+        "name": "access_mode",
         "ordinal": 4,
         "type_info": "Text"
       },
@@ -42,9 +42,9 @@
       false,
       false,
       false,
-      true,
+      false,
       false
     ]
   },
-  "hash": "19e0aeefa8a95d4ce12eb476838ff147fb26257bbc616d9aa0449127dfc57f5a"
+  "hash": "ab2f994dc23e4417fbf778a2b1c42c875ecc455a66e3db3b5101b6b1a21496bc"
 }

@@ -24,7 +24,7 @@
         "type_info": "Text"
       },
       {
-        "name": "password",
+        "name": "access_mode",
         "ordinal": 4,
         "type_info": "Text"
       }
@@ -37,7 +37,7 @@
       false,
       false,
       false,
-      true
+      false
     ]
   },
   "hash": "3c56d53bfc07039aad14d9f549ea12ccd5c6983774a11e229d8358207ad3c0d5"

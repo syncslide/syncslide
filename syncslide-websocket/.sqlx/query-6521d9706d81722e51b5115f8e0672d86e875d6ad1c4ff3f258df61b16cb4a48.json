@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT access_mode FROM recording WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "access_mode",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "6521d9706d81722e51b5115f8e0672d86e875d6ad1c4ff3f258df61b16cb4a48"
+}
