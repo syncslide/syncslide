@@ -383,6 +383,26 @@ test.describe('presentations list', () => {
         await expect(audienceBox).toBeVisible();
         await expect(audienceBox).toBeChecked();
     });
+
+    test('stage link opens in a new tab', async ({ page }) => {
+        await page.goto('/user/presentations');
+        const link = page.locator('#pres-list a.stage-link').first();
+        await expect(link).toHaveAttribute('target', '_blank');
+    });
+
+    test('stage link announces (opens in new tab)', async ({ page }) => {
+        await page.goto('/user/presentations');
+        const srOnly = page.locator('#pres-list a.stage-link .sr-only').first();
+        await expect(srOnly).toHaveText('(opens in new tab)');
+    });
+
+    test('Edit menu item is present for owner', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openActionsMenu(page, 1);
+        await expect(
+            page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Edit' })
+        ).toBeVisible();
+    });
 });
 
 test.describe('create presentation', () => {
@@ -484,4 +504,40 @@ test('result count live region is present', async ({ page }) => {
     await page.goto('/user/presentations');
     const liveRegion = page.locator('#filter-count');
     await expect(liveRegion).toBeAttached();
+});
+
+test.describe('editor sees actions menu', () => {
+    test('editor sees actions button on shared presentation', async ({ browser }) => {
+        // Create an isolated browser context for the editor
+        const adminCtx = await browser.newContext();
+        const adminPage = await adminCtx.newPage();
+        adminPage.goto('http://localhost:5003');
+        await loginAsAdmin(adminPage);
+        // Add testuser as editor via the API
+        await adminPage.request.post('/user/presentations/1/access/add', {
+            form: { username: 'testuser', role: 'editor' },
+        });
+        await adminCtx.close();
+
+        const editorCtx = await browser.newContext();
+        const editorPage = await editorCtx.newPage();
+        editorPage.goto('http://localhost:5003');
+        // Log in as testuser (seeded by migrations with password 'testpass')
+        await editorPage.goto('/auth/login');
+        await editorPage.fill('[name="username"]', 'testuser');
+        await editorPage.fill('[name="password"]', 'testpass');
+        await editorPage.click('button[type="submit"]');
+        await editorPage.goto('/user/presentations');
+
+        // Editor should see the actions button for the shared presentation
+        const actionsBtn = editorPage.locator('[id^="actions-btn-"]').first();
+        await expect(actionsBtn).toBeVisible();
+
+        // Editor should see Edit item in the menu
+        await actionsBtn.click();
+        const menu = editorPage.locator('[id^="actions-menu-"]').first();
+        await expect(menu.locator('[role="menuitem"]').filter({ hasText: 'Edit' })).toBeVisible();
+
+        await editorCtx.close();
+    });
 });

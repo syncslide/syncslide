@@ -40,7 +40,7 @@
 <ul id="pres-list" role="list">
 	{% for pres in press %}
 	<li class="pres-item" role="listitem" data-id="{{ pres.id }}" data-name="{{ pres.name | lower }}" data-role="{{ pres.role }}">
-		<h2><a class="stage-link" href="/{{ pres.owner_name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}">{{ pres.name }}</a></h2>
+		<h2><a class="stage-link" href="/{{ pres.owner_name }}/{{ pres.id }}" data-pres-id="{{ pres.id }}" target="_blank">{{ pres.name }}<svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 12 12" style="margin-left:0.25em"><path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7M8 1h3v3M11 1L5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="sr-only">(opens in new tab)</span></a></h2>
 		{% if pres.role != "owner" %}<span class="role-label">Shared with you as {{ pres.role }}</span>{% endif %}
 		<details>
 			<summary aria-label="Recordings for {{ pres.name }} ({{ pres.recordings | length }})">Recordings ({{ pres.recordings | length }})</summary>
@@ -133,6 +133,8 @@
 				<button type="button" class="unsaved-back">Close</button>
 			</div>
 		</dialog>
+		{% endif %}
+		{% if pres.role == "owner" or pres.role == "editor" %}
 		<button type="button"
 		        id="actions-btn-{{ pres.id }}"
 		        aria-haspopup="menu"
@@ -143,14 +145,21 @@
 				data-action="copy-link"
 				data-pres-id="{{ pres.id }}"
 				data-owner-name="{{ pres.owner_name }}">Copy link</li>
+			{% if pres.role == "owner" %}
 			<li role="menuitem" tabindex="-1"
 				data-action="open-dialog"
 				data-dialog-id="manage-access-{{ pres.id }}"
 				data-return-btn="actions-btn-{{ pres.id }}">Manage access</li>
+			{% endif %}
+			<li role="menuitem" tabindex="-1"
+				data-action="open-edit"
+				data-edit-url="/{{ pres.owner_name }}/{{ pres.id }}/edit">Edit {{ pres.name }}<svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 12 12" style="margin-left:0.25em"><path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7M8 1h3v3M11 1L5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="sr-only">(opens in new tab)</span></li>
+			{% if pres.role == "owner" %}
 			<li role="menuitem" tabindex="-1"
 				data-action="open-dialog"
 				data-dialog-id="delete-pres-{{ pres.id }}"
 				data-return-btn="actions-btn-{{ pres.id }}">Delete {{ pres.name }}</li>
+			{% endif %}
 		</ul>
 		{% endif %}
 	</li>
@@ -322,6 +331,9 @@ document.querySelectorAll('dialog').forEach(function (dialog) {
 							|| dialog.querySelector('input, select, button');
 					}
 					if (first) first.focus();
+				} else if (item.dataset.action === 'open-edit') {
+					window.open(item.dataset.editUrl, '_blank');
+					btn.focus();
 				}
 			});
 		});
