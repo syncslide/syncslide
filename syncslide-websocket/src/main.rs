@@ -2554,10 +2554,23 @@ mod tests {
         PresentationAccess::add(&state.db_pool, pid, ctrl_uid, "controller").await.unwrap();
         login_as(&server, "ctrluser2", "ctrlpass2").await;
 
-        let response = server.get(&format!("/admin/{pid}/edit")).await;
-        // axum-test follows redirects by default; expect stage page (has recordPause)
+        // axum-test does not follow redirects; verify the redirect then follow manually.
+        let redirect_resp = server.get(&format!("/admin/{pid}/edit")).await;
         assert!(
-            response.text().contains(r#"id="recordPause""#),
+            redirect_resp.status_code().is_redirection(),
+            "edit route must redirect a controller"
+        );
+        let location = redirect_resp
+            .headers()
+            .get("location")
+            .expect("redirect must have a Location header")
+            .to_str()
+            .unwrap()
+            .to_string();
+        let stage_resp = server.get(&location).await;
+        assert_eq!(stage_resp.status_code(), 200);
+        assert!(
+            stage_resp.text().contains(r#"id="recordPause""#),
             "controller redirected to stage should see recordPause"
         );
     }
