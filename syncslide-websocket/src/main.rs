@@ -2150,6 +2150,7 @@ mod tests {
 
     /// GET /{uname}/{pid} by an editor must redirect to the stage (same as owner).
     /// The response is 200 (stage.html is rendered, not a redirect — stage() renders directly).
+    /// stage.html does not contain the markdown editor; that is in edit.html.
     #[tokio::test]
     async fn editor_gets_stage_access() {
         let (server, state) = test_server().await;
@@ -2172,12 +2173,14 @@ mod tests {
 
         let response = server.get(&format!("/admin/{pid}")).await;
 
-        // stage() renders stage.html (200), not a redirect. The stage template
-        // contains a textarea with id="markdown-input" — use that as the discriminator.
         assert_eq!(response.status_code(), 200);
         assert!(
-            response.text().contains("markdown-input"),
-            "editor must see the stage textarea"
+            response.text().contains(r#"id="recordPause""#),
+            "editor must see the record button on stage"
+        );
+        assert!(
+            !response.text().contains(r#"id="markdown-input""#),
+            "editor must not see the markdown editor on stage"
         );
     }
 
