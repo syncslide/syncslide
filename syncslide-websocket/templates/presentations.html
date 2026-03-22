@@ -148,22 +148,22 @@
 		        aria-expanded="false"
 		        aria-controls="actions-menu-{{ pres.id }}">Actions: {{ pres.name }}</button>
 		<ul role="menu" id="actions-menu-{{ pres.id }}" hidden>
-		    <li role="menuitem" tabindex="-1"
-		        data-action="copy-link"
-		        data-pres-id="{{ pres.id }}"
-		        data-owner-name="{{ pres.owner_name }}">Copy link</li>
-		    <li role="menuitem" tabindex="-1"
-		        data-action="open-dialog"
-		        data-dialog-id="set-pwd-{{ pres.id }}"
-		        data-return-btn="actions-btn-{{ pres.id }}">Set password</li>
-		    <li role="menuitem" tabindex="-1"
-		        data-action="open-dialog"
-		        data-dialog-id="manage-access-{{ pres.id }}"
-		        data-return-btn="actions-btn-{{ pres.id }}">Manage co-presenters</li>
-		    <li role="menuitem" tabindex="-1"
-		        data-action="open-dialog"
-		        data-dialog-id="delete-pres-{{ pres.id }}"
-		        data-return-btn="actions-btn-{{ pres.id }}">Delete {{ pres.name }}</li>
+			<li role="menuitem" tabindex="-1"
+				data-action="copy-link"
+				data-pres-id="{{ pres.id }}"
+				data-owner-name="{{ pres.owner_name }}">Copy link</li>
+			<li role="menuitem" tabindex="-1"
+				data-action="open-dialog"
+				data-dialog-id="set-pwd-{{ pres.id }}"
+				data-return-btn="actions-btn-{{ pres.id }}">Set password</li>
+			<li role="menuitem" tabindex="-1"
+				data-action="open-dialog"
+				data-dialog-id="manage-access-{{ pres.id }}"
+				data-return-btn="actions-btn-{{ pres.id }}">Manage co-presenters</li>
+			<li role="menuitem" tabindex="-1"
+				data-action="open-dialog"
+				data-dialog-id="delete-pres-{{ pres.id }}"
+				data-return-btn="actions-btn-{{ pres.id }}">Delete {{ pres.name }}</li>
 		</ul>
 		{% endif %}
 	</li>
@@ -196,11 +196,137 @@ document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
 document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 	btn.addEventListener('click', function () {
 		var dialog = document.getElementById(btn.dataset.closeDialog);
-		var opener = document.querySelector('[data-open-dialog="' + btn.dataset.closeDialog + '"]');
 		dialog.close();
-		if (opener) opener.focus();
 	});
 });
+
+// Focus-return on dialog close (handles Cancel button, Escape key, and programmatic close).
+// For presentation-action dialogs: returns to the actions menu button via data-returnFocus.
+// For recording-delete dialogs: falls back to [data-open-dialog] query.
+document.querySelectorAll('dialog').forEach(function (dialog) {
+	dialog.addEventListener('close', function () {
+		var returnId = dialog.dataset.returnFocus;
+		var ret = returnId
+			? document.getElementById(returnId)
+			: document.querySelector('[data-open-dialog="' + dialog.id + '"]');
+		delete dialog.dataset.returnFocus;
+		if (ret) ret.focus();
+	});
+});
+
+// Action menus — ARIA APG Menu Button pattern
+(function () {
+	function openMenu(btn, menu, focusLast) {
+		btn.setAttribute('aria-expanded', 'true');
+		menu.removeAttribute('hidden');
+		var items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+		if (items.length) {
+			(focusLast ? items[items.length - 1] : items[0]).focus();
+		}
+	}
+
+	function closeMenuSilently(btn, menu) {
+		btn.setAttribute('aria-expanded', 'false');
+		menu.setAttribute('hidden', '');
+	}
+
+	function closeMenuAndFocus(btn, menu) {
+		closeMenuSilently(btn, menu);
+		btn.focus();
+	}
+
+	document.querySelectorAll('[aria-haspopup="menu"]').forEach(function (btn) {
+		var menu = document.getElementById(btn.getAttribute('aria-controls'));
+		if (!menu) return;
+
+		// Button: click toggles menu
+		btn.addEventListener('click', function () {
+			if (btn.getAttribute('aria-expanded') === 'true') {
+				closeMenuAndFocus(btn, menu);
+			} else {
+				openMenu(btn, menu, false);
+			}
+		});
+
+		// Button: keyboard opens menu
+		btn.addEventListener('keydown', function (e) {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				openMenu(btn, menu, false);
+			} else if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				openMenu(btn, menu, false);
+			} else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				openMenu(btn, menu, true);
+			}
+		});
+
+		// Menu: arrow key navigation, Escape, Enter/Space activation
+		menu.addEventListener('keydown', function (e) {
+			var items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+			var idx = items.indexOf(document.activeElement);
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				items[(idx + 1) % items.length].focus();
+			} else if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				items[(idx - 1 + items.length) % items.length].focus();
+			} else if (e.key === 'Home') {
+				e.preventDefault();
+				items[0].focus();
+			} else if (e.key === 'End') {
+				e.preventDefault();
+				items[items.length - 1].focus();
+			} else if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				if (document.activeElement) document.activeElement.click();
+			} else if (e.key === 'Escape') {
+				e.preventDefault();
+				closeMenuAndFocus(btn, menu);
+			}
+		});
+
+		// Menu: Tab/Shift+Tab — close without stealing focus (browser handles Tab naturally)
+		menu.addEventListener('focusout', function (e) {
+			if (!menu.contains(e.relatedTarget)) {
+				closeMenuSilently(btn, menu);
+			}
+		});
+
+		// Menu items: activation
+		menu.querySelectorAll('[role="menuitem"]').forEach(function (item) {
+			item.addEventListener('click', function () {
+				closeMenuSilently(btn, menu);
+
+				if (item.dataset.action === 'copy-link') {
+					var url = window.location.origin + '/' + item.dataset.ownerName + '/' + item.dataset.presId;
+					var statusEl = document.getElementById('clipboard-status');
+					navigator.clipboard.writeText(url).then(function () {
+						statusEl.textContent = 'Link copied';
+						setTimeout(function () { statusEl.textContent = ''; }, 4000);
+						btn.focus();
+					}, function () {
+						statusEl.textContent = 'Could not copy link';
+						setTimeout(function () { statusEl.textContent = ''; }, 4000);
+						btn.focus();
+					});
+
+				} else if (item.dataset.action === 'open-dialog') {
+					var dialog = document.getElementById(item.dataset.dialogId);
+					if (!dialog) return;
+					dialog.dataset.returnFocus = item.dataset.returnBtn;
+					dialog.showModal();
+					var firstSelect = dialog.querySelector('tbody select');
+					var first = firstSelect
+						|| dialog.querySelector('h1[tabindex="-1"]')
+						|| dialog.querySelector('input, select, button');
+					if (first) first.focus();
+				}
+			});
+		});
+	});
+})();
 
 (function () {
 	const VIEWED_KEY = 'syncslide_viewed';
@@ -335,22 +461,6 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		toggle.setAttribute('aria-pressed', isShowing ? 'false' : 'true');
 		toggle.setAttribute('aria-label', isShowing ? 'Show password' : 'Hide password');
 		toggle.textContent = isShowing ? 'Show' : 'Hide';
-	});
-});
-
-// Copy-link-with-password: enabled when password input has >= 8 chars
-document.querySelectorAll('[id^="copy-link-"]').forEach(function (btn) {
-	var dialog = btn.closest('dialog');
-	var input = dialog.querySelector('input[name="password"]');
-	// Enable only when input has >= 8 chars
-	input.addEventListener('input', function () {
-		btn.disabled = input.value.length < 8;
-	});
-	btn.addEventListener('click', function () {
-		var owner = btn.dataset.presOwner;
-		var presId = btn.dataset.presId;
-		var url = window.location.origin + '/' + owner + '/' + presId + '?pwd=' + encodeURIComponent(input.value);
-		navigator.clipboard.writeText(url);
 	});
 });
 </script>
