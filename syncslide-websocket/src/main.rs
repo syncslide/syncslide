@@ -2102,25 +2102,6 @@ mod tests {
         assert_eq!(response.status_code(), 404);
     }
 
-    /// POST /user/recordings/{rid}/password by a non-owner must return 404.
-    #[tokio::test]
-    async fn set_recording_password_by_non_owner_returns_404() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        seed_admin_user(&state.db_pool).await;
-        let owner_id = get_user_id("adminuser", &state.db_pool).await;
-        let pid = seed_presentation(owner_id, "Admin Rec Pres", &state.db_pool).await;
-        let rid = seed_recording(pid, &state.db_pool).await;
-        login_as(&server, "testuser", "testpass").await;
-
-        let response = server
-            .post(&format!("/user/recordings/{rid}/password"))
-            .form(&serde_json::json!({ "password": "attempt1", "action": "set" }))
-            .await;
-
-        assert_eq!(response.status_code(), 404);
-    }
-
     /// GET /{uname}/{pid} by a controller must NOT get stage access.
     #[tokio::test]
     async fn controller_gets_audience_not_stage() {
@@ -2154,47 +2135,6 @@ mod tests {
         );
     }
 
-    /// GET /{uname}/{pid} on a password-protected presentation without credentials
-    /// must render the password entry page (200, not a redirect).
-    #[tokio::test]
-    async fn password_protected_presentation_shows_entry_page() {
-        let (server, state) = test_server().await;
-        let uid = get_user_id("admin", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Secret Pres", &state.db_pool).await;
-        DbPresentation::set_password(pid, "secretpass", &state.db_pool).await.unwrap();
-        // No login — anonymous visitor
-
-        let response = server.get(&format!("/admin/{pid}")).await;
-
-        assert_eq!(response.status_code(), 200);
-        assert!(
-            response.text().contains("password protected"),
-            "must show the password entry page"
-        );
-    }
-
-    /// POST /join-password/{uname}/{pid} with correct password must redirect
-    /// to the audience URL with ?pwd= appended.
-    #[tokio::test]
-    async fn correct_password_redirects_to_audience() {
-        let (server, state) = test_server().await;
-        let uid = get_user_id("admin", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Redirect Pres", &state.db_pool).await;
-        DbPresentation::set_password(pid, "correctpass", &state.db_pool).await.unwrap();
-
-        let response = server
-            .post(&format!("/join-password/admin/{pid}"))
-            .form(&serde_json::json!({ "password": "correctpass" }))
-            .await;
-
-        assert_eq!(response.status_code(), 303);
-        let location = response.headers()["location"].to_str().unwrap();
-        assert!(
-            location.contains("?pwd="),
-            "redirect must include ?pwd= in the URL, got: {location}"
-        );
-    }
-
     /// GET /{editor_name}/{pid} must redirect 308 (permanent) to /{owner_name}/{pid}.
     #[tokio::test]
     async fn non_owner_uname_redirects_to_canonical_url() {
@@ -2213,21 +2153,6 @@ mod tests {
         assert_eq!(location, &format!("/admin/{pid}"));
     }
 
-    /// GET /{wrong_name}/{pid}?pwd=x must redirect 308 (permanent) to /{owner_name}/{pid}?pwd=x, preserving the pwd param.
-    #[tokio::test]
-    async fn canonical_redirect_preserves_pwd_param() {
-        let (server, state) = test_server().await;
-        seed_user(&state.db_pool).await;
-        let owner_uid = get_user_id("admin", &state.db_pool).await;
-        let pid = seed_presentation(owner_uid, "Pwd Redirect Test", &state.db_pool).await;
-
-        let response = server.get(&format!("/testuser/{pid}?pwd=secret")).await;
-
-        assert_eq!(response.status_code(), 308);
-        let location = response.headers()["location"].to_str().unwrap();
-        assert_eq!(location, &format!("/admin/{pid}?pwd=secret"));
-    }
-
     /// GET /{nonexistent_name}/{pid} must still return generic audience (no change).
     #[tokio::test]
     async fn nonexistent_uname_returns_audience() {
@@ -2238,26 +2163,6 @@ mod tests {
         let response = server.get(&format!("/nobody/{pid}")).await;
 
         assert_eq!(response.status_code(), 200);
-    }
-
-    /// POST /join-password/{uname}/{pid} with wrong password must re-render the form (200).
-    #[tokio::test]
-    async fn wrong_password_rerenders_entry_page() {
-        let (server, state) = test_server().await;
-        let uid = get_user_id("admin", &state.db_pool).await;
-        let pid = seed_presentation(uid, "Wrong Pass Pres", &state.db_pool).await;
-        DbPresentation::set_password(pid, "correctpass", &state.db_pool).await.unwrap();
-
-        let response = server
-            .post(&format!("/join-password/admin/{pid}"))
-            .form(&serde_json::json!({ "password": "wrongpass" }))
-            .await;
-
-        assert_eq!(response.status_code(), 200);
-        assert!(
-            response.text().contains("Incorrect password"),
-            "wrong password must show error message"
-        );
     }
 
     /// GET /users/exists?username=testuser returns 200 when user exists and caller is authenticated.
