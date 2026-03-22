@@ -357,6 +357,17 @@ struct RemoveAccessForm {
 }
 
 #[derive(Deserialize)]
+struct SetAccessModeForm {
+    mode: String,
+}
+
+#[derive(Deserialize)]
+struct SetRecordingAccessModeForm {
+    action: String,
+    mode: Option<String>,
+}
+
+#[derive(Deserialize)]
 struct UserExistsQuery {
     username: Option<String>,
 }
@@ -671,12 +682,22 @@ async fn recording(
     if rec.presentation_id != pid {
         return StatusCode::NOT_FOUND.into_response();
     }
-    let is_owner = auth_session.user.as_ref().map_or(false, |u| u.id == pres_user.id);
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, Some(rid)).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    if matches!(access, AccessResult::Denied) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let has_owner_controls = matches!(
+        access,
+        AccessResult::Owner | AccessResult::Editor | AccessResult::Controller
+    );
     let mut ctx = Context::new();
     ctx.insert("recording", &rec);
     ctx.insert("pres", &pres);
     ctx.insert("pres_user", &pres_user);
-    ctx.insert("is_owner", &is_owner);
+    ctx.insert("is_owner", &has_owner_controls);
     tera.render("recording.html", ctx, auth_session, db)
         .await
         .into_response()
@@ -741,6 +762,7 @@ fn format_vtt_time(seconds: f64) -> String {
 
 async fn slides_vtt(
     State(db): State<SqlitePool>,
+    auth_session: AuthSession,
     Path((uname, pid, rid)): Path<(String, i64, i64)>,
 ) -> impl IntoResponse {
     let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
@@ -757,6 +779,13 @@ async fn slides_vtt(
     };
     if rec.presentation_id != pid {
         return StatusCode::NOT_FOUND.into_response();
+    }
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, Some(rid)).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    if matches!(access, AccessResult::Denied) {
+        return StatusCode::FORBIDDEN.into_response();
     }
     let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
@@ -784,6 +813,7 @@ async fn slides_vtt(
 
 async fn slides_html(
     State(db): State<SqlitePool>,
+    auth_session: AuthSession,
     Path((uname, pid, rid)): Path<(String, i64, i64)>,
 ) -> impl IntoResponse {
     let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
@@ -800,6 +830,13 @@ async fn slides_html(
     };
     if rec.presentation_id != pid {
         return StatusCode::NOT_FOUND.into_response();
+    }
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, Some(rid)).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    if matches!(access, AccessResult::Denied) {
+        return StatusCode::FORBIDDEN.into_response();
     }
     let Ok(slides) = RecordingSlide::get_by_recording(rid, &db).await else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
@@ -968,7 +1005,7 @@ async fn add_access(
     if pres.user_id != user.id {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if form.role != "editor" && form.role != "controller" {
+    if !["editor", "controller", "audience"].contains(&form.role.as_str()) {
         return StatusCode::BAD_REQUEST.into_response();
     }
     let Ok(Some(target)) = User::get_by_name(form.username, &db).await else {
@@ -1024,10 +1061,69 @@ async fn change_access_role(
     if pres.user_id != user.id {
         return StatusCode::NOT_FOUND.into_response();
     }
-    if form.role != "editor" && form.role != "controller" {
+    if !["editor", "controller", "audience"].contains(&form.role.as_str()) {
         return StatusCode::BAD_REQUEST.into_response();
     }
     match PresentationAccess::change_role(&db, pid, form.user_id, &form.role).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+async fn set_presentation_access_mode(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(pid): Path<i64>,
+    Form(form): Form<SetAccessModeForm>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    if !["public", "audience", "private"].contains(&form.mode.as_str()) {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    match DbPresentation::set_access_mode(pid, &form.mode, &db).await {
+        Ok(()) => Redirect::to("/user/presentations").into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    }
+}
+
+async fn set_recording_access_mode(
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path(rid): Path<i64>,
+    Form(form): Form<SetRecordingAccessModeForm>,
+) -> impl IntoResponse {
+    let Some(user) = auth_session.user else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+    let owner_count = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM recording
+         JOIN presentation ON presentation.id = recording.presentation_id
+         WHERE recording.id = ? AND presentation.user_id = ?",
+    )
+    .bind(rid)
+    .bind(user.id)
+    .fetch_one(&db)
+    .await;
+    if !matches!(owner_count, Ok(c) if c > 0) {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let mode = if form.action == "inherit" {
+        None
+    } else {
+        match form.mode.as_deref() {
+            Some(m) if ["public", "audience", "private"].contains(&m) => Some(m.to_string()),
+            _ => return StatusCode::BAD_REQUEST.into_response(),
+        }
+    };
+    match Recording::set_access_mode(rid, mode.as_deref(), &db).await {
         Ok(()) => Redirect::to("/user/presentations").into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
@@ -1255,6 +1351,14 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route(
             "/user/presentations/{pid}/access/change-role",
             post(change_access_role),
+        )
+        .route(
+            "/user/presentations/{pid}/access/mode",
+            post(set_presentation_access_mode),
+        )
+        .route(
+            "/user/recordings/{rid}/access/mode",
+            post(set_recording_access_mode),
         )
         .route(
             "/user/recordings/{rid}/slides/{sid}/time",
@@ -2202,5 +2306,169 @@ mod tests {
         let (server, _state) = test_server().await;
         let response = server.get("/users/exists").await;
         assert_eq!(response.status_code(), 401u16);
+    }
+
+    /// POST /user/presentations/{pid}/access/mode must save the mode and redirect.
+    #[tokio::test]
+    async fn set_presentation_access_mode_as_owner() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Mode Test", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let resp = server
+            .post(&format!("/user/presentations/{pid}/access/mode"))
+            .form(&serde_json::json!({ "mode": "private" }))
+            .await;
+        assert_eq!(resp.status_code(), 303);
+
+        let mode: String = sqlx::query_scalar("SELECT access_mode FROM presentation WHERE id = ?")
+            .bind(pid)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert_eq!(mode, "private");
+    }
+
+    /// POST /user/presentations/{pid}/access/mode by a non-owner must return 404.
+    #[tokio::test]
+    async fn set_presentation_access_mode_non_owner_returns_404() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let admin_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(admin_uid, "Admin Pres", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let resp = server
+            .post(&format!("/user/presentations/{pid}/access/mode"))
+            .form(&serde_json::json!({ "mode": "private" }))
+            .await;
+        assert_eq!(resp.status_code(), 404);
+    }
+
+    /// POST /user/recordings/{rid}/access/mode must save the mode.
+    #[tokio::test]
+    async fn set_recording_access_mode_as_owner() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rec Mode Test", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path)
+             VALUES (?, 'Rec', 'rec.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/access/mode"))
+            .form(&serde_json::json!({ "action": "set", "mode": "private" }))
+            .await;
+        assert_eq!(resp.status_code(), 303);
+
+        let mode: Option<String> = sqlx::query_scalar("SELECT access_mode FROM recording WHERE id = ?")
+            .bind(rid)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert_eq!(mode, Some("private".to_string()));
+    }
+
+    /// POST /user/recordings/{rid}/access/mode with action=inherit must set NULL.
+    #[tokio::test]
+    async fn set_recording_access_mode_inherit() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rec Inherit Test", &state.db_pool).await;
+        login_as(&server, "testuser", "testpass").await;
+
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path, access_mode)
+             VALUES (?, 'Rec', 'rec.vtt', 'private') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/access/mode"))
+            .form(&serde_json::json!({ "action": "inherit" }))
+            .await;
+        assert_eq!(resp.status_code(), 303);
+
+        let mode: Option<String> = sqlx::query_scalar("SELECT access_mode FROM recording WHERE id = ?")
+            .bind(rid)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert!(mode.is_none(), "inherit action must set access_mode to NULL");
+    }
+
+    /// POST /user/presentations/{pid}/access/add with role=audience must insert the row.
+    #[tokio::test]
+    async fn add_audience_member_as_owner() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("testuser", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Audience Test", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "vieweruser".to_string(),
+                email: "viewer@example.com".to_string(),
+                password: "viewerpass".to_string(),
+            },
+        ).await.unwrap();
+        login_as(&server, "testuser", "testpass").await;
+
+        let resp = server
+            .post(&format!("/user/presentations/{pid}/access/add"))
+            .form(&serde_json::json!({ "username": "vieweruser", "role": "audience" }))
+            .await;
+        assert_eq!(resp.status_code(), 303);
+
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM presentation_access WHERE presentation_id = ? AND role = 'audience'"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        assert_eq!(count, 1);
+    }
+
+    /// GET /{uname}/{pid}/{rid} must return 403 for unauthenticated access on a private presentation.
+    #[tokio::test]
+    async fn recording_handler_denies_access_in_private_mode() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Private Rec Test", &state.db_pool).await;
+
+        sqlx::query("UPDATE presentation SET access_mode = 'private' WHERE id = ?")
+            .bind(pid)
+            .execute(&state.db_pool)
+            .await
+            .unwrap();
+
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path)
+             VALUES (?, 'Rec', 'rec.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        let resp = server
+            .get(&format!("/admin/{pid}/{rid}"))
+            .await;
+        assert_eq!(resp.status_code(), 403);
     }
 }
