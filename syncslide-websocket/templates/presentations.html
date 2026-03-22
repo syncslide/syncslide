@@ -80,49 +80,47 @@
 			</form>
 			<button type="button" data-close-dialog="delete-pres-{{ pres.id }}">Cancel</button>
 		</dialog>
-		<dialog id="manage-access-{{ pres.id }}" aria-labelledby="manage-access-heading-{{ pres.id }}">
+		<dialog id="manage-access-{{ pres.id }}"
+		        aria-labelledby="manage-access-heading-{{ pres.id }}"
+		        data-focus-heading="true"
+		        data-owner-username="{{ user.name }}"
+		        data-pres-id="{{ pres.id }}">
 			<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Co-presenters for {{ pres.name }}</h1>
-			{% if pres.access | length > 0 %}
 			<table>
-				<thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead>
+				<caption>Co-presenters</caption>
+				<thead><tr><th scope="col">Username</th><th scope="col">Role</th></tr></thead>
 				<tbody>
 				{% for entry in pres.access %}
 				<tr>
-					<td>{{ entry.username }}</td>
+					<td data-username="{{ entry.username }}">{{ entry.username }}</td>
 					<td>
-						<form method="post" action="/user/presentations/{{ pres.id }}/access/change-role">
-							<input type="hidden" name="user_id" value="{{ entry.user_id }}">
-							<label for="role-{{ entry.user_id }}-{{ pres.id }}">Role for {{ entry.username }}</label>
-							<select id="role-{{ entry.user_id }}-{{ pres.id }}" name="role">
-								<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
-								<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
-							</select>
-							<button type="submit">Save role</button>
-						</form>
-					</td>
-					<td>
-						<form method="post" action="/user/presentations/{{ pres.id }}/access/remove">
-							<input type="hidden" name="user_id" value="{{ entry.user_id }}">
-							<button type="submit">Remove</button>
-						</form>
+						<select aria-label="Role for {{ entry.username }}"
+						        data-original-role="{{ entry.role }}"
+						        data-user-id="{{ entry.user_id }}">
+							<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
+							<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
+							<option value="remove">Remove</option>
+						</select>
 					</td>
 				</tr>
 				{% endfor %}
 				</tbody>
+				<tbody class="new-rows-tbody"></tbody>
+				<tfoot>
+				<tr>
+					<td colspan="2"><button type="button" class="add-copres-btn">Add co-presenter</button></td>
+				</tr>
+				</tfoot>
 			</table>
-			{% endif %}
-			<h2>Add co-presenter</h2>
-			<form method="post" action="/user/presentations/{{ pres.id }}/access/add">
-				<label for="copres-username-{{ pres.id }}">Username</label>
-				<input type="text" id="copres-username-{{ pres.id }}" name="username" autocomplete="off" required>
-				<label for="copres-role-{{ pres.id }}">Role</label>
-				<select id="copres-role-{{ pres.id }}" name="role">
-					<option value="editor">Editor</option>
-					<option value="controller">Controller</option>
-				</select>
-				<button type="submit">Add</button>
-			</form>
-			<button type="button" data-close-dialog="manage-access-{{ pres.id }}">Close</button>
+			<!-- DOM order: Close button comes before the unsaved-prompt div so that when
+			     the prompt is visible, tab order is: ... Add button → Close → Save → Discard,
+			     matching the spec's tab sequence (Close = item 6, Save/Discard = item 7). -->
+			<button type="button" class="manage-access-close">Close</button>
+			<div class="unsaved-prompt" hidden>
+				<p>You have unsaved changes.</p>
+				<button type="button" class="unsaved-save">Save</button>
+				<button type="button" class="unsaved-discard">Discard</button>
+			</div>
 		</dialog>
 		<dialog id="set-pwd-{{ pres.id }}" aria-labelledby="set-pwd-heading-{{ pres.id }}">
 			<h1 id="set-pwd-heading-{{ pres.id }}" tabindex="-1">Set password for {{ pres.name }}</h1>

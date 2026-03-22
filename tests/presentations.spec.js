@@ -19,6 +19,13 @@ async function openActionsMenu(page, presId) {
     await expect(page.locator(`#actions-menu-${presId}`)).toBeVisible();
 }
 
+async function openManageDialog(page, presId) {
+    await openActionsMenu(page, presId);
+    await page.locator(`#actions-menu-${presId} [role="menuitem"]`)
+        .filter({ hasText: 'Manage co-presenters' }).click();
+    await expect(page.locator(`#manage-access-${presId}`)).toBeVisible();
+}
+
 test.describe('presentations list', () => {
     test.beforeEach(async ({ page }) => {
         await loginAsAdmin(page);
@@ -158,24 +165,41 @@ test.describe('presentations list', () => {
     // The manage dialog must open with the correct heading first.
     test('manage co-presenters dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');
-        await openActionsMenu(page, 1);
-        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage co-presenters' }).click();
+        await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
         await expect(dialog).toBeVisible();
         await expect(dialog.locator('h1')).toContainText('Co-presenters for');
     });
 
+    test('manage dialog table has 2 columns and a caption', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await expect(dialog.locator('table caption')).toContainText('Co-presenters');
+        const headers = dialog.locator('thead th');
+        await expect(headers).toHaveCount(2);
+        await expect(headers.nth(0)).toContainText('Username');
+        await expect(headers.nth(1)).toContainText('Role');
+    });
+
+    test('manage dialog has Add co-presenter button in table', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await expect(dialog.locator('td .add-copres-btn')).toBeAttached();
+        await expect(dialog.locator('.add-copres-btn')).toContainText('Add co-presenter');
+    });
+
     // The Close button in the manage dialog must be the last focusable element (DOM order).
     test('manage dialog close button is last in DOM order', async ({ page }) => {
         await page.goto('/user/presentations');
-        await openActionsMenu(page, 1);
-        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage co-presenters' }).click();
+        await openManageDialog(page, 1);
         const dialog = page.locator('#manage-access-1');
-        const inOrder = await dialog.evaluate(el => {
-            const closeBtn = el.querySelector('button[data-close-dialog]');
-            const submitBtn = el.querySelector('button[type="submit"]');
-            // DOCUMENT_POSITION_FOLLOWING means submitBtn precedes closeBtn
-            return !!(submitBtn.compareDocumentPosition(closeBtn) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const inOrder = await dialog.evaluate(function (el) {
+            var closeBtn = el.querySelector('.manage-access-close');
+            var addBtn = el.querySelector('.add-copres-btn');
+            // DOCUMENT_POSITION_FOLLOWING means addBtn precedes closeBtn in DOM
+            return !!(addBtn.compareDocumentPosition(closeBtn) & Node.DOCUMENT_POSITION_FOLLOWING);
         });
         expect(inOrder).toBe(true);
     });
