@@ -1,4 +1,7 @@
-const pid = window.location.pathname.split('/').pop();
+const parts = window.location.pathname.split('/').filter(Boolean);
+const pid = parts[parts.length - 1] === 'edit'
+    ? parts[parts.length - 2]
+    : parts[parts.length - 1];
 
 const wsUrl = new URL(`/ws/${pid}`, window.location.href);
 wsUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
