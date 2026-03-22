@@ -496,6 +496,50 @@ async fn stage(
     ctx.insert("initial_slide", &initial_slide);
     tera.render("stage.html", ctx, auth_session, db).await
 }
+async fn edit_pres(
+    State(tera): State<Tera>,
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path((uname, pid)): Path<(String, i64)>,
+) -> impl IntoResponse {
+    if auth_session.user.is_none() {
+        return Redirect::to("/auth/login").into_response();
+    }
+    let pres_user = match User::get_by_name(uname.clone(), &db).await {
+        Ok(Some(u)) => u,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    let pres = match DbPresentation::get_by_id(pid, &db).await {
+        Ok(Some(p)) => p,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    if pres.user_id != pres_user.id {
+        let Ok(Some(owner)) = User::get_by_id(pres.user_id, &db).await else {
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        };
+        let redirect = format!("/{}/{pid}/edit", owner.name);
+        return Redirect::permanent(&redirect).into_response();
+    }
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, None).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    match access {
+        AccessResult::Owner | AccessResult::Editor => {
+            let mut ctx = Context::new();
+            ctx.insert("pres", &pres);
+            ctx.insert("pres_user", &pres_user);
+            tera.render("edit.html", ctx, auth_session, db).await.into_response()
+        }
+        AccessResult::Controller | AccessResult::Audience | AccessResult::PublicOk => {
+            Redirect::to(&format!("/{uname}/{pid}")).into_response()
+        }
+        AccessResult::Denied => Redirect::to("/auth/login").into_response(),
+    }
+}
+
 /// Returns an SVG QR code linking to the presentation at `/{uname}/{pid}`.
 async fn qr_code(Path((uname, pid)): Path<(String, String)>, headers: HeaderMap) -> impl IntoResponse {
     let proto = headers
@@ -1381,6 +1425,7 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/ws/{pid}", get(broadcast_to_all))
         .route("/demo", get(demo))
         .route("/help", get(help))
+        .route("/{uname}/{pid}/edit", get(edit_pres))
         .route("/{uname}/{pid}/{rid}", get(recording))
         .route("/{uname}/{pid}/{rid}/slides.vtt", get(slides_vtt))
         .route("/{uname}/{pid}/{rid}/slides.html", get(slides_html))
@@ -2470,5 +2515,59 @@ mod tests {
             .get(&format!("/admin/{pid}/{rid}"))
             .await;
         assert_eq!(resp.status_code(), 403);
+    }
+
+    /// GET /{uname}/{pid}/edit by the owner must serve the edit page.
+    #[tokio::test]
+    async fn owner_gets_edit_page() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Edit Page Test", &state.db_pool).await;
+        login_as(&server, "admin", "admin").await;
+
+        let response = server.get(&format!("/admin/{pid}/edit")).await;
+        assert_eq!(response.status_code(), 200);
+        assert!(
+            response.text().contains(r#"id="edit-heading""#),
+            "edit page must have the edit-heading H1"
+        );
+        assert!(
+            response.text().contains(r#"id="markdown-input""#),
+            "edit page must have the markdown textarea"
+        );
+        assert!(
+            !response.text().contains(r#"id="recordPause""#),
+            "edit page must not have the record button"
+        );
+    }
+
+    /// GET /{uname}/{pid}/edit by a controller must redirect to the stage page.
+    #[tokio::test]
+    async fn controller_edit_redirects_to_stage() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Edit Redirect Test", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "ctrluser2".to_string(),
+                email: "ctrl2@example.com".to_string(),
+                password: "ctrlpass2".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let ctrl_uid = get_user_id("ctrluser2", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, ctrl_uid, "controller").await.unwrap();
+        login_as(&server, "ctrluser2", "ctrlpass2").await;
+
+        let response = server.get(&format!("/admin/{pid}/edit")).await;
+        // axum-test follows redirects by default; expect stage page (has recordPause)
+        assert!(
+            response.text().contains(r#"id="recordPause""#),
+            "controller redirected to stage should see recordPause"
+        );
     }
 }
