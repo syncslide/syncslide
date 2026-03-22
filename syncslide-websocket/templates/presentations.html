@@ -248,12 +248,9 @@ document.querySelectorAll('dialog').forEach(function (dialog) {
 			}
 		});
 
-		// Button: keyboard opens menu
+		// Button: arrow keys open menu (Enter/Space fire click natively on <button>)
 		btn.addEventListener('keydown', function (e) {
-			if (e.key === 'Enter' || e.key === ' ') {
-				e.preventDefault();
-				openMenu(btn, menu, false);
-			} else if (e.key === 'ArrowDown') {
+			if (e.key === 'ArrowDown') {
 				e.preventDefault();
 				openMenu(btn, menu, false);
 			} else if (e.key === 'ArrowUp') {
@@ -302,15 +299,21 @@ document.querySelectorAll('dialog').forEach(function (dialog) {
 				if (item.dataset.action === 'copy-link') {
 					var url = window.location.origin + '/' + item.dataset.ownerName + '/' + item.dataset.presId;
 					var statusEl = document.getElementById('clipboard-status');
-					navigator.clipboard.writeText(url).then(function () {
-						statusEl.textContent = 'Link copied';
-						setTimeout(function () { statusEl.textContent = ''; }, 4000);
-						btn.focus();
-					}, function () {
+					try {
+						navigator.clipboard.writeText(url).then(function () {
+							statusEl.textContent = 'Link copied';
+							setTimeout(function () { statusEl.textContent = ''; }, 4000);
+							btn.focus();
+						}, function () {
+							statusEl.textContent = 'Could not copy link';
+							setTimeout(function () { statusEl.textContent = ''; }, 4000);
+							btn.focus();
+						});
+					} catch (err) {
 						statusEl.textContent = 'Could not copy link';
 						setTimeout(function () { statusEl.textContent = ''; }, 4000);
 						btn.focus();
-					});
+					}
 
 				} else if (item.dataset.action === 'open-dialog') {
 					var dialog = document.getElementById(item.dataset.dialogId);
