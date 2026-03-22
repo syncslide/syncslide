@@ -22,6 +22,7 @@
 			<label><input type="checkbox" checked data-filter-role="owner"> My presentations</label>
 			<label><input type="checkbox" checked data-filter-role="editor"> Shared as editor</label>
 			<label><input type="checkbox" checked data-filter-role="controller"> Shared as controller</label>
+			<label><input type="checkbox" checked data-filter-role="audience"> Shared as audience</label>
 		</fieldset>
 	</div>
 	<div id="filter-count" aria-live="polite" aria-atomic="true"></div>
@@ -85,9 +86,17 @@
 		        data-focus-heading="true"
 		        data-owner-username="{{ user.name }}"
 		        data-pres-id="{{ pres.id }}">
-			<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Co-presenters for {{ pres.name }}</h1>
+			<h1 id="manage-access-heading-{{ pres.id }}" tabindex="-1">Manage access for {{ pres.name }}</h1>
+			<label for="visibility-select-{{ pres.id }}">Visibility</label>
+			<select id="visibility-select-{{ pres.id }}"
+			        class="visibility-select"
+			        data-original-visibility="{{ pres.access_mode }}">
+			    <option value="public"{% if pres.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
+			    <option value="audience"{% if pres.access_mode == "audience" %} selected{% endif %}>Shared — specific people</option>
+			    <option value="private"{% if pres.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
+			</select>
 			<table>
-				<caption>Co-presenters</caption>
+				<caption>Access</caption>
 				<thead><tr><th scope="col">Username</th><th scope="col">Role</th></tr></thead>
 				<tbody>
 				{% for entry in pres.access %}
@@ -99,6 +108,7 @@
 						        data-user-id="{{ entry.user_id }}">
 							<option value="editor"{% if entry.role == "editor" %} selected{% endif %}>Editor</option>
 							<option value="controller"{% if entry.role == "controller" %} selected{% endif %}>Controller</option>
+							<option value="audience"{% if entry.role == "audience" %} selected{% endif %}>Audience</option>
 							<option value="remove">Remove</option>
 						</select>
 					</td>
@@ -108,7 +118,7 @@
 				<tbody class="new-rows-tbody"></tbody>
 				<tfoot>
 				<tr>
-					<td colspan="2"><button type="button" class="add-copres-btn">Add co-presenter</button></td>
+					<td colspan="2"><button type="button" class="add-copres-btn">Add person</button></td>
 				</tr>
 				</tfoot>
 			</table>
@@ -122,24 +132,6 @@
 				<button type="button" class="unsaved-discard">Discard</button>
 			</div>
 		</dialog>
-		<dialog id="set-pwd-{{ pres.id }}" aria-labelledby="set-pwd-heading-{{ pres.id }}">
-			<h1 id="set-pwd-heading-{{ pres.id }}" tabindex="-1">Set password for {{ pres.name }}</h1>
-			<form method="post" action="/user/presentations/{{ pres.id }}/password">
-				<label for="set-pwd-input-{{ pres.id }}">Password</label>
-				<div>
-					<input type="password" id="set-pwd-input-{{ pres.id }}" name="password"
-						   autocomplete="new-password" minlength="8" maxlength="1000">
-					<button type="button" class="show-pwd-toggle" aria-pressed="false" aria-label="Show password">Show</button>
-				</div>
-				<input type="hidden" name="action" value="set">
-				<button type="submit">Save</button>
-			</form>
-			<form method="post" action="/user/presentations/{{ pres.id }}/password">
-				<input type="hidden" name="action" value="clear">
-				<button type="submit">Clear password</button>
-			</form>
-			<button type="button" data-close-dialog="set-pwd-{{ pres.id }}">Close</button>
-		</dialog>
 		<button type="button"
 		        id="actions-btn-{{ pres.id }}"
 		        aria-haspopup="menu"
@@ -152,12 +144,8 @@
 				data-owner-name="{{ pres.owner_name }}">Copy link</li>
 			<li role="menuitem" tabindex="-1"
 				data-action="open-dialog"
-				data-dialog-id="set-pwd-{{ pres.id }}"
-				data-return-btn="actions-btn-{{ pres.id }}">Set password</li>
-			<li role="menuitem" tabindex="-1"
-				data-action="open-dialog"
 				data-dialog-id="manage-access-{{ pres.id }}"
-				data-return-btn="actions-btn-{{ pres.id }}">Manage co-presenters</li>
+				data-return-btn="actions-btn-{{ pres.id }}">Manage access</li>
 			<li role="menuitem" tabindex="-1"
 				data-action="open-dialog"
 				data-dialog-id="delete-pres-{{ pres.id }}"
@@ -503,7 +491,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			.filter(function (i) { return i !== input; })
 			.map(function (i) { return i.value.trim().toLowerCase(); });
 		if (existingUsernames.concat(otherNewInputs).indexOf(value.toLowerCase()) !== -1) {
-			setError(input, 'Already a co-presenter.');
+			setError(input, 'Already added.');
 			return;
 		}
 
@@ -523,7 +511,11 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 	function hasPendingChanges(dialog) {
 		var existingChanged = Array.from(dialog.querySelectorAll('select[data-original-role]'))
 			.some(function (s) { return s.value !== s.dataset.originalRole; });
-		return existingChanged || !!dialog.querySelector('tr.new-row');
+		var visibilitySelect = dialog.querySelector('.visibility-select');
+		var visibilityChanged = visibilitySelect
+			? visibilitySelect.value !== visibilitySelect.dataset.originalVisibility
+			: false;
+		return existingChanged || visibilityChanged || !!dialog.querySelector('tr.new-row');
 	}
 
 	function showPrompt(dialog) {
@@ -547,6 +539,10 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		dialog.querySelectorAll('select[data-original-role]').forEach(function (s) {
 			s.value = s.dataset.originalRole;
 		});
+		var visibilitySelect = dialog.querySelector('.visibility-select');
+		if (visibilitySelect) {
+			visibilitySelect.value = visibilitySelect.dataset.originalVisibility;
+		}
 		dialog.querySelectorAll('tr.new-row').forEach(function (r) { r.remove(); });
 		addBtn.disabled = false;
 		hidePrompt(dialog);
@@ -594,6 +590,15 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			}));
 		});
 
+		var visibilitySelect = dialog.querySelector('.visibility-select');
+		if (visibilitySelect && visibilitySelect.value !== visibilitySelect.dataset.originalVisibility) {
+			fetches.push(fetch('/user/presentations/' + presId + '/access/mode', {
+				method: 'POST',
+				redirect: 'manual',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ mode: visibilitySelect.value }).toString()
+			}));
+		}
 		Promise.allSettled(fetches).then(function () {
 			location.reload();
 		});
@@ -615,6 +620,15 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			discard(dialog, addBtn);
 			dialog.close();
 		});
+
+		var visibilitySelect = dialog.querySelector('.visibility-select');
+		if (visibilitySelect) {
+			visibilitySelect.addEventListener('change', function () {
+				if (hasPendingChanges(dialog)) {
+					showPrompt(dialog);
+				}
+			});
+		}
 
 		dialog.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') return;
@@ -649,6 +663,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 					'<select aria-label="Role for new co-presenter">' +
 						'<option value="editor">Editor</option>' +
 						'<option value="controller">Controller</option>' +
+						'<option value="audience">Audience</option>' +
 					'</select>' +
 				'</td>';
 			newRowsTbody.appendChild(row);
