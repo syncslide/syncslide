@@ -201,7 +201,7 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 });
 
 // Focus-return on dialog close (handles Cancel button, Escape key, and programmatic close).
-// For presentation-action dialogs: returns to the actions menu button via data-returnFocus.
+// For presentation-action dialogs: returns to the actions menu button via data-return-focus.
 // For recording-delete dialogs: falls back to [data-open-dialog] query.
 document.querySelectorAll('dialog').forEach(function (dialog) {
 	dialog.addEventListener('close', function () {

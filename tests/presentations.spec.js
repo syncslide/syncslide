@@ -154,29 +154,6 @@ test.describe('presentations list', () => {
         await page.goto('/user/presentations');
         await expect(page.locator('#clipboard-status')).toBeAttached();
     });
-});
-
-test.describe('create presentation', () => {
-    test.beforeEach(async ({ page }) => {
-        await loginAsAdmin(page);
-    });
-
-    // Create form must accept a name and redirect to the new presentation's stage.
-    test('submitting create form redirects to new stage', async ({ page }) => {
-        await page.goto('/create');
-        await page.fill('[name="name"]', 'Test Presentation');
-        await page.click('button[type="submit"]');
-        // After creation the user is redirected to /{username}/{id}.
-        await page.waitForURL(/\/admin\/\d+/);
-        await expect(page).toHaveURL(/\/admin\/\d+/);
-    });
-
-    // After creating, the new presentation must appear in the list.
-    test('new presentation appears in presentations list', async ({ page }) => {
-        await createPresentation(page, 'My New Presentation');
-        await page.goto('/user/presentations');
-        await expect(page.locator('#pres-list a.stage-link', { hasText: 'My New Presentation' })).toBeVisible();
-    });
 
     // The manage dialog must open with the correct heading first.
     test('manage co-presenters dialog opens with heading first', async ({ page }) => {
@@ -226,6 +203,29 @@ test.describe('create presentation', () => {
         await toggle.click();
         await expect(input).toHaveAttribute('type', 'text');
         await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    });
+});
+
+test.describe('create presentation', () => {
+    test.beforeEach(async ({ page }) => {
+        await loginAsAdmin(page);
+    });
+
+    // Create form must accept a name and redirect to the new presentation's stage.
+    test('submitting create form redirects to new stage', async ({ page }) => {
+        await page.goto('/create');
+        await page.fill('[name="name"]', 'Test Presentation');
+        await page.click('button[type="submit"]');
+        // After creation the user is redirected to /{username}/{id}.
+        await page.waitForURL(/\/admin\/\d+/);
+        await expect(page).toHaveURL(/\/admin\/\d+/);
+    });
+
+    // After creating, the new presentation must appear in the list.
+    test('new presentation appears in presentations list', async ({ page }) => {
+        await createPresentation(page, 'My New Presentation');
+        await page.goto('/user/presentations');
+        await expect(page.locator('#pres-list a.stage-link', { hasText: 'My New Presentation' })).toBeVisible();
     });
 
     // Sort alphabetical must reorder presentations.
