@@ -449,17 +449,8 @@ async fn present(
     };
 
     match access {
-        AccessResult::Owner | AccessResult::Editor => {
+        AccessResult::Owner | AccessResult::Editor | AccessResult::Controller => {
             stage(tera, db, auth_session, pid, app_state, pres_user).await.into_response()
-        }
-        AccessResult::Controller => {
-            let slide_index = current_slide_index(&app_state, pid);
-            let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
-            let mut ctx = Context::new();
-            ctx.insert("pres", &pres);
-            ctx.insert("pres_user", &pres_user);
-            ctx.insert("initial_slide", &initial_slide);
-            tera.render("controller.html", ctx, auth_session, db).await.into_response()
         }
         AccessResult::Audience | AccessResult::PublicOk => {
             let slide_index = current_slide_index(&app_state, pid);
