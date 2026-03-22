@@ -125,6 +125,7 @@ test.describe('presentations list', () => {
     test('ArrowDown moves focus to next menu item', async ({ page }) => {
         await page.goto('/user/presentations');
         await page.locator('#actions-btn-1').click();
+        await expect(page.locator('#actions-menu-1 [role="menuitem"]').first()).toBeFocused();
         await page.keyboard.press('ArrowDown');
         await expect(page.locator('#actions-menu-1 [role="menuitem"]').nth(1)).toBeFocused();
     });
@@ -132,6 +133,7 @@ test.describe('presentations list', () => {
     test('Escape closes actions menu and returns focus to button', async ({ page }) => {
         await page.goto('/user/presentations');
         await page.locator('#actions-btn-1').click();
+        await expect(page.locator('#actions-menu-1 [role="menuitem"]').first()).toBeFocused();
         await page.keyboard.press('Escape');
         await expect(page.locator('#actions-menu-1')).not.toBeVisible();
         await expect(page.locator('#actions-btn-1')).toBeFocused();
@@ -176,13 +178,6 @@ test.describe('create presentation', () => {
         await expect(page.locator('#pres-list a.stage-link', { hasText: 'My New Presentation' })).toBeVisible();
     });
 
-    // The "Manage co-presenters" button must be present on each owned presentation.
-    test('manage co-presenters button is present', async ({ page }) => {
-        await page.goto('/user/presentations');
-        const actionsBtn = page.locator('#actions-btn-1');
-        await expect(actionsBtn).toBeVisible();
-    });
-
     // The manage dialog must open with the correct heading first.
     test('manage co-presenters dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');
@@ -206,13 +201,6 @@ test.describe('create presentation', () => {
             return !!(submitBtn.compareDocumentPosition(closeBtn) & Node.DOCUMENT_POSITION_FOLLOWING);
         });
         expect(inOrder).toBe(true);
-    });
-
-    // The "Set password" button must be present on each presentation item.
-    test('set-password button is present for owned presentation', async ({ page }) => {
-        await page.goto('/user/presentations');
-        const actionsBtn = page.locator('#actions-btn-1');
-        await expect(actionsBtn).toBeVisible();
     });
 
     // The set-password dialog must open with heading first.
