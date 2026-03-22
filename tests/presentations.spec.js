@@ -190,6 +190,12 @@ test.describe('presentations list', () => {
         await expect(dialog.locator('.add-copres-btn')).toContainText('Add co-presenter');
     });
 
+    test('manage dialog opens with focus on h1', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        await expect(page.locator('#manage-access-1 h1')).toBeFocused();
+    });
+
     // The Close button in the manage dialog must be the last focusable element (DOM order).
     test('manage dialog close button is last in DOM order', async ({ page }) => {
         await page.goto('/user/presentations');

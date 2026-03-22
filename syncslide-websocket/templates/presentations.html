@@ -186,8 +186,13 @@ document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
 	btn.addEventListener('click', function () {
 		var dialog = document.getElementById(btn.dataset.openDialog);
 		dialog.showModal();
-		var firstSelect = dialog.querySelector('tbody select');
-		var first = firstSelect || dialog.querySelector('h1[tabindex="-1"]') || dialog.querySelector('input, select, button');
+		var first;
+		if (dialog.dataset.focusHeading) {
+			first = dialog.querySelector('h1[tabindex="-1"]');
+		} else {
+			var firstSelect = dialog.querySelector('tbody select');
+			first = firstSelect || dialog.querySelector('h1[tabindex="-1"]') || dialog.querySelector('input, select, button');
+		}
 		if (first) first.focus();
 	});
 });
@@ -318,10 +323,15 @@ document.querySelectorAll('dialog').forEach(function (dialog) {
 					if (!dialog) return;
 					dialog.dataset.returnFocus = item.dataset.returnBtn;
 					dialog.showModal();
-					var firstSelect = dialog.querySelector('tbody select');
-					var first = firstSelect
-						|| dialog.querySelector('h1[tabindex="-1"]')
-						|| dialog.querySelector('input, select, button');
+					var first;
+					if (dialog.dataset.focusHeading) {
+						first = dialog.querySelector('h1[tabindex="-1"]');
+					} else {
+						var firstSelect = dialog.querySelector('tbody select');
+						first = firstSelect
+							|| dialog.querySelector('h1[tabindex="-1"]')
+							|| dialog.querySelector('input, select, button');
+					}
 					if (first) first.focus();
 				}
 			});
