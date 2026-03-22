@@ -511,7 +511,7 @@ test.describe('editor sees actions menu', () => {
         // Create an isolated browser context for the editor
         const adminCtx = await browser.newContext();
         const adminPage = await adminCtx.newPage();
-        adminPage.goto('http://localhost:5003');
+        await adminPage.goto('http://localhost:5003');
         await loginAsAdmin(adminPage);
         // Add testuser as editor via the API
         await adminPage.request.post('/user/presentations/1/access/add', {
@@ -521,7 +521,7 @@ test.describe('editor sees actions menu', () => {
 
         const editorCtx = await browser.newContext();
         const editorPage = await editorCtx.newPage();
-        editorPage.goto('http://localhost:5003');
+        await editorPage.goto('http://localhost:5003');
         // Log in as testuser (seeded by migrations with password 'testpass')
         await editorPage.goto('/auth/login');
         await editorPage.fill('[name="username"]', 'testuser');
