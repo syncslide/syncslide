@@ -371,6 +371,7 @@ test.describe('presentations list', () => {
     });
 
     test('Shared as audience filter checkbox is present and checked', async ({ page }) => {
+        await loginAsAdmin(page);
         await page.goto('/user/presentations');
         await page.click('#filter-toggle');
         const panel = page.locator('#filter-panel');
