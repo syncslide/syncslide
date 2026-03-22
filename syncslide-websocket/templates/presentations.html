@@ -585,7 +585,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			var sel = row.querySelector('select');
 			var username = input.value.trim();
 			if (!username) return;
-			if (input.getAttribute('aria-invalid') === 'true') return;
+			if (input.getAttribute('aria-invalid') !== 'false') return;
 			fetches.push(fetch('/user/presentations/' + presId + '/access/add', {
 				method: 'POST',
 				redirect: 'manual',

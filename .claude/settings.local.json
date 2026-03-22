@@ -57,7 +57,14 @@
       "WebFetch(domain:design-system.service.gov.uk)",
       "WebFetch(domain:designsystem.digital.gov)",
       "WebFetch(domain:inclusive-components.design)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(echo 'no tests dir' ls /c/Users/melody/Desktop/bs/programming/myRepo/syncslide/*.spec.*)",
+      "Bash(find /c/Users/melody/Desktop/bs/programming/myRepo/syncslide -name *.spec.* -not -path */node_modules/*)",
+      "Bash(xargs cat:*)",
+      "Bash(find ~/.cargo/registry/src -name redirect.rs -path */axum-*)",
+      "Bash(npx playwright:*)",
+      "Bash(node_modules/.bin/playwright test:*)",
+      "Bash(\"/c/Program Files/nodejs/npx.cmd\" --version)"
     ]
   }
 }
