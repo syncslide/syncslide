@@ -39,4 +39,9 @@ test.describe('authenticated pages', () => {
         await expect(page.locator('#manage-access-1')).toBeVisible();
         await assertNoViolations(page);
     });
+
+    test('stage page does not contain the markdown editor', async ({ page }) => {
+        await page.goto('/admin/1');
+        await expect(page.locator('#markdown-input')).not.toBeAttached();
+    });
 });

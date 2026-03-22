@@ -1,32 +1,14 @@
 {% extends "audience.html" %}
-{% block title %}{{ pres.name }} (stage){% endblock title %}
-{% block js %}{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script><script defer="defer" src="/js/handlers.js"></script>{% endblock js %}
+{% block title %}{{ pres.name }} – Stage{% endblock title %}
+{% block js %}<script>window.presPageMode = 'stage';</script>{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script>{% endblock js %}
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endblock breadcrumb %}
 
 {% block stage %}
+<h1 id="stage-heading" tabindex="-1">{{ pres.name }}</h1>
 <button type="button" id="qrToggle" aria-pressed="false" aria-controls="qrOverlay">QR</button>
 <aside id="qrOverlay" hidden aria-label="QR code">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </aside>
-<details>
-<summary><h2>Edit Slides</h2></summary>
-<label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
-<button type="button" id="addSlide">Add Slide</button>
-<details>
-<summary><h3>Slides</h3></summary>
-<table>
-<thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
-<tbody id="slideTableBody"></tbody>
-</table>
-</details>
-<details>
-<summary><h3>Markdown</h3></summary>
-<section aria-labelledby="input">
-<label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
-<textarea id="markdown-input">{{ pres.content }}</textarea>
-</section>
-</details>
-</details>
 <details>
 <summary><h2 id="record">Record</h2></summary>
 <section aria-labelledby="record">
@@ -36,19 +18,6 @@
 </section>
 </details>
 {% include "_slide_nav.html" %}
-<dialog id="slideDialog" aria-labelledby="slideDialogHeading">
-<button type="button" id="slideDialogCancel">Cancel</button>
-<h1 id="slideDialogHeading"></h1>
-<fieldset id="slideDialogPosition">
-<legend>Position</legend>
-<label><input type="radio" name="insertPos" value="before"> Before</label>
-<label><input type="radio" name="insertPos" value="after" checked> After</label>
-</fieldset>
-<label id="slideDialogRefLabel">Slide: <select id="insertRefSlide"></select></label>
-<label>Title: <input type="text" id="insertTitle"></label><br>
-<label>Content (Markdown):<br><textarea id="insertBody" rows="6" style="width:100%"></textarea></label><br>
-<button type="button" id="slideDialogApply"></button>
-</dialog>
 <dialog id="saveRecordingDialog" aria-labelledby="save-recording-heading">
 <h1 id="save-recording-heading">Save Recording</h1>
 <form id="saveRecordingForm" method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
@@ -60,4 +29,5 @@
 <button type="button" id="cancelSaveRecording">Cancel</button>
 </form>
 </dialog>
+<script>document.getElementById('stage-heading').focus();</script>
 {% endblock stage %}
