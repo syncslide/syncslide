@@ -350,15 +350,6 @@ test.describe('presentations list', () => {
         await expect(dialog.locator('.visibility-select')).toHaveValue('public');
     });
 
-    test('changing Visibility combobox shows unsaved prompt', async ({ page }) => {
-        await page.goto('/user/presentations');
-        await openActionsMenu(page, 1);
-        await page.locator('#actions-menu-1 [role="menuitem"]').filter({ hasText: 'Manage access' }).click();
-        const dialog = page.locator('#manage-access-1');
-        await dialog.locator('.visibility-select').selectOption('private');
-        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
-    });
-
     test('audience role option appears in new row role select', async ({ page }) => {
         await page.goto('/user/presentations');
         await openActionsMenu(page, 1);

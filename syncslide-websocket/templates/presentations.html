@@ -621,17 +621,6 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			dialog.close();
 		});
 
-		var visibilitySelect = dialog.querySelector('.visibility-select');
-		if (visibilitySelect) {
-			visibilitySelect.addEventListener('change', function () {
-				if (hasPendingChanges(dialog)) {
-					showPrompt(dialog);
-				} else {
-					hidePrompt(dialog);
-				}
-			});
-		}
-
 		dialog.addEventListener('keydown', function (e) {
 			if (e.key !== 'Escape') return;
 			e.preventDefault();
