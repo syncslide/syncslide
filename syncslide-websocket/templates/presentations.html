@@ -474,6 +474,198 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		toggle.textContent = isShowing ? 'Show' : 'Hide';
 	});
 });
+
+// Manage co-presenters dialog — staged-save behaviour
+(function () {
+	var newRowCounter = 0;
+
+	function setError(input, message) {
+		var errId = input.getAttribute('aria-describedby');
+		var errEl = errId ? document.getElementById(errId) : null;
+		if (!errEl) return;
+		errEl.textContent = message;
+		input.setAttribute('aria-invalid', message ? 'true' : 'false');
+	}
+
+	function validateNewRowInput(input, dialog) {
+		var value = input.value.trim();
+		if (!value) { setError(input, ''); return; }
+
+		var ownerUsername = dialog.dataset.ownerUsername || '';
+		if (value.toLowerCase() === ownerUsername.toLowerCase()) {
+			setError(input, 'You are the owner of this presentation.');
+			return;
+		}
+
+		var existingUsernames = Array.from(dialog.querySelectorAll('td[data-username]'))
+			.map(function (td) { return td.dataset.username.toLowerCase(); });
+		var otherNewInputs = Array.from(dialog.querySelectorAll('tr.new-row input[type="text"]'))
+			.filter(function (i) { return i !== input; })
+			.map(function (i) { return i.value.trim().toLowerCase(); });
+		if (existingUsernames.concat(otherNewInputs).indexOf(value.toLowerCase()) !== -1) {
+			setError(input, 'Already a co-presenter.');
+			return;
+		}
+
+		fetch('/users/exists?username=' + encodeURIComponent(value))
+			.then(function (res) {
+				setError(input, res.status === 404 ? 'User not found.' : '');
+			})
+			.catch(function () { setError(input, ''); });
+	}
+
+	function updateAddButtonState(dialog, addBtn) {
+		var anyEmpty = Array.from(dialog.querySelectorAll('tr.new-row input[type="text"]'))
+			.some(function (i) { return !i.value.trim(); });
+		addBtn.disabled = anyEmpty;
+	}
+
+	function hasPendingChanges(dialog) {
+		var existingChanged = Array.from(dialog.querySelectorAll('select[data-original-role]'))
+			.some(function (s) { return s.value !== s.dataset.originalRole; });
+		return existingChanged || !!dialog.querySelector('tr.new-row');
+	}
+
+	function showPrompt(dialog) {
+		dialog.querySelector('.unsaved-prompt').hidden = false;
+		dialog.querySelector('.unsaved-save').focus();
+	}
+
+	function hidePrompt(dialog) {
+		dialog.querySelector('.unsaved-prompt').hidden = true;
+	}
+
+	function handleClose(dialog) {
+		if (hasPendingChanges(dialog)) {
+			showPrompt(dialog);
+		} else {
+			dialog.close();
+		}
+	}
+
+	function discard(dialog, addBtn) {
+		dialog.querySelectorAll('select[data-original-role]').forEach(function (s) {
+			s.value = s.dataset.originalRole;
+		});
+		dialog.querySelectorAll('tr.new-row').forEach(function (r) { r.remove(); });
+		addBtn.disabled = false;
+		hidePrompt(dialog);
+	}
+
+	function save(dialog) {
+		var presId = dialog.dataset.presId;
+		var saveBtn = dialog.querySelector('.unsaved-save');
+		var discardBtn = dialog.querySelector('.unsaved-discard');
+		saveBtn.disabled = true;
+		discardBtn.disabled = true;
+
+		var fetches = [];
+
+		dialog.querySelectorAll('select[data-original-role]').forEach(function (sel) {
+			if (sel.value === sel.dataset.originalRole) return;
+			var userId = sel.dataset.userId;
+			var url, body;
+			if (sel.value === 'remove') {
+				url = '/user/presentations/' + presId + '/access/remove';
+				body = new URLSearchParams({ user_id: userId }).toString();
+			} else {
+				url = '/user/presentations/' + presId + '/access/change-role';
+				body = new URLSearchParams({ user_id: userId, role: sel.value }).toString();
+			}
+			fetches.push(fetch(url, {
+				method: 'POST',
+				redirect: 'manual',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: body
+			}));
+		});
+
+		dialog.querySelectorAll('tr.new-row').forEach(function (row) {
+			var input = row.querySelector('input[type="text"]');
+			var sel = row.querySelector('select');
+			var username = input.value.trim();
+			if (!username) return;
+			if (input.getAttribute('aria-invalid') === 'true') return;
+			fetches.push(fetch('/user/presentations/' + presId + '/access/add', {
+				method: 'POST',
+				redirect: 'manual',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+				body: new URLSearchParams({ username: username, role: sel.value }).toString()
+			}));
+		});
+
+		Promise.allSettled(fetches).then(function () {
+			location.reload();
+		});
+	}
+
+	document.querySelectorAll('dialog[data-pres-id]').forEach(function (dialog) {
+		var addBtn = dialog.querySelector('.add-copres-btn');
+		var closeBtn = dialog.querySelector('.manage-access-close');
+		var saveBtn = dialog.querySelector('.unsaved-save');
+		var discardBtn = dialog.querySelector('.unsaved-discard');
+		var newRowsTbody = dialog.querySelector('.new-rows-tbody');
+		if (!addBtn || !closeBtn || !saveBtn || !discardBtn || !newRowsTbody) return;
+
+		closeBtn.addEventListener('click', function () { handleClose(dialog); });
+
+		saveBtn.addEventListener('click', function () { save(dialog); });
+
+		discardBtn.addEventListener('click', function () {
+			discard(dialog, addBtn);
+			dialog.close();
+		});
+
+		dialog.addEventListener('keydown', function (e) {
+			if (e.key !== 'Escape') return;
+			e.preventDefault();
+			var prompt = dialog.querySelector('.unsaved-prompt');
+			if (!prompt.hidden) {
+				hidePrompt(dialog);
+				closeBtn.focus();
+			} else if (hasPendingChanges(dialog)) {
+				showPrompt(dialog);
+			} else {
+				dialog.close();
+			}
+		});
+
+		addBtn.addEventListener('click', function () {
+			newRowCounter++;
+			var inputId = 'new-copres-' + dialog.dataset.presId + '-' + newRowCounter;
+			var errId = inputId + '-err';
+			var row = document.createElement('tr');
+			row.className = 'new-row';
+			row.innerHTML =
+				'<td>' +
+					'<input type="text" id="' + inputId + '"' +
+						' aria-label="Username"' +
+						' autocomplete="off"' +
+						' spellcheck="false"' +
+						' aria-describedby="' + errId + '">' +
+					'<span id="' + errId + '" role="status" aria-live="polite"></span>' +
+				'</td>' +
+				'<td>' +
+					'<select aria-label="Role for new co-presenter">' +
+						'<option value="editor">Editor</option>' +
+						'<option value="controller">Controller</option>' +
+					'</select>' +
+				'</td>';
+			newRowsTbody.appendChild(row);
+			var input = row.querySelector('input[type="text"]');
+			addBtn.disabled = true;
+
+			input.addEventListener('input', function () {
+				setError(input, '');
+				updateAddButtonState(dialog, addBtn);
+			});
+			input.addEventListener('blur', function () {
+				validateNewRowInput(input, dialog);
+			});
+			input.focus();
+		});
+	});
+})();
 </script>
 
 {% else %}

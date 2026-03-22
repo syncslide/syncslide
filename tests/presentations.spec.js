@@ -210,6 +210,138 @@ test.describe('presentations list', () => {
         expect(inOrder).toBe(true);
     });
 
+    test('Add button inserts a new row and focuses username input', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        const input = dialog.locator('tr.new-row input[type="text"]');
+        await expect(input).toHaveCount(1);
+        await expect(input).toBeFocused();
+    });
+
+    test('Add button is disabled while new row username is empty', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await expect(dialog.locator('.add-copres-btn')).toBeDisabled();
+    });
+
+    test('Add button re-enables when new row username is filled', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await dialog.locator('tr.new-row input[type="text"]').fill('someuser');
+        await expect(dialog.locator('.add-copres-btn')).toBeEnabled();
+    });
+
+    test('username blur with own name shows owner error', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        const input = dialog.locator('tr.new-row input[type="text"]');
+        await input.fill('admin');
+        await input.blur();
+        await expect(dialog.locator('tr.new-row [aria-live]')).toContainText('owner');
+        await expect(input).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    test('username blur with nonexistent user shows User not found', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        const input = dialog.locator('tr.new-row input[type="text"]');
+        await input.fill('xyzzy_no_such_user_abc123');
+        await input.blur();
+        await expect(dialog.locator('tr.new-row [aria-live]')).toContainText('User not found');
+        await expect(input).toHaveAttribute('aria-invalid', 'true');
+    });
+
+    test('duplicate username across two new rows shows Already a co-presenter', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        // Add first row and fill it (enabling the Add button again)
+        await dialog.locator('.add-copres-btn').click();
+        await dialog.locator('tr.new-row input[type="text"]').first().fill('uniqueuser123');
+        // Add second row (clicking Add button also blurs the first input, firing its validation)
+        await dialog.locator('.add-copres-btn').click();
+        const secondInput = dialog.locator('tr.new-row input[type="text"]').last();
+        await secondInput.fill('uniqueuser123');
+        await secondInput.blur();
+        await expect(secondInput).toHaveAttribute('aria-invalid', 'true');
+        await expect(dialog.locator('tr.new-row').last().locator('[aria-live]'))
+            .toContainText('Already a co-presenter');
+    });
+
+    test('typing in errored input clears the error', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        const input = dialog.locator('tr.new-row input[type="text"]');
+        await input.fill('admin');
+        await input.blur();
+        await expect(input).toHaveAttribute('aria-invalid', 'true');
+        await input.pressSequentially('x');
+        await expect(input).toHaveAttribute('aria-invalid', 'false');
+    });
+
+    test('Close with no pending changes closes dialog immediately', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.manage-access-close').click();
+        await expect(dialog).not.toBeVisible();
+        await expect(page.locator('#actions-btn-1')).toBeFocused();
+    });
+
+    test('Close with pending changes shows unsaved prompt and focuses Save', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click(); // creates a pending new row
+        await dialog.locator('.manage-access-close').click();
+        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
+        await expect(dialog.locator('.unsaved-save')).toBeFocused();
+    });
+
+    test('Discard resets state and closes dialog', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await dialog.locator('.manage-access-close').click();
+        await dialog.locator('.unsaved-discard').click();
+        await expect(dialog).not.toBeVisible();
+        await expect(page.locator('#actions-btn-1')).toBeFocused();
+    });
+
+    test('Escape with pending changes shows unsaved prompt', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await page.keyboard.press('Escape');
+        await expect(dialog.locator('.unsaved-prompt')).toBeVisible();
+        await expect(dialog.locator('.unsaved-save')).toBeFocused();
+    });
+
+    test('Escape while prompt visible dismisses prompt and focuses Close button', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await openManageDialog(page, 1);
+        const dialog = page.locator('#manage-access-1');
+        await dialog.locator('.add-copres-btn').click();
+        await page.keyboard.press('Escape'); // shows prompt
+        await page.keyboard.press('Escape'); // dismisses prompt
+        await expect(dialog.locator('.unsaved-prompt')).not.toBeVisible();
+        await expect(dialog.locator('.manage-access-close')).toBeFocused();
+    });
+
     // The set-password dialog must open with heading first.
     test('set-password dialog opens with heading first', async ({ page }) => {
         await page.goto('/user/presentations');

@@ -30,4 +30,13 @@ test.describe('authenticated pages', () => {
         await page.goto('/user/change_pwd');
         await assertNoViolations(page);
     });
+
+    test('manage co-presenters dialog open state has no axe violations', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.locator('#actions-btn-1').click();
+        await page.locator('#actions-menu-1 [role="menuitem"]')
+            .filter({ hasText: 'Manage co-presenters' }).click();
+        await expect(page.locator('#manage-access-1')).toBeVisible();
+        await assertNoViolations(page);
+    });
 });
