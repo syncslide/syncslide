@@ -7,6 +7,7 @@
 #![deny(clippy::all, clippy::pedantic, rustdoc::all, unsafe_code, missing_docs)]
 
 use qrcode::{QrCode, render::svg};
+use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use axum::{
     Form, Router,
     body::Body,
