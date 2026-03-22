@@ -8,9 +8,9 @@ const updateMarkdown = async () => {
 	lastSentMarkdown = markdownInput;
 	const render = md.render(markdownInput);
 	const dom = stringToDOM(render);
-	getH2s(dom);
+	if (typeof getH2s === 'function') getH2s(dom);
 	socket.send(JSON.stringify({ type: "text", data: markdownInput }));
-	updateSlide();
+	if (typeof updateSlide === 'function') updateSlide();
 	renderSlideTable();
 }
 
@@ -52,9 +52,9 @@ function syncFromSlides(slides) {
 	lastSentMarkdown = markdown;
 	const d = document.createElement('div');
 	d.innerHTML = md.render(markdown);
-	getH2s(d);
+	if (typeof getH2s === 'function') getH2s(d);
 	socket.send(JSON.stringify({ type: "text", data: markdown }));
-	updateSlide();
+	if (typeof updateSlide === 'function') updateSlide();
 }
 
 function renderSlideTable() {
@@ -111,14 +111,15 @@ function openSlideDialog(mode, idx) {
 
 renderSlideTable();
 if (textInput && textInput.value) {
-	getH2s(stringToDOM(md.render(textInput.value)));
+	if (typeof getH2s === 'function') getH2s(stringToDOM(md.render(textInput.value)));
 }
 
 const presNameInput = document.getElementById('presName');
 if (presNameInput) {
 	const applyPresName = async () => {
 		const newName = presNameInput.value;
-		document.title = `${newName} (stage) - SyncSlide`;
+		const mode = window.presPageMode === 'edit' ? 'Edit' : 'Stage';
+		document.title = `${newName} \u2013 ${mode} - SyncSlide`;
 		const span = document.getElementById('pres-name');
 		if (span) span.textContent = newName;
 		const slideH1 = document.querySelector('#currentSlide h1');
