@@ -426,8 +426,8 @@ document.querySelectorAll('dialog').forEach(function (dialog) {
 		// Update filter button label and active count badge
 		var activeRoles = getActiveRoles();
 		var activeCount = activeRoles.length;
-		filterActiveCount.textContent = activeCount < 3 ? ' (' + activeCount + ' active)' : '';
-		filterToggleBtn.setAttribute('aria-label', 'Filter' + (activeCount < 3 ? ', ' + activeCount + ' active' : ''));
+		filterActiveCount.textContent = activeCount < 4 ? ' (' + activeCount + ' active)' : '';
+		filterToggleBtn.setAttribute('aria-label', 'Filter' + (activeCount < 4 ? ', ' + activeCount + ' active' : ''));
 
 		// Announce result count to screen readers
 		var countMsg = 'Showing ' + total + ' of ' + allTotal + ' presentations.';
@@ -626,6 +626,8 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			visibilitySelect.addEventListener('change', function () {
 				if (hasPendingChanges(dialog)) {
 					showPrompt(dialog);
+				} else {
+					hidePrompt(dialog);
 				}
 			});
 		}
@@ -660,7 +662,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 					'<span id="' + errId + '" role="status" aria-live="polite"></span>' +
 				'</td>' +
 				'<td>' +
-					'<select aria-label="Role for new co-presenter">' +
+					'<select aria-label="Role for new person">' +
 						'<option value="editor">Editor</option>' +
 						'<option value="controller">Controller</option>' +
 						'<option value="audience">Audience</option>' +
