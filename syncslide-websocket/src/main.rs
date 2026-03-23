@@ -95,6 +95,38 @@ pub enum SlideMessage {
     Slide(u32),
     /// Change the presentation name.
     Name(String),
+    #[serde(rename = "recording_start")]
+    RecordingStart { elapsed_ms: u64 },
+    #[serde(rename = "recording_pause")]
+    RecordingPause { elapsed_ms: u64 },
+    #[serde(rename = "recording_resume")]
+    RecordingResume { elapsed_ms: u64 },
+    #[serde(rename = "recording_stop")]
+    RecordingStop,
+}
+
+struct RecordingEvent {
+    offset_ms: u64,
+    slide: u32,
+}
+
+struct RecordingState {
+    db_id: i64,
+    started_at: std::time::Instant,
+    /// Total running time from all completed active periods (updated on each resume).
+    active_ms: u64,
+    is_paused: bool,
+    pause_started_at: Option<std::time::Instant>,
+    slides: Vec<RecordingEvent>,
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+enum RecordingMessage {
+    RecordingStart,
+    RecordingPause,
+    RecordingResume,
+    RecordingStop,
 }
 
 /// A specific presetation.
@@ -107,6 +139,8 @@ pub struct Presentation {
     slide: u32,
     /// A set of channels for reading and writing to the sockets.
     channel: (Sender<SlideMessage>, Receiver<SlideMessage>),
+    recording: Option<RecordingState>,
+    presenter_count: usize,
 }
 
 /// The state of the entire application.
@@ -163,6 +197,7 @@ fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
             pres.content = text;
         }
         SlideMessage::Name(_) => {}
+        _ => {}
     }
 }
 
@@ -195,6 +230,8 @@ async fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mu
             content: db_content,
             slide: 0,
             channel: broadcast::channel(1024),
+            recording: None,
+            presenter_count: 0,
         }))
     });
     Arc::clone(pres)
