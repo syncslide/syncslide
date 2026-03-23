@@ -299,7 +299,7 @@ async fn handle_recording_message(
     match msg {
         RecordingMessage::RecordingStart => {
             // Check and initialise under lock (placeholder db_id = -1)
-            let slide = {
+            {
                 let mut p = pres.lock().unwrap();
                 if p.recording.is_some() {
                     return None;
@@ -313,9 +313,7 @@ async fn handle_recording_message(
                     pause_started_at: None,
                     slides: vec![RecordingEvent { offset_ms: 0, slide }],
                 });
-                slide
-            };
-            let _ = slide; // used above
+            }
             // Create DB row
             let name = {
                 let now = time::OffsetDateTime::now_utc();
