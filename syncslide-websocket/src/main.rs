@@ -2057,6 +2057,8 @@ mod tests {
                     content: String::new(),
                     slide: 0,
                     channel: (tx_inner, rx_inner),
+                    recording: None,
+                    presenter_count: 0,
                 })),
             );
         }
