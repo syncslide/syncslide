@@ -414,7 +414,7 @@ async fn start_pres(
     let Ok(pres) = pres else {
         return StatusCode::INTERNAL_SERVER_ERROR.into_response();
     };
-    Redirect::to(&format!("/{}/{}", user.name, pres.id)).into_response()
+    Redirect::to(&format!("/{}/{}/edit", user.name, pres.id)).into_response()
 }
 
 async fn present(
@@ -1599,9 +1599,9 @@ mod tests {
             .unwrap()
     }
 
-    /// POST /create with a valid name must redirect to /{username}/{pid}.
+    /// POST /create with a valid name must redirect to /{username}/{pid}/edit.
     #[tokio::test]
-    async fn create_presentation_redirects_to_stage() {
+    async fn create_presentation_redirects_to_edit() {
         let (server, state) = test_server().await;
         seed_user(&state.db_pool).await;
         login_as(&server, "testuser", "testpass").await;
@@ -1614,8 +1614,8 @@ mod tests {
         assert_eq!(response.status_code(), 303);
         let location = response.headers()["location"].to_str().unwrap();
         assert!(
-            location.starts_with("/testuser/"),
-            "create must redirect to /{{username}}/{{pid}}, got: {location}"
+            location.starts_with("/testuser/") && location.ends_with("/edit"),
+            "create must redirect to /{{username}}/{{pid}}/edit, got: {location}"
         );
     }
 
