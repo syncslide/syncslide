@@ -45,3 +45,51 @@ test.describe('authenticated pages', () => {
         await expect(page.locator('#markdown-input')).not.toBeAttached();
     });
 });
+
+test.describe('stage and edit page H1 focus', () => {
+    test.beforeEach(async ({ page }) => {
+        await loginAsAdmin(page);
+    });
+
+    test('stage page H1 has tabindex=-1', async ({ page }) => {
+        await page.goto('/admin/1');
+        const h1 = page.locator('#stage-heading');
+        await expect(h1).toHaveAttribute('tabindex', '-1');
+    });
+
+    test('edit page H1 has tabindex=-1', async ({ page }) => {
+        await page.goto('/admin/1/edit');
+        const h1 = page.locator('#edit-heading');
+        await expect(h1).toHaveAttribute('tabindex', '-1');
+    });
+
+    test('edit page H1 receives focus on load', async ({ page }) => {
+        await page.goto('/admin/1/edit');
+        const h1 = page.locator('#edit-heading');
+        await expect(h1).toBeFocused();
+    });
+
+    test('stage page H1 receives focus on load', async ({ page }) => {
+        await page.goto('/admin/1');
+        const h1 = page.locator('#stage-heading');
+        await expect(h1).toBeFocused();
+    });
+
+    test('stage page breadcrumb has three items with aria-current on last', async ({ page }) => {
+        await page.goto('/admin/1');
+        const nav = page.locator('nav[aria-label="Breadcrumb"]');
+        await expect(nav).toBeVisible();
+        const items = nav.locator('li');
+        await expect(items).toHaveCount(3);
+        await expect(items.last()).toHaveAttribute('aria-current', 'page');
+    });
+
+    test('edit page breadcrumb has three items with aria-current on last', async ({ page }) => {
+        await page.goto('/admin/1/edit');
+        const nav = page.locator('nav[aria-label="Breadcrumb"]');
+        await expect(nav).toBeVisible();
+        const items = nav.locator('li');
+        await expect(items).toHaveCount(3);
+        await expect(items.last()).toHaveAttribute('aria-current', 'page');
+    });
+});
