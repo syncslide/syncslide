@@ -286,6 +286,108 @@ fn handle_socket(
     Ok(true)
 }
 
+/// Handles a recording control message from a presenter.
+///
+/// Returns a [`SlideMessage`] to broadcast to all clients, or `None` if the
+/// message is a no-op (e.g. start when already recording, pause when already paused).
+async fn handle_recording_message(
+    msg: RecordingMessage,
+    pres: &Arc<Mutex<Presentation>>,
+    presentation_id: i64,
+    pool: &SqlitePool,
+) -> Option<SlideMessage> {
+    match msg {
+        RecordingMessage::RecordingStart => {
+            // Check and initialise under lock (placeholder db_id = -1)
+            let slide = {
+                let mut p = pres.lock().unwrap();
+                if p.recording.is_some() {
+                    return None;
+                }
+                let slide = p.slide;
+                p.recording = Some(RecordingState {
+                    db_id: -1,
+                    started_at: std::time::Instant::now(),
+                    active_ms: 0,
+                    is_paused: false,
+                    pause_started_at: None,
+                    slides: vec![RecordingEvent { offset_ms: 0, slide }],
+                });
+                slide
+            };
+            let _ = slide; // used above
+            // Create DB row
+            let name = {
+                let now = time::OffsetDateTime::now_utc();
+                format!("Recording \u{2013} {}", now.format(&time::format_description::well_known::Rfc3339).unwrap_or_default())
+            };
+            let rec = Recording::create(presentation_id, name, None, String::new(), pool).await.ok()?;
+            // Store real db_id
+            pres.lock().unwrap().recording.as_mut()?.db_id = rec.id;
+            Some(SlideMessage::RecordingStart { elapsed_ms: 0 })
+        }
+
+        RecordingMessage::RecordingPause => {
+            let elapsed_ms = {
+                let mut p = pres.lock().unwrap();
+                let rec = p.recording.as_mut()?;
+                if rec.is_paused { return None; }
+                let elapsed_ms = (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms;
+                rec.pause_started_at = Some(std::time::Instant::now());
+                rec.is_paused = true;
+                elapsed_ms
+            };
+            Some(SlideMessage::RecordingPause { elapsed_ms })
+        }
+
+        RecordingMessage::RecordingResume => {
+            let elapsed_ms = {
+                let mut p = pres.lock().unwrap();
+                let rec = p.recording.as_mut()?;
+                if !rec.is_paused { return None; }
+                let pause_start = rec.pause_started_at?;
+                // Accumulate running time from last start to pause
+                rec.active_ms += (pause_start - rec.started_at).as_millis() as u64;
+                rec.started_at = std::time::Instant::now();
+                rec.pause_started_at = None;
+                rec.is_paused = false;
+                // elapsed ≈ active_ms since started_at was just reset
+                rec.active_ms
+            };
+            Some(SlideMessage::RecordingResume { elapsed_ms })
+        }
+
+        RecordingMessage::RecordingStop => {
+            // Extract everything needed before async work
+            let (db_id, slides, content) = {
+                let mut p = pres.lock().unwrap();
+                let rec = p.recording.take()?;
+                (rec.db_id, rec.slides, p.content.clone())
+            };
+            if db_id < 0 {
+                // DB row not yet created (start still in progress) — nothing to save
+                return Some(SlideMessage::RecordingStop);
+            }
+            // Resolve slide indices to title/content
+            let all_slides = render_all_slides(&content);
+            let inputs: Vec<RecordingSlideInput> = slides
+                .into_iter()
+                .filter_map(|ev| {
+                    let (title, html) = all_slides.get(ev.slide as usize)?.clone();
+                    Some(RecordingSlideInput {
+                        start_seconds: ev.offset_ms as f64 / 1000.0,
+                        title,
+                        content: html,
+                    })
+                })
+                .collect();
+            let _ = RecordingSlide::create_batch(db_id, inputs, pool).await;
+            let _ = Recording::touch(db_id, pool).await;
+            Some(SlideMessage::RecordingStop)
+        }
+    }
+}
+
 async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role: AccessResult) {
     let pres = add_client_handler_channel(pid.clone(), &mut state).await;
     let (mut tx, mut rx, text, slide) = {
