@@ -89,6 +89,16 @@ impl Recording {
         .map_err(Error::from)
         .map(|_| ())
     }
+    pub async fn touch(id: i64, db: &SqlitePool) -> Result<(), Error> {
+        sqlx::query(
+            "UPDATE recording SET last_edited = strftime('%s', 'now') WHERE id = ?;",
+        )
+        .bind(id)
+        .execute(db)
+        .await
+        .map_err(Error::from)
+        .map(|_| ())
+    }
     pub async fn create(
         presentation_id: i64,
         name: String,
@@ -1054,5 +1064,20 @@ mod access_tests {
             matches!(result, AccessResult::Denied),
             "recording with NULL access_mode must inherit presentation's private mode"
         );
+    }
+
+    /// Recording::touch must update last_edited without changing anything else.
+    #[tokio::test]
+    async fn recording_touch_updates_last_edited() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner").await;
+        let pres = make_presentation(&owner, &pool).await;
+        let rec = Recording::create(pres.id, "Test".to_string(), None, String::new(), &pool)
+            .await
+            .unwrap();
+        assert!(rec.last_edited.is_none());
+        Recording::touch(rec.id, &pool).await.unwrap();
+        let updated = Recording::get_by_id(rec.id, &pool).await.unwrap().unwrap();
+        assert!(updated.last_edited.is_some());
     }
 }
