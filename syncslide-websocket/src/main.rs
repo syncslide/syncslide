@@ -1255,14 +1255,20 @@ async fn add_recording(
     let Some(user) = auth_session.user else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    let owner_count = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM presentation WHERE id = ? AND user_id = ?;",
+    let has_access = sqlx::query_scalar::<_, i64>(
+        "SELECT COUNT(*) FROM (
+            SELECT 1 FROM presentation WHERE id = ? AND user_id = ?
+            UNION ALL
+            SELECT 1 FROM presentation_access WHERE presentation_id = ? AND user_id = ? AND role IN ('controller', 'editor')
+        )",
     )
+    .bind(pid)
+    .bind(user.id)
     .bind(pid)
     .bind(user.id)
     .fetch_one(&db)
     .await;
-    if !matches!(owner_count, Ok(1)) {
+    if !matches!(has_access, Ok(n) if n > 0) {
         return StatusCode::FORBIDDEN.into_response();
     }
 
