@@ -42,7 +42,7 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 
 **Auth:** Argon2id passwords, tower-sessions backed by SQLite. Users belong to groups; `group_id=1` is admin. WebSocket connections check auth at connect time — unauthenticated clients can receive slides but cannot send updates.
 
-**SQLx offline cache:** `.sqlx/` is committed to the repo so `cargo build` works without a live database. Run `cargo sqlx prepare` after any SQL query changes.
+**SQLx offline cache:** `.sqlx/` is committed to the repo so `cargo build` works without a live database. Run `cargo sqlx prepare -- --all-targets` on beep.local after any SQL query changes (plain `cargo sqlx prepare` deletes test-only cache entries).
 
 ## Deployment
 
