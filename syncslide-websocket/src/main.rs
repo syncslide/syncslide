@@ -2577,4 +2577,41 @@ mod tests {
             "controller redirected to stage should see recordPause"
         );
     }
+
+    /// A controller must be able to POST to add_recording.
+    #[tokio::test]
+    async fn controller_can_add_recording() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Recording Perm Test", &state.db_pool).await;
+        User::new(
+            &state.db_pool,
+            AddUserForm {
+                name: "ctrlrec".to_string(),
+                email: "ctrlrec@example.com".to_string(),
+                password: "ctrlrecpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        let ctrl_uid = get_user_id("ctrlrec", &state.db_pool).await;
+        PresentationAccess::add(&state.db_pool, pid, ctrl_uid, "controller").await.unwrap();
+        login_as(&server, "ctrlrec", "ctrlrecpass").await;
+
+        // Multipart form with required fields: name + slides JSON
+        let form = axum_test::multipart::MultipartForm::new()
+            .add_text("name", "Test Recording")
+            .add_text("slides", "[]");
+        let response = server
+            .post(&format!("/user/presentations/{pid}/recordings"))
+            .multipart(form)
+            .await;
+        // Must not be 403
+        assert_ne!(
+            response.status_code(),
+            axum::http::StatusCode::FORBIDDEN,
+            "controller must not be forbidden from adding a recording"
+        );
+    }
 }
