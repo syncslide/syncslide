@@ -5,20 +5,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Build
-cd syncslide-websocket && cargo build
+# Build and test on dev server (beep.local)
+config/dev.bat
 
-# Run locally (serves on port 5002)
-cd syncslide-websocket && cargo run
+# Deploy to production (clippycat.ca)
+config/deploy.bat
 
-# Update server (pull, build, reload Caddy, restart service)
-config/update.bat
+# Provision a fresh dev server (run once)
+# ssh melody@beep.local 'bash -s' < config/provision.sh
 
 # Send SIGUSR1 to trigger in-memory presentation cleanup
 config/cleanup.sh
 
 # After changing SQL queries, regenerate the offline query cache
-cd syncslide-websocket && DATABASE_URL=sqlite://db.sqlite3 cargo sqlx prepare
+# Run on beep.local from syncslide-websocket/:
+cd syncslide-websocket && DATABASE_URL=sqlite://db.sqlite3 cargo sqlx prepare -- --all-targets
 ```
 
 ## Architecture
@@ -41,7 +42,7 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 
 **Auth:** Argon2id passwords, tower-sessions backed by SQLite. Users belong to groups; `group_id=1` is admin. WebSocket connections check auth at connect time — unauthenticated clients can receive slides but cannot send updates.
 
-**SQLx offline cache:** `.sqlx/` is committed to the repo so `cargo build` works without a live database. Run `cargo sqlx prepare` after any SQL query changes.
+**SQLx offline cache:** `.sqlx/` is committed to the repo so `cargo build` works without a live database. Run `cargo sqlx prepare -- --all-targets` on beep.local after any SQL query changes (plain `cargo sqlx prepare` deletes test-only cache entries).
 
 ## Deployment
 
@@ -49,6 +50,7 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 - **Working directory on server:** `/home/arch/syncSlide/syncslide-websocket/` — the binary must run from here so relative paths `css/`, `js/`, `assets/` resolve correctly.
 - **Database:** `db.sqlite3` in `syncslide-websocket/` (relative to working directory)
 - **Default credentials:** username `admin`, password `admin`
+- **Dev server:** `melody@beep.local`, repo at `~/syncSlide/`
 
 ## Key files
 
@@ -66,4 +68,5 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 
 ## User constraints
 - Do not rewrite git history.
-- Never run the server locally. Always push changes and deploy on the VPS to test.
+- Never run the server locally. Always use `config/dev.bat` to build and test on beep.local.
+- To deploy to production, use `config/deploy.bat` (targets clippycat.ca).
