@@ -64,7 +64,14 @@
       "Bash(find ~/.cargo/registry/src -name redirect.rs -path */axum-*)",
       "Bash(npx playwright:*)",
       "Bash(node_modules/.bin/playwright test:*)",
-      "Bash(\"/c/Program Files/nodejs/npx.cmd\" --version)"
+      "Bash(\"/c/Program Files/nodejs/npx.cmd\" --version)",
+      "Bash(bash /home/melody/syncSlide/config/update.bat 2>&1)",
+      "Bash(bash /home/melody/syncSlide/config/test.sh 2>&1)",
+      "Bash(bash ../config/test.sh --reporter=list)",
+      "Bash(rm /home/melody/syncSlide/docs/superpowers/specs/2026-03-22-edit-page-separation-design.md /home/melody/syncSlide/docs/superpowers/plans/2026-03-22-edit-page-separation.md)",
+      "Bash(rmdir --ignore-fail-on-non-empty /home/melody/syncSlide/docs/superpowers/specs /home/melody/syncSlide/docs/superpowers/plans /home/melody/syncSlide/docs/superpowers /home/melody/syncSlide/docs)",
+      "Bash(bash /home/melody/syncSlide/config/deploy.bat 2>&1)",
+      "Bash(bash /home/melody/syncSlide/config/deploy.bat)"
     ]
   }
 }

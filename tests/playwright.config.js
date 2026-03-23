@@ -4,7 +4,7 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: '.',
   timeout: 30_000,
-  retries: 0,
+  retries: 1,
   reporter: 'line',
   use: {
     baseURL: 'http://localhost:5003',

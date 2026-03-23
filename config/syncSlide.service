@@ -22,7 +22,7 @@ Type=simple
 RemainAfterExit=yes
 # replace with FULL PATH of command you want to run,
 # you can find that by running `which MY_COMMAND_HERE`
-ExecStart=/home/arch/syncSlide/syncslide-websocket/target/debug/syncslide-websocket
+ExecStart=/home/arch/syncSlide/syncslide-websocket/target/release/syncslide-websocket
 
 # instructions on how to kill the process
 # this is a graceful exit and should not be modified unless you know which signal

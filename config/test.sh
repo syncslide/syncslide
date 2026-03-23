@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WEBSOCKET_DIR="$(dirname "$SCRIPT_DIR")/syncslide-websocket"
+TESTS_DIR="$(dirname "$SCRIPT_DIR")/tests"
+
 PORT=5003
 DB=test.sqlite3
-# Capture CWD now so the trap cleanup can find test.sqlite3 correctly
-# even after 'cd ../tests' changes the working directory for Playwright.
-ORIG_DIR="$(pwd)"
 PID=""
 
 cleanup() {
     if [ -n "$PID" ]; then kill "$PID" 2>/dev/null || true; fi
-    rm -f "$ORIG_DIR/$DB"
+    rm -f "$WEBSOCKET_DIR/$DB"
 }
 trap cleanup EXIT
+
+cd "$WEBSOCKET_DIR"
+
+# Build
+cargo build
+
+# Rust unit tests
+cargo test
 
 # Port pre-check: fail clearly rather than having the binary silently not bind
 if ss -tlnp | grep -q ":$PORT "; then
@@ -23,12 +32,10 @@ fi
 # Start binary from syncslide-websocket/ so relative paths (templates/, js/, css/) resolve correctly.
 # APP_DB tells the binary to open test.sqlite3 instead of db.sqlite3.
 # Migrations run automatically on startup and create admin/admin + the Demo presentation.
-# Uses the debug binary (target/debug/) since cargo build in update.bat builds debug, not release.
 APP_PORT=$PORT APP_DB="sqlite://$DB" ./target/debug/syncslide-websocket &
 PID=$!
 
 # Retry loop: more reliable than a fixed sleep when the binary startup time varies.
-# '|| true' prevents set -e from exiting when curl fails on an early iteration.
 for i in $(seq 1 20); do
     curl -sf "http://localhost:$PORT/" > /dev/null && break || true
     sleep 1
@@ -40,6 +47,6 @@ curl -sf "http://localhost:$PORT/" > /dev/null || {
 }
 
 # Run Playwright from tests/ directory (where package.json and playwright.config.js live).
-cd ../tests && npx playwright test
+cd "$TESTS_DIR" && npx playwright test
 
 # cleanup() runs here via trap regardless of exit code.

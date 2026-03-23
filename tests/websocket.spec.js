@@ -6,6 +6,7 @@ const { loginAsAdmin } = require('./helpers');
 // admin owns it; navigating as admin → stage.html; anonymous → audience.html.
 const STAGE_URL = '/admin/1';
 
+test.describe.configure({ mode: 'serial' });
 test.describe('websocket sync', () => {
     // An audience member connecting after the presenter has already navigated
     // to a particular slide must receive that slide — not always slide 0.
