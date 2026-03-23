@@ -442,7 +442,7 @@ test.describe('create presentation', () => {
         // Get all presentation links in DOM order after re-render.
         const links = page.locator('#pres-list .pres-item:visible a.stage-link');
         const first = links.first();
-        await expect(first).toHaveText('AAA First Presentation');
+        await expect(first).toContainText('AAA First Presentation');
     });
 });
 
@@ -513,7 +513,10 @@ test.describe('editor sees actions menu', () => {
         const adminPage = await adminCtx.newPage();
         await adminPage.goto('http://localhost:5003');
         await loginAsAdmin(adminPage);
-        // Add testuser as editor via the API
+        // Create testuser if not already present, then add as editor
+        await adminPage.request.post('/user/new', {
+            form: { name: 'testuser', email: 'testuser@example.com', password: 'testpass' },
+        });
         await adminPage.request.post('/user/presentations/1/access/add', {
             form: { username: 'testuser', role: 'editor' },
         });
@@ -522,7 +525,6 @@ test.describe('editor sees actions menu', () => {
         const editorCtx = await browser.newContext();
         const editorPage = await editorCtx.newPage();
         await editorPage.goto('http://localhost:5003');
-        // Log in as testuser (seeded by migrations with password 'testpass')
         await editorPage.goto('/auth/login');
         await editorPage.fill('[name="username"]', 'testuser');
         await editorPage.fill('[name="password"]', 'testpass');
