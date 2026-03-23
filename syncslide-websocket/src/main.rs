@@ -360,6 +360,39 @@ fn render_slide(markdown: &str, slide_index: u32, pres_name: &str) -> String {
     output
 }
 
+/// Returns `(title, html_content)` for every `## ` slide in the markdown.
+/// Uses the same pulldown-cmark parser as `render_slide`.
+#[must_use]
+fn render_all_slides(markdown: &str) -> Vec<(String, String)> {
+    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all()).collect();
+    let slide_starts: Vec<usize> = events
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| match e {
+            Event::Start(Tag::Heading { level: HeadingLevel::H2, .. }) => Some(i),
+            _ => None,
+        })
+        .collect();
+    slide_starts
+        .iter()
+        .enumerate()
+        .map(|(i, &start)| {
+            let end = slide_starts.get(i + 1).copied().unwrap_or(events.len());
+            // Extract heading text
+            let title = events[start..end]
+                .iter()
+                .filter_map(|e| if let Event::Text(t) = e { Some(t.as_ref()) } else { None })
+                .next()
+                .unwrap_or("")
+                .to_string();
+            // Render full slide HTML
+            let mut html = String::new();
+            cmark_html::push_html(&mut html, events[start..end].iter().cloned());
+            (title, html)
+        })
+        .collect()
+}
+
 /// Gets the current slide index from in-memory state, defaulting to 0.
 #[must_use]
 fn current_slide_index(app_state: &AppState, pid: i64) -> u32 {
