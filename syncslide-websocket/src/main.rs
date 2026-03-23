@@ -2724,4 +2724,144 @@ mod tests {
         let slides = render_all_slides("just some text");
         assert_eq!(slides.len(), 0);
     }
+
+    /// Creates an isolated in-memory pool with migrations applied.
+    async fn setup_pool() -> SqlitePool {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::from_str("sqlite::memory:")
+                    .unwrap()
+                    .foreign_keys(false),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        sqlx::query("PRAGMA foreign_keys = ON")
+            .execute(&pool)
+            .await
+            .unwrap();
+        pool
+    }
+
+    /// Creates a user with the given name and returns the User struct.
+    async fn make_user(pool: &SqlitePool, name: &str) -> User {
+        User::new(
+            pool,
+            AddUserForm {
+                name: name.to_string(),
+                email: format!("{name}@example.com"),
+                password: "testpass".to_string(),
+            },
+        )
+        .await
+        .unwrap();
+        User::get_by_name(name.to_string(), pool).await.unwrap().unwrap()
+    }
+
+    /// Creates a presentation owned by the given user and returns the DbPresentation.
+    async fn make_presentation(owner: &User, pool: &SqlitePool) -> DbPresentation {
+        DbPresentation::new(owner, "Test Presentation".to_string(), pool)
+            .await
+            .unwrap()
+    }
+
+    /// Creates an in-memory Presentation arc for unit tests.
+    fn make_presentation_arc() -> Arc<Mutex<Presentation>> {
+        let (tx, _rx) = broadcast::channel(8);
+        let (_, rx_inner) = broadcast::channel(8);
+        Arc::new(Mutex::new(Presentation {
+            content: "## Intro\nHello\n\n## Second\nWorld".to_string(),
+            slide: 0,
+            channel: (tx, rx_inner),
+            recording: None,
+            presenter_count: 0,
+        }))
+    }
+
+    /// recording_start must insert a recording row and set in-memory state.
+    #[tokio::test]
+    async fn recording_start_creates_db_row() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+
+        let result = handle_recording_message(
+            RecordingMessage::RecordingStart,
+            &pres,
+            pres_db.id,
+            &pool,
+        ).await;
+
+        assert!(matches!(result, Some(SlideMessage::RecordingStart { elapsed_ms: 0 })));
+        assert!(pres.lock().unwrap().recording.is_some());
+        // DB row exists
+        let rec_id = pres.lock().unwrap().recording.as_ref().unwrap().db_id;
+        let row = Recording::get_by_id(rec_id, &pool).await.unwrap();
+        assert!(row.is_some());
+        assert!(row.unwrap().name.starts_with("Recording"));
+    }
+
+    /// recording_start when already active must return None (no-op).
+    #[tokio::test]
+    async fn recording_start_ignored_if_active() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner2").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+
+        handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+        let result = handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+
+        assert!(result.is_none());
+        // Only one DB row
+        let rows: Vec<Recording> = sqlx::query_as::<_, Recording>(
+            "SELECT * FROM recording WHERE presentation_id = ?",
+        )
+        .bind(pres_db.id)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(rows.len(), 1);
+    }
+
+    /// recording_stop must write recording_slide rows and clear in-memory state.
+    #[tokio::test]
+    async fn recording_stop_saves_slides() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner3").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+
+        handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+
+        // Simulate a slide change at 2000ms
+        {
+            let mut p = pres.lock().unwrap();
+            let rec = p.recording.as_mut().unwrap();
+            rec.slides.push(RecordingEvent { offset_ms: 2000, slide: 1 });
+        }
+
+        let result = handle_recording_message(RecordingMessage::RecordingStop, &pres, pres_db.id, &pool).await;
+
+        assert!(matches!(result, Some(SlideMessage::RecordingStop)));
+        assert!(pres.lock().unwrap().recording.is_none());
+
+        // recording_slide rows exist
+        let rows = sqlx::query_as::<_, RecordingSlide>(
+            "SELECT * FROM recording_slide WHERE recording_id = (SELECT id FROM recording WHERE presentation_id = ? ORDER BY id DESC LIMIT 1) ORDER BY position",
+        )
+        .bind(pres_db.id)
+        .fetch_all(&pool)
+        .await
+        .unwrap();
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[0].position, 0);
+        assert_eq!(rows[0].title, "Intro");
+        assert!((rows[0].start_seconds - 0.0).abs() < 0.001);
+        assert_eq!(rows[1].position, 1);
+        assert_eq!(rows[1].title, "Second");
+        assert!((rows[1].start_seconds - 2.0).abs() < 0.001);
+    }
 }
