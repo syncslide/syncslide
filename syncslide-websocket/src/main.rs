@@ -2672,4 +2672,23 @@ mod tests {
             "controller must not be forbidden from adding a recording"
         );
     }
+
+    /// render_all_slides must return one (title, html) pair per ## heading.
+    #[test]
+    fn render_all_slides_splits_on_h2() {
+        let md = "## Intro\nHello world\n\n## Second\nContent here";
+        let slides = render_all_slides(md);
+        assert_eq!(slides.len(), 2);
+        assert_eq!(slides[0].0, "Intro");
+        assert!(slides[0].1.contains("Hello world"), "got: {}", slides[0].1);
+        assert_eq!(slides[1].0, "Second");
+        assert!(slides[1].1.contains("Content here"), "got: {}", slides[1].1);
+    }
+
+    /// render_all_slides must return empty vec for content with no ## headings.
+    #[test]
+    fn render_all_slides_empty_for_no_headings() {
+        let slides = render_all_slides("just some text");
+        assert_eq!(slides.len(), 0);
+    }
 }
