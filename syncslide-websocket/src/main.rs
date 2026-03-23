@@ -95,12 +95,25 @@ pub enum SlideMessage {
     Slide(u32),
     /// Change the presentation name.
     Name(String),
+    /// Start a new recording with elapsed time.
     #[serde(rename = "recording_start")]
-    RecordingStart { elapsed_ms: u64 },
+    RecordingStart {
+        /// Elapsed time in milliseconds.
+        elapsed_ms: u64,
+    },
+    /// Pause an active recording.
     #[serde(rename = "recording_pause")]
-    RecordingPause { elapsed_ms: u64 },
+    RecordingPause {
+        /// Elapsed time in milliseconds.
+        elapsed_ms: u64,
+    },
+    /// Resume a paused recording.
     #[serde(rename = "recording_resume")]
-    RecordingResume { elapsed_ms: u64 },
+    RecordingResume {
+        /// Elapsed time in milliseconds.
+        elapsed_ms: u64,
+    },
+    /// Stop an active recording.
     #[serde(rename = "recording_stop")]
     RecordingStop,
 }
