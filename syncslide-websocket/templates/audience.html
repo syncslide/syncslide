@@ -16,5 +16,5 @@
 {% block content %}
 {% block stage %}{% endblock stage %}
 {% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
-<section aria-live="polite" id="currentSlide">{% if initial_slide %}{{ initial_slide | safe }}{% endif %}</section>
+<section aria-live="polite" aria-label="Current slide" id="currentSlide">{% if initial_slide %}{{ initial_slide | safe }}{% endif %}</section>
 {% endblock content %}
