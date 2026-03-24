@@ -388,25 +388,100 @@ async fn handle_recording_message(
 
 async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role: AccessResult) {
     let pres = add_client_handler_channel(pid.clone(), &mut state).await;
-    let (mut tx, mut rx, text, slide) = {
+    let is_presenter = matches!(role, AccessResult::Owner | AccessResult::Editor | AccessResult::Controller);
+
+    // Increment presenter_count for authorized roles
+    if is_presenter {
+        pres.lock().unwrap().presenter_count += 1;
+    }
+
+    let (mut tx, mut rx, text, slide, recording_msg) = {
         let p = pres.lock().unwrap();
         let text = serde_json::to_string(&SlideMessage::Text(p.content.clone())).unwrap();
         let slide = serde_json::to_string(&SlideMessage::Slide(p.slide)).unwrap();
         let (tx, rx) = (p.channel.0.clone(), p.channel.0.subscribe());
-        (tx, rx, text, slide)
+        // Build connect-time recording state message if recording is active
+        let recording_msg = p.recording.as_ref().map(|rec| {
+            let elapsed_ms = (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms;
+            if rec.is_paused {
+                serde_json::to_string(&SlideMessage::RecordingPause { elapsed_ms }).unwrap()
+            } else {
+                serde_json::to_string(&SlideMessage::RecordingStart { elapsed_ms }).unwrap()
+            }
+        });
+        (tx, rx, text, slide, recording_msg)
     };
+
     socket.send(Message::from(text)).await.unwrap();
     socket.send(Message::from(slide)).await.unwrap();
+    if let Some(rec_msg) = recording_msg {
+        let _ = socket.send(Message::from(rec_msg)).await;
+    }
 
     let mut state1 = state.clone();
+    let pid_i64 = pid.parse::<i64>().unwrap_or(-1);
+    let pres1 = Arc::clone(&pres);
     let (mut sock_send, mut sock_recv) = socket.split();
+
     let socket_handler = async {
         while let Some(msg) = sock_recv.next().await {
+            // Pre-extract text for recording dispatch and snapshot capture
+            let text_val: Option<String> = msg
+                .as_ref()
+                .ok()
+                .and_then(|m| m.to_text().ok())
+                .map(String::from);
+
+            let is_recording_msg = text_val
+                .as_deref()
+                .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
+                .and_then(|v| v["type"].as_str().map(|s| s.starts_with("recording_")))
+                .unwrap_or(false);
+
+            if is_recording_msg {
+                if is_presenter {
+                    if let Some(text) = &text_val {
+                        if let Ok(rec_msg) = serde_json::from_str::<RecordingMessage>(text) {
+                            if let Some(broadcast_msg) = handle_recording_message(
+                                rec_msg, &pres1, pid_i64, &state1.db_pool,
+                            ).await {
+                                let _ = tx.send(broadcast_msg);
+                            }
+                        }
+                    }
+                }
+                continue;
+            }
+
+            // Pre-parse slide index for snapshot capture (before handle_socket consumes msg)
+            let slide_n: Option<u32> = text_val
+                .as_deref()
+                .and_then(|t| serde_json::from_str::<SlideMessage>(t).ok())
+                .and_then(|m| if let SlideMessage::Slide(n) = m { Some(n) } else { None });
+
             if handle_socket(msg, &pid, &mut tx, &mut state1, &role).is_err() {
                 return;
             }
+
+            // Capture slide snapshot for active recording
+            if let Some(n) = slide_n {
+                if is_presenter {
+                    let mut slides_map = state1.slides.lock().unwrap();
+                    if let Some(p) = slides_map.get_mut(&pid) {
+                        let mut p = p.lock().unwrap();
+                        if let Some(ref mut rec) = p.recording {
+                            if !rec.is_paused {
+                                let offset_ms = (std::time::Instant::now() - rec.started_at)
+                                    .as_millis() as u64 + rec.active_ms;
+                                rec.slides.push(RecordingEvent { offset_ms, slide: n });
+                            }
+                        }
+                    }
+                }
+            }
         }
     };
+
     let channel_handler = async {
         while let Ok(msg) = rx.recv().await {
             let text = serde_json::to_string(&msg).unwrap();
@@ -417,7 +492,24 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
             }
         }
     };
+
     let () = or(socket_handler, channel_handler).await;
+
+    // Auto-stop recording if this was the last presenter
+    if is_presenter {
+        let should_stop = {
+            let mut p = pres.lock().unwrap();
+            p.presenter_count = p.presenter_count.saturating_sub(1);
+            p.presenter_count == 0 && p.recording.is_some()
+        };
+        if should_stop {
+            handle_recording_message(
+                RecordingMessage::RecordingStop, &pres, pid_i64, &state.db_pool,
+            ).await;
+            // No broadcast: no clients remain
+        }
+    }
+
     drop(pres);
 }
 
