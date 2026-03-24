@@ -1,1 +1,0 @@
-ssh melody@beep.local "set -eo pipefail; cd syncSlide && git pull origin main --rebase && cd syncslide-websocket && cargo build && cargo test 2>&1 | tee -a /tmp/syncslide-dev.log && bash ../config/test.sh 2>&1 | tee -a /tmp/syncslide-dev.log"
