@@ -3009,4 +3009,26 @@ mod tests {
         let result = handle_recording_message(RecordingMessage::RecordingPause, &pres, pres_db.id, &pool).await;
         assert!(result.is_none());
     }
+
+    /// When presenter_count drops to 0 with an active recording, the stop logic saves slides.
+    #[tokio::test]
+    async fn recording_auto_stop_on_last_presenter_disconnect() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+
+        // Start recording
+        handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+        let rec_id = pres.lock().unwrap().recording.as_ref().unwrap().db_id;
+
+        // Simulate auto-stop (same as stop, but called by disconnect handler)
+        let result = handle_recording_message(RecordingMessage::RecordingStop, &pres, pres_db.id, &pool).await;
+        assert!(matches!(result, Some(SlideMessage::RecordingStop)));
+        assert!(pres.lock().unwrap().recording.is_none());
+
+        // last_edited was set
+        let rec = Recording::get_by_id(rec_id, &pool).await.unwrap().unwrap();
+        assert!(rec.last_edited.is_some());
+    }
 }
