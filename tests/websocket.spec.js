@@ -82,3 +82,80 @@ test.describe('websocket sync', () => {
         await audCtx.close();
     });
 });
+
+test.describe('server-side recording sync', () => {
+    test('starting a recording syncs to a second stage context', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
+
+        await loginAsAdmin(page1);
+        await loginAsAdmin(page2);
+        await page1.goto(STAGE_URL);
+        await page2.goto(STAGE_URL);
+
+        // Ensure recording is stopped before starting (in case prior test left it running)
+        const stopBtn1 = page1.locator('#recordStop');
+        if (await stopBtn1.isVisible()) {
+            await stopBtn1.click();
+            await expect(page1.locator('#rec-status')).toHaveText('Stopped', { timeout: 3000 });
+        }
+
+        await page1.click('#recordStart');
+        await expect(page2.locator('#rec-status')).toHaveText('Recording', { timeout: 3000 });
+        await expect(page2.locator('#recordPause')).toBeVisible();
+        await expect(page2.locator('#recordStop')).toBeVisible();
+
+        // Clean up: stop recording
+        await page1.click('#recordStop');
+        await ctx1.close();
+        await ctx2.close();
+    });
+
+    test('pausing a recording syncs to a second stage context', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
+
+        await loginAsAdmin(page1);
+        await loginAsAdmin(page2);
+        await page1.goto(STAGE_URL);
+        await page2.goto(STAGE_URL);
+
+        await page1.click('#recordStart');
+        await expect(page2.locator('#rec-status')).toHaveText('Recording', { timeout: 3000 });
+
+        await page1.click('#recordPause');
+        await expect(page2.locator('#rec-status')).toHaveText('Paused', { timeout: 3000 });
+        await expect(page2.locator('#recordResume')).toBeVisible();
+
+        // Clean up
+        await page1.click('#recordStop');
+        await ctx1.close();
+        await ctx2.close();
+    });
+
+    test('stopping a recording syncs to a second stage context', async ({ browser }) => {
+        const ctx1 = await browser.newContext();
+        const ctx2 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        const page2 = await ctx2.newPage();
+
+        await loginAsAdmin(page1);
+        await loginAsAdmin(page2);
+        await page1.goto(STAGE_URL);
+        await page2.goto(STAGE_URL);
+
+        await page1.click('#recordStart');
+        await expect(page2.locator('#rec-status')).toHaveText('Recording', { timeout: 3000 });
+
+        await page1.click('#recordStop');
+        await expect(page2.locator('#rec-status')).toHaveText('Stopped', { timeout: 3000 });
+        await expect(page2.locator('#recordStart')).toBeVisible();
+
+        await ctx1.close();
+        await ctx2.close();
+    });
+});
