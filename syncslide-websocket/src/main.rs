@@ -402,7 +402,11 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
         let (tx, rx) = (p.channel.0.clone(), p.channel.0.subscribe());
         // Build connect-time recording state message if recording is active
         let recording_msg = p.recording.as_ref().map(|rec| {
-            let elapsed_ms = (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms;
+            let elapsed_ms = if rec.is_paused {
+                rec.active_ms
+            } else {
+                (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms
+            };
             if rec.is_paused {
                 serde_json::to_string(&SlideMessage::RecordingPause { elapsed_ms }).unwrap()
             } else {
