@@ -20,6 +20,12 @@ return tempElement;
 
 const handleUpdate = (message) => {
 	message = JSON.parse(message.data);
+	if (message.type && message.type.startsWith('recording_')) {
+		if (typeof handleRecordingMessage === 'function') {
+			handleRecordingMessage(message.type, message.data || {});
+		}
+		return;
+	}
 	if (message.type === "text") {
 		TEXT_TO_RENDER = message.data;
 		return;
@@ -57,7 +63,6 @@ const handleUpdate = (message) => {
 	}
 	updateRender();
 	markExternalLinks(htmlOutput);
-	saveCurrentState();
 }
 
 socket.onmessage = handleUpdate

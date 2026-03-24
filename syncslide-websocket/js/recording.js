@@ -1,95 +1,99 @@
-let recording = false;
-let paused = false;
-let startTime;
-let elapsedTime = 0;
-let timerInterval;
-let recordingData = [];
+// Server-side recording client.
+// Listens for recording state messages over the shared WebSocket (set up by common.js)
+// and updates the stage recording UI. Sends control messages when buttons are clicked.
 
-const recordPauseButton = document.getElementById("recordPause");
-const stopButton = document.getElementById("stop");
-const timer = document.getElementById("timer");
+(function () {
+  const statusEl = document.getElementById('rec-status');
+  const timerEl = document.getElementById('rec-timer');
+  const btnStart = document.getElementById('recordStart');
+  const btnPause = document.getElementById('recordPause');
+  const btnResume = document.getElementById('recordResume');
+  const btnStop = document.getElementById('recordStop');
 
-recordPauseButton.addEventListener("click", () => {
-	if (!recording) {
-		startRecording();
-	} else {
-		paused ? resumeRecording() : pauseRecording();
-	}
-});
+  if (!statusEl) return; // not on stage page
 
-stopButton.addEventListener("click", stopRecording);
+  let timerInterval = null;
+  let elapsedMs = 0;
 
-document.getElementById("cancelSaveRecording")?.addEventListener("click", () => {
-	document.getElementById("saveRecordingDialog").close();
-});
+  function formatTime(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return String(h).padStart(2, '0') + ':' +
+           String(m).padStart(2, '0') + ':' +
+           String(s).padStart(2, '0');
+  }
 
-function startRecording() {
-	recording = true;
-	paused = false;
-	startTime = Date.now() - elapsedTime;
-	timerInterval = setInterval(updateTimer, 100);
-	recordPauseButton.innerText = "Pause";
-}
+  function startTimer(fromMs) {
+    elapsedMs = fromMs;
+    clearInterval(timerInterval);
+    const startedAt = Date.now() - fromMs;
+    timerInterval = setInterval(function () {
+      elapsedMs = Date.now() - startedAt;
+      timerEl.textContent = formatTime(elapsedMs);
+    }, 1000);
+    timerEl.textContent = formatTime(elapsedMs);
+  }
 
-function pauseRecording() {
-	paused = true;
-	clearInterval(timerInterval);
-	elapsedTime = Date.now() - startTime;
-	recordPauseButton.innerText = "Resume";
-}
+  function stopTimer(freezeAt) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    if (freezeAt !== undefined) {
+      elapsedMs = freezeAt;
+      timerEl.textContent = formatTime(elapsedMs);
+    }
+  }
 
-function resumeRecording() {
-	paused = false;
-	startTime = Date.now() - elapsedTime;
-	timerInterval = setInterval(updateTimer, 100);
-	recordPauseButton.innerText = "Pause";
-}
+  function setRunning(fromMs) {
+    statusEl.textContent = 'Recording';
+    btnStart.hidden = true;
+    btnPause.hidden = false;
+    btnResume.hidden = true;
+    btnStop.hidden = false;
+    startTimer(fromMs);
+  }
 
-function stopRecording() {
-	clearInterval(timerInterval);
-	recording = false;
-	paused = false;
-	elapsedTime = 0;
-	timer.innerText = "00:00:00.000";
-	recordPauseButton.innerText = "Record";
+  function setPaused(atMs) {
+    statusEl.textContent = 'Paused';
+    btnStart.hidden = true;
+    btnPause.hidden = true;
+    btnResume.hidden = false;
+    btnStop.hidden = false;
+    stopTimer(atMs);
+  }
 
-	const slidesInput = document.getElementById("slidesData");
-	if (slidesInput) {
-		slidesInput.value = jsonRecording();
-		document.getElementById("saveRecordingDialog").showModal();
-	}
-	recordingData = [];
-}
+  function setStopped() {
+    statusEl.textContent = 'Stopped';
+    btnStart.hidden = false;
+    btnPause.hidden = true;
+    btnResume.hidden = true;
+    btnStop.hidden = true;
+    stopTimer(0);
+    timerEl.textContent = '00:00:00';
+  }
 
-function updateTimer() {
-	const currentTime = Date.now() - startTime;
-	timer.innerText = formatTime(currentTime);
-}
+  // Handle incoming WS messages
+  window.handleRecordingMessage = function (type, data) {
+    if (type === 'recording_start') {
+      setRunning(data.elapsed_ms);
+    } else if (type === 'recording_pause') {
+      setPaused(data.elapsed_ms);
+    } else if (type === 'recording_resume') {
+      setRunning(data.elapsed_ms);
+    } else if (type === 'recording_stop') {
+      setStopped();
+    }
+  };
 
-function formatTime(ms) {
-	const msOver = ms % 1000;
-	const totalSeconds = Math.floor(ms / 1000);
-	const hours = Math.floor(totalSeconds / 3600);
-	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = totalSeconds % 60;
-	return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.${String(msOver).padStart(3, '0')}`;
-}
+  function send(type) {
+    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({ type: type }));
+    }
+  }
 
-function saveCurrentState() {
-	if (recording && !paused) {
-		const currentTime = Date.now() - startTime;
-		const slide = document.getElementById("goTo").value;
-		const slideTitle = document.getElementById("currentSlide").querySelector('h2').innerText;
-		const slideContent = document.getElementById("currentSlide").innerHTML;
-		recordingData.push({ time: parseFloat(currentTime), slide: slide, title: slideTitle, content: slideContent });
-	}
-}
-window.saveCurrentState = saveCurrentState
-
-function jsonRecording() {
-	return JSON.stringify(recordingData.map(entry => ({
-		start_seconds: entry.time / 1000,
-		title: entry.title,
-		content: entry.content,
-	})));
-}
+  btnStart.addEventListener('click', function () { send('recording_start'); });
+  btnPause.addEventListener('click', function () { send('recording_pause'); });
+  btnResume.addEventListener('click', function () { send('recording_resume'); });
+  btnStop.addEventListener('click', function () { send('recording_stop'); });
+}());

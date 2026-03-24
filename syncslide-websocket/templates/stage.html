@@ -10,24 +10,16 @@
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </aside>
 <details>
-<summary><h2 id="record">Record</h2></summary>
-<section aria-labelledby="record">
-<button id="recordPause">Record</button>
-<button id="stop">Stop</button>
-<p id="timer">00:00:00</p>
+<summary><h2 id="record-heading">Record</h2></summary>
+<section aria-labelledby="record-heading">
+<p>Status: <span id="rec-status" aria-live="polite">Stopped</span></p>
+<p>Timer: <span id="rec-timer">00:00:00</span></p>
+<button type="button" id="recordStart">Record</button>
+<button type="button" id="recordPause" hidden>Pause</button>
+<button type="button" id="recordResume" hidden>Resume</button>
+<button type="button" id="recordStop" hidden>Stop</button>
 </section>
 </details>
 {% include "_slide_nav.html" %}
-<dialog id="saveRecordingDialog" aria-labelledby="save-recording-heading">
-<h1 id="save-recording-heading">Save Recording</h1>
-<form id="saveRecordingForm" method="post" action="/user/presentations/{{ pres.id }}/recordings" enctype="multipart/form-data">
-<input type="hidden" name="slides" id="slidesData">
-<label>Name: <input type="text" name="name" required></label>
-<label>Video (optional): <input type="file" name="video" accept="video/*"></label>
-<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
-<button type="submit">Save</button>
-<button type="button" id="cancelSaveRecording">Cancel</button>
-</form>
-</dialog>
 <script>document.getElementById('stage-heading').focus();</script>
 {% endblock stage %}
