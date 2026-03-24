@@ -2964,4 +2964,49 @@ mod tests {
         assert_eq!(rows[1].title, "Second");
         assert!((rows[1].start_seconds - 2.0).abs() < 0.001);
     }
+
+    /// Elapsed time must account for paused periods.
+    #[tokio::test]
+    async fn recording_pause_resume_elapsed() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+
+        // Start
+        handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+
+        // Pause immediately — elapsed should be very small (< 100ms)
+        let pause_msg = handle_recording_message(RecordingMessage::RecordingPause, &pres, pres_db.id, &pool).await;
+        let elapsed_at_pause = match pause_msg {
+            Some(SlideMessage::RecordingPause { elapsed_ms }) => elapsed_ms,
+            _ => panic!("expected RecordingPause"),
+        };
+        assert!(elapsed_at_pause < 200, "elapsed at pause was {elapsed_at_pause}ms, expected < 200ms");
+        assert!(pres.lock().unwrap().recording.as_ref().unwrap().is_paused);
+
+        // Resume — elapsed should still be small
+        let resume_msg = handle_recording_message(RecordingMessage::RecordingResume, &pres, pres_db.id, &pool).await;
+        let elapsed_at_resume = match resume_msg {
+            Some(SlideMessage::RecordingResume { elapsed_ms }) => elapsed_ms,
+            _ => panic!("expected RecordingResume"),
+        };
+        assert!(!pres.lock().unwrap().recording.as_ref().unwrap().is_paused);
+        // elapsed at resume should be >= elapsed at pause (not reset to 0)
+        assert!(elapsed_at_resume >= elapsed_at_pause,
+            "elapsed at resume ({elapsed_at_resume}) should be >= elapsed at pause ({elapsed_at_pause})");
+    }
+
+    /// Pausing when already paused must return None.
+    #[tokio::test]
+    async fn recording_pause_noop_when_already_paused() {
+        let pool = setup_pool().await;
+        let owner = make_user(&pool, "owner").await;
+        let pres_db = make_presentation(&owner, &pool).await;
+        let pres = make_presentation_arc();
+        handle_recording_message(RecordingMessage::RecordingStart, &pres, pres_db.id, &pool).await;
+        handle_recording_message(RecordingMessage::RecordingPause, &pres, pres_db.id, &pool).await;
+        let result = handle_recording_message(RecordingMessage::RecordingPause, &pres, pres_db.id, &pool).await;
+        assert!(result.is_none());
+    }
 }
