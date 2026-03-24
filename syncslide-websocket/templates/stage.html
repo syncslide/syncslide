@@ -9,9 +9,8 @@
 <aside id="qrOverlay" hidden aria-label="QR code">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </aside>
-<details>
-<summary><h2 id="record-heading">Record</h2></summary>
-<section aria-labelledby="record-heading">
+<h2><button type="button" id="record-toggle" aria-expanded="false" aria-controls="record-section">Record</button></h2>
+<section id="record-section" aria-label="Record" hidden>
 <p>Status: <span id="rec-status" aria-live="polite">Stopped</span></p>
 <p>Timer: <span id="rec-timer">00:00:00</span></p>
 <button type="button" id="recordStart">Record</button>
@@ -19,7 +18,13 @@
 <button type="button" id="recordResume" hidden>Resume</button>
 <button type="button" id="recordStop" hidden>Stop</button>
 </section>
-</details>
+<script>
+document.getElementById('record-toggle').addEventListener('click', function () {
+  var expanded = this.getAttribute('aria-expanded') === 'true';
+  this.setAttribute('aria-expanded', String(!expanded));
+  document.getElementById('record-section').hidden = expanded;
+});
+</script>
 {% include "_slide_nav.html" %}
 <script>document.getElementById('stage-heading').focus();</script>
 {% endblock stage %}
