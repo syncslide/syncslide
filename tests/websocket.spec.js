@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { loginAsAdmin } = require('./helpers');
+const { loginAsAdmin, loginAs } = require('./helpers');
 
 // The Demo presentation is always seeded by migrations.
 // admin owns it; navigating as admin → stage.html; anonymous → audience.html.
@@ -83,6 +83,9 @@ test.describe('websocket sync', () => {
     });
 });
 
+// Verify that recording state changes on one presenter page (start/pause/stop)
+// are broadcast via WebSocket to all connected presenters and reflected in the UI.
+// Tests share the seeded Demo presentation (admin/1) and reset state between tests.
 test.describe('server-side recording sync', () => {
     test('starting a recording syncs to a second stage context', async ({ browser }) => {
         const ctx1 = await browser.newContext();
@@ -90,8 +93,8 @@ test.describe('server-side recording sync', () => {
         const page1 = await ctx1.newPage();
         const page2 = await ctx2.newPage();
 
-        await loginAsAdmin(page1);
-        await loginAsAdmin(page2);
+        await loginAs(page1, 'admin', 'admin');
+        await loginAs(page2, 'admin', 'admin');
         await page1.goto(STAGE_URL);
         await page2.goto(STAGE_URL);
 
@@ -119,8 +122,8 @@ test.describe('server-side recording sync', () => {
         const page1 = await ctx1.newPage();
         const page2 = await ctx2.newPage();
 
-        await loginAsAdmin(page1);
-        await loginAsAdmin(page2);
+        await loginAs(page1, 'admin', 'admin');
+        await loginAs(page2, 'admin', 'admin');
         await page1.goto(STAGE_URL);
         await page2.goto(STAGE_URL);
 
@@ -143,8 +146,8 @@ test.describe('server-side recording sync', () => {
         const page1 = await ctx1.newPage();
         const page2 = await ctx2.newPage();
 
-        await loginAsAdmin(page1);
-        await loginAsAdmin(page2);
+        await loginAs(page1, 'admin', 'admin');
+        await loginAs(page2, 'admin', 'admin');
         await page1.goto(STAGE_URL);
         await page2.goto(STAGE_URL);
 

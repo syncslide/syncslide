@@ -10,6 +10,15 @@ async function loginAsAdmin(page) {
     await expect(page).toHaveURL('/');
 }
 
+/** Logs in as the given user and waits for redirect to /. */
+async function loginAs(page, username, password) {
+    await page.goto('/auth/login');
+    await page.fill('[name="username"]', username);
+    await page.fill('[name="password"]', password);
+    await page.click('button[type="submit"]');
+    await expect(page).toHaveURL('/');
+}
+
 /** Runs axe-core on the current page and asserts no violations. */
 async function assertNoViolations(page) {
     const AxeBuilder = require('@axe-core/playwright').default;
@@ -30,4 +39,4 @@ async function assertNoViolations(page) {
     }
 }
 
-module.exports = { loginAsAdmin, assertNoViolations };
+module.exports = { loginAsAdmin, loginAs, assertNoViolations };
