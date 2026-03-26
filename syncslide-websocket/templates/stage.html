@@ -1,6 +1,6 @@
 {% extends "audience.html" %}
 {% block title %}{{ pres.name }} – Stage{% endblock title %}
-{% block js %}<script>window.presPageMode = 'stage';</script>{{ super() }}<script defer="defer" src="/js/slide-nav.js"></script>{% endblock js %}
+{% block js %}<script>window.presPageMode = 'stage';</script><script defer="defer" src="/js/slide-nav.js"></script>{{ super() }}{% endblock js %}
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endblock breadcrumb %}
 
 {% block stage %}

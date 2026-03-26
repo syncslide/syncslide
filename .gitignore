@@ -181,3 +181,5 @@ syncslide-websocket/Cargo.lock
 
 **/*wal
 **/*shm
+syncslide-websocket/test.sqlite3
+syncslide-websocket/assets/

@@ -73,8 +73,19 @@
     timerEl.textContent = '00:00:00';
   }
 
+  const sectionEl = document.getElementById('record-section');
+  const toggleEl = document.getElementById('record-toggle');
+
+  function expandSection() {
+    if (sectionEl && sectionEl.hidden) {
+      sectionEl.hidden = false;
+      if (toggleEl) toggleEl.setAttribute('aria-expanded', 'true');
+    }
+  }
+
   // Handle incoming WS messages
   window.handleRecordingMessage = function (type, data) {
+    expandSection();
     if (type === 'recording_start') {
       setRunning(data.elapsed_ms);
     } else if (type === 'recording_pause') {
