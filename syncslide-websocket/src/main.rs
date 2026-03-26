@@ -3127,4 +3127,266 @@ mod tests {
         let rec = Recording::get_by_id(rec_id, &pool).await.unwrap().unwrap();
         assert!(rec.last_edited.is_some());
     }
+
+    /// GET /auth/logout must clear the session and redirect to /.
+    #[tokio::test]
+    async fn logout_clears_session_and_redirects() {
+        let (server, _state) = test_server().await;
+        login_as(&server, "admin", "admin").await;
+
+        // Authenticated: presentations page is accessible.
+        let before = server.get("/user/presentations").await;
+        assert_eq!(before.status_code(), 200);
+
+        let resp = server.get("/auth/logout").await;
+        assert!(resp.status_code().is_redirection());
+
+        // After logout: presentations page redirects to login.
+        let after = server.get("/user/presentations").await;
+        assert!(after.status_code().is_redirection());
+        let loc = after.headers().get("location").unwrap().to_str().unwrap();
+        assert!(loc.contains("/auth/login"), "expected redirect to login, got {loc}");
+    }
+
+    /// POST /user/new by an admin must create the user and redirect.
+    #[tokio::test]
+    async fn admin_can_create_user() {
+        let (server, state) = test_server().await;
+        login_as(&server, "admin", "admin").await;
+
+        let resp = server
+            .post("/user/new")
+            .form(&serde_json::json!({
+                "name": "newbie",
+                "email": "newbie@example.com",
+                "password": "newbiepass"
+            }))
+            .await;
+        assert!(resp.status_code().is_redirection());
+
+        let exists: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users WHERE name = 'newbie'")
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert_eq!(exists, 1);
+    }
+
+    /// POST /user/change_pwd with correct old password must update it.
+    #[tokio::test]
+    async fn change_pwd_succeeds_with_correct_old_password() {
+        let (server, state) = test_server().await;
+        login_as(&server, "admin", "admin").await;
+
+        let resp = server
+            .post("/user/change_pwd")
+            .form(&serde_json::json!({
+                "old": "admin",
+                "new": "newpass123",
+                "confirm": "newpass123"
+            }))
+            .await;
+        assert!(resp.status_code().is_redirection());
+
+        // New password must work for login.
+        let login_resp = server
+            .post("/auth/login")
+            .form(&serde_json::json!({ "username": "admin", "password": "newpass123" }))
+            .await;
+        assert!(login_resp.status_code().is_redirection());
+
+        // Drop pool to silence unused warning in test context.
+        let _ = &state.db_pool;
+    }
+
+    /// POST /user/change_pwd with wrong old password must redirect back with an error.
+    #[tokio::test]
+    async fn change_pwd_rejects_wrong_old_password() {
+        let (server, _state) = test_server().await;
+        login_as(&server, "admin", "admin").await;
+
+        let resp = server
+            .post("/user/change_pwd")
+            .form(&serde_json::json!({
+                "old": "wrongpassword",
+                "new": "newpass123",
+                "confirm": "newpass123"
+            }))
+            .await;
+        assert!(resp.status_code().is_redirection());
+        let loc = resp.headers().get("location").unwrap().to_str().unwrap();
+        assert!(loc.contains("error="), "expected error query param, got {loc}");
+    }
+
+    /// POST /user/change_pwd with mismatched new/confirm must redirect with an error.
+    #[tokio::test]
+    async fn change_pwd_rejects_mismatched_confirm() {
+        let (server, _state) = test_server().await;
+        login_as(&server, "admin", "admin").await;
+
+        let resp = server
+            .post("/user/change_pwd")
+            .form(&serde_json::json!({
+                "old": "admin",
+                "new": "newpass123",
+                "confirm": "differentpass"
+            }))
+            .await;
+        assert!(resp.status_code().is_redirection());
+        let loc = resp.headers().get("location").unwrap().to_str().unwrap();
+        assert!(loc.contains("error="), "expected error query param, got {loc}");
+    }
+
+    /// POST /user/recordings/{rid}/delete by owner must remove the row and redirect.
+    #[tokio::test]
+    async fn delete_recording_as_owner_removes_row() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rec Delete Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        login_as(&server, "admin", "admin").await;
+        let resp = server.post(&format!("/user/recordings/{rid}/delete")).await;
+        assert!(resp.status_code().is_redirection());
+
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM recording WHERE id = ?")
+            .bind(rid)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
+    /// POST /user/recordings/{rid}/delete by non-owner must return 403.
+    #[tokio::test]
+    async fn delete_recording_as_non_owner_returns_403() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let owner_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(owner_uid, "Rec Delete Perm Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        login_as(&server, "testuser", "testpass").await;
+        let resp = server.post(&format!("/user/recordings/{rid}/delete")).await;
+        assert_eq!(resp.status_code(), 403);
+    }
+
+    /// POST /user/recordings/{rid}/name by owner must update the name.
+    #[tokio::test]
+    async fn update_recording_name_as_owner() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Rename Rec Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'OldName', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        login_as(&server, "admin", "admin").await;
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/name"))
+            .text("NewName")
+            .await;
+        assert_eq!(resp.status_code(), 200);
+
+        let name: String = sqlx::query_scalar("SELECT name FROM recording WHERE id = ?")
+            .bind(rid)
+            .fetch_one(&state.db_pool)
+            .await
+            .unwrap();
+        assert_eq!(name, "NewName");
+    }
+
+    /// POST /user/recordings/{rid}/name by non-owner must return 403.
+    #[tokio::test]
+    async fn update_recording_name_as_non_owner_returns_403() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        let owner_uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(owner_uid, "Rename Rec Perm", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'OldName', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        login_as(&server, "testuser", "testpass").await;
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/name"))
+            .text("Hack")
+            .await;
+        assert_eq!(resp.status_code(), 403);
+    }
+
+    /// GET /{uname}/{pid}/{rid}/slides.vtt must return VTT content for accessible recordings.
+    #[tokio::test]
+    async fn slides_vtt_returns_content_for_public_recording() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "VTT Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO recording_slide (recording_id, position, title, content, start_seconds) VALUES (?, 0, 'Intro', '<h2>Intro</h2>', 0.0)"
+        )
+        .bind(rid)
+        .execute(&state.db_pool)
+        .await
+        .unwrap();
+
+        let resp = server.get(&format!("/admin/{pid}/{rid}/slides.vtt")).await;
+        assert_eq!(resp.status_code(), 200);
+        let body = resp.text();
+        assert!(body.starts_with("WEBVTT"), "response must be VTT");
+        assert!(body.contains("Intro"), "VTT must include slide title");
+    }
+
+    /// GET /{uname}/{pid}/{rid}/slides.html must return HTML for accessible recordings.
+    #[tokio::test]
+    async fn slides_html_returns_content_for_public_recording() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "HTML Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id"
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO recording_slide (recording_id, position, title, content, start_seconds) VALUES (?, 0, 'Intro', '<h2>Intro</h2>', 0.0)"
+        )
+        .bind(rid)
+        .execute(&state.db_pool)
+        .await
+        .unwrap();
+
+        let resp = server.get(&format!("/admin/{pid}/{rid}/slides.html")).await;
+        assert_eq!(resp.status_code(), 200);
+        let body = resp.text();
+        assert!(body.contains("<!DOCTYPE html>"), "response must be HTML");
+        assert!(body.contains("<section>"), "response must contain slide sections");
+    }
 }

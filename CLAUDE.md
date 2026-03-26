@@ -72,4 +72,4 @@ SyncSlide is a single Rust binary (`syncslide-websocket/`) that serves an access
 ## User constraints
 - Do not rewrite git history.
 - Build and test on this machine directly (not via SSH). Run `cargo build`, `cargo test`, and Playwright tests here.
-- To deploy to production, SSH to `arch@clippycat.ca` — see the deploy command above. `config/deploy.bat` is a Windows remnant; use the SSH command directly.
+- To deploy to production, SSH to `arch@clippycat.ca` — see the deploy command above.
