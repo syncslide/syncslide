@@ -49,26 +49,6 @@ jobs:
         working-directory: tests
         run: npx playwright install --with-deps chromium
 
-      - name: Start server
-        working-directory: syncslide-websocket
-        run: APP_PORT=5003 APP_DB="sqlite://test.sqlite3" ./target/debug/syncslide-websocket &
-
-      - name: Wait for server
-        run: |
-          for i in $(seq 1 20); do
-            curl -sf http://localhost:5003/ > /dev/null && echo "Server ready" && exit 0 || true
-            sleep 1
-          done
-          echo "ERROR: server did not become ready after 20s" >&2
-          exit 1
-
       - name: Run Playwright tests
         working-directory: tests
         run: npx playwright test
-
-      - name: Stop server and clean up
-        if: always()
-        working-directory: syncslide-websocket
-        run: |
-          pkill -f syncslide-websocket || true
-          rm -f test.sqlite3
