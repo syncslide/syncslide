@@ -30,9 +30,8 @@ The binary must run from `syncslide-websocket/` so relative paths (`css/`, `js/`
 # Rust unit + integration tests only
 cd syncslide-websocket && cargo test
 
-# Playwright end-to-end tests only (requires a running server)
-# Run from syncslide-websocket/
-bash ../config/test.sh
+# Playwright end-to-end tests only (starts the server automatically)
+cd tests && npx playwright test --config playwright.config.js
 ```
 
 ### After SQL changes
@@ -41,7 +40,7 @@ After changing any SQL query in `src/main.rs` or `src/db.rs`, regenerate the off
 
 ```bash
 cd syncslide-websocket
-DATABASE_URL=sqlite://db.sqlite3 cargo sqlx prepare
+DATABASE_URL=sqlite://db.sqlite3 cargo sqlx prepare -- --all-targets
 ```
 
 Commit the updated `.sqlx/` files alongside your query changes.
