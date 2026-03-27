@@ -23,12 +23,13 @@
 <h2 id="timing-heading">Edit Timing</h2>
 <label><input type="checkbox" id="shiftSubsequent"> Shift subsequent slides when editing a timestamp</label>
 <table>
-<thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
+<caption>Slide timing cues</caption>
+<thead><tr><th scope="col">Slide</th><th scope="col">Title</th><th scope="col">Start Time (seconds)</th></tr></thead>
 <tbody id="cueTableBody" data-vtt-url="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt"></tbody>
 </table>
-<div aria-live="polite" id="timing-status"></div>
 <button type="button" id="saveTimingBtn" hidden>Save</button>
 <button type="button" id="discardTimingBtn" hidden>Discard</button>
+<div aria-live="polite" id="timing-status"></div>
 </section>
 <section aria-labelledby="files-heading">
 <h2 id="files-heading">Replace Files</h2>
