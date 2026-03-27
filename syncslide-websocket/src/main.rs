@@ -1018,15 +1018,10 @@ async fn recording(
     if matches!(access, AccessResult::Denied) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let has_owner_controls = matches!(
-        access,
-        AccessResult::Owner | AccessResult::Editor | AccessResult::Controller
-    );
     let mut ctx = Context::new();
     ctx.insert("recording", &rec);
     ctx.insert("pres", &pres);
     ctx.insert("pres_user", &pres_user);
-    ctx.insert("is_owner", &has_owner_controls);
     tera.render("recording.html", ctx, auth_session, db)
         .await
         .into_response()

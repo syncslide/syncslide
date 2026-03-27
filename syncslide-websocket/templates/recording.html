@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="/css/katex.css">
 {% endblock js %}
 
-{% block breadcrumb %}{% if is_owner %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% else %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
+{% block breadcrumb %}{% if user %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% else %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
 {% block content %}
 <h1>{{ pres.name }}: {{ recording.name }}</h1>
 <section aria-labelledby="video-heading">
@@ -21,7 +21,7 @@
 Your browser does not support the video tag.
 </video>
 {% else %}
-<p>No video uploaded yet.{% if is_owner %} Use <strong>Replace Files</strong> to add one.{% endif %}</p>
+<p>No video uploaded yet.</p>
 <video id="myVideo" data-rid="{{ recording.id }}" data-recording-name="{{ recording.name }}" style="display:none">
 <track id="syncslide-data" default class="syncslide-data" kind="metadata" src="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" srclang="en" label="SyncSlide Data"/>
 </video>
@@ -44,75 +44,9 @@ Your browser does not support the video tag.
 <a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt" download="{{ pres.name }}_{{ recording.name }}.vtt">Download VTT</a>
 <a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.html" download="{{ pres.name }}_{{ recording.name }}.html">Download Slides HTML</a>
 </nav>
-{% if is_owner %}<button id="openEditPresentation" type="button">Edit Timing</button>{% endif %}
 <section aria-label="Current slide" aria-live="polite" id="currentSlide"></section>
 <nav aria-label="Slide Navigation">
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>
 </nav>
-{% if is_owner %}
-<dialog id="editPresentationDialog" aria-labelledby="cue-editor-heading">
-<h1 id="cue-editor-heading">Edit Timing</h1>
-<label><input type="checkbox" id="shiftSubsequent"> Shift subsequent slides when editing a timestamp</label>
-<table>
-<thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
-<tbody id="cueTableBody"></tbody>
-</table>
-<button id="openReplaceFiles" type="button">Replace Files</button>
-<button id="closeEditPresentation" type="button">Close</button>
-</dialog>
-<dialog id="saveTimingDialog" aria-labelledby="save-timing-heading">
-<h1 id="save-timing-heading">Save timing changes?</h1>
-<button type="button" id="saveTimingConfirm">Save</button>
-<button type="button" id="discardTimingConfirm">Discard</button>
-</dialog>
-<dialog id="replaceFilesDialog" aria-labelledby="replace-files-heading">
-<h1 id="replace-files-heading">Replace Files</h1>
-<form id="replaceFilesForm">
-<label>Video (optional): <input type="file" name="video" accept="video/*"></label>
-<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
-<button type="submit">Replace</button>
-<button type="button" id="cancelReplaceFiles">Cancel</button>
-</form>
-</dialog>
-<button type="button" data-open-dialog="manage-rec-access-{{ recording.id }}">Manage recording access</button>
-<dialog id="manage-rec-access-{{ recording.id }}"
-        aria-labelledby="manage-rec-access-heading-{{ recording.id }}"
-        data-focus-heading="true">
-	<h1 id="manage-rec-access-heading-{{ recording.id }}" tabindex="-1">Manage recording access for {{ recording.name }}</h1>
-	<form method="post" action="/user/recordings/{{ recording.id }}/access/mode">
-		<label for="rec-access-mode-{{ recording.id }}">Access</label>
-		<select id="rec-access-mode-{{ recording.id }}" name="mode">
-			<option value="public"{% if recording.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
-			<option value="audience"{% if recording.access_mode == "audience" %} selected{% endif %}>Shared — same audience list as presentation</option>
-			<option value="private"{% if recording.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
-		</select>
-		<input type="hidden" name="action" value="set">
-		<button type="submit">Save</button>
-	</form>
-	<form method="post" action="/user/recordings/{{ recording.id }}/access/mode">
-		<input type="hidden" name="action" value="inherit">
-		<button type="submit">Inherit from presentation</button>
-	</form>
-	<button type="button" data-close-dialog="manage-rec-access-{{ recording.id }}">Close</button>
-</dialog>
-<script>
-document.querySelectorAll('[data-open-dialog]').forEach(function (btn) {
-	btn.addEventListener('click', function () {
-		var dialog = document.getElementById(btn.dataset.openDialog);
-		dialog.showModal();
-		var first = dialog.querySelector('h1[tabindex="-1"], input, button');
-		if (first) first.focus();
-	});
-});
-document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
-	btn.addEventListener('click', function () {
-		var dialog = document.getElementById(btn.dataset.closeDialog);
-		var opener = document.querySelector('[data-open-dialog="' + btn.dataset.closeDialog + '"]');
-		dialog.close();
-		if (opener) opener.focus();
-	});
-});
-</script>
-{% endif %}
 {% endblock content %}
