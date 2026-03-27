@@ -29,7 +29,7 @@
 </table>
 <button type="button" id="saveTimingBtn" hidden>Save</button>
 <button type="button" id="discardTimingBtn" hidden>Discard</button>
-<div aria-live="polite" id="timing-status"></div>
+<div aria-live="polite" aria-atomic="true" id="timing-status"></div>
 </section>
 <section aria-labelledby="files-heading">
 <h2 id="files-heading">Replace Files</h2>
@@ -38,7 +38,7 @@
 <label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
 <button type="submit">Replace</button>
 </form>
-<div aria-live="polite" id="files-status"></div>
+<div aria-live="polite" aria-atomic="true" id="files-status"></div>
 </section>
 <a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}">Watch recording</a>
 <script>document.getElementById('edit-rec-heading').focus();</script>

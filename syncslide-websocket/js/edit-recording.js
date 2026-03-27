@@ -23,9 +23,11 @@
 	const rid = recNameInput ? recNameInput.dataset.rid : null;
 
 	if (recNameInput && rid) {
+		let lastSentName = recNameInput.value.trim();
 		onCommit(recNameInput, async () => {
 			const newName = recNameInput.value.trim();
-			if (!newName) return;
+			if (!newName || newName === lastSentName) return;
+			lastSentName = newName;
 			await fetch(`/user/recordings/${rid}/name`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'text/plain' },
@@ -76,7 +78,8 @@
 			const timeLine = lines.find(l => l.includes('-->'));
 			const jsonLine = lines.find(l => l.startsWith('{'));
 			const startTime = timeLine ? vttTimeToSeconds(timeLine.split('-->')[0]) : 0;
-			const parsed = jsonLine ? JSON.parse(jsonLine) : {};
+			let parsed = {};
+			try { if (jsonLine) parsed = JSON.parse(jsonLine); } catch { /* skip malformed cue */ }
 			return { id: parsed.id, title: parsed.title || '', startTime };
 		});
 		originalCueList = cueList.map(c => ({ ...c }));
@@ -115,20 +118,28 @@
 
 	if (saveBtn && rid) {
 		saveBtn.addEventListener('click', async () => {
-			for (const idx of pendingChanges) {
-				await fetch(`/user/recordings/${rid}/slides/${cueList[idx].id}/time`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'text/plain' },
-					body: String(cueList[idx].startTime),
-				});
-			}
-			pendingChanges.clear();
-			originalCueList = cueList.map(c => ({ ...c }));
-			renderCueTable();
-			setDirty(false);
-			if (timingStatus) {
-				timingStatus.textContent = 'Timing saved.';
-				setTimeout(() => { timingStatus.textContent = ''; }, 3000);
+			try {
+				for (const idx of pendingChanges) {
+					const resp = await fetch(`/user/recordings/${rid}/slides/${cueList[idx].id}/time`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'text/plain' },
+						body: String(cueList[idx].startTime),
+					});
+					if (!resp.ok) throw new Error('Save failed');
+				}
+				pendingChanges.clear();
+				originalCueList = cueList.map(c => ({ ...c }));
+				renderCueTable();
+				setDirty(false);
+				if (timingStatus) {
+					timingStatus.textContent = 'Timing saved.';
+					setTimeout(() => { timingStatus.textContent = ''; }, 3000);
+				}
+			} catch {
+				if (timingStatus) {
+					timingStatus.textContent = 'Save failed. Please try again.';
+					setTimeout(() => { timingStatus.textContent = ''; }, 4000);
+				}
 			}
 		});
 	}
