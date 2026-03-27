@@ -25,10 +25,11 @@ async function createAndOpenRecordingEdit(page) {
     // Expand recordings details for pres 1 (data-id="1")
     const presItem = page.locator('.pres-item[data-id="1"]');
     await presItem.locator('details summary').click();
-    // Open the actions menu for the first recording row and click "Edit Recording"
-    const firstRecBtn = presItem.locator('[id^="rec-actions-btn-"]').first();
+    // Recordings are stored in ascending ID order (oldest first, newest last),
+    // so use .last() to reliably target the recording just created.
+    const firstRecBtn = presItem.locator('[id^="rec-actions-btn-"]').last();
     await firstRecBtn.click();
-    const firstRecMenu = presItem.locator('[id^="rec-actions-menu-"]').first();
+    const firstRecMenu = presItem.locator('[id^="rec-actions-menu-"]').last();
     await expect(firstRecMenu).toBeVisible();
     // Extract the edit URL from the menu item's data-edit-url attribute rather than
     // following the link (which opens in a new tab via window.open).
@@ -78,13 +79,23 @@ test.describe('recording edit page', () => {
         await expect(page.locator('#timing-heading')).toHaveText('Edit Timing');
     });
 
+    test('timing section has correct aria-labelledby', async ({ page }) => {
+        const section = page.locator('section[aria-labelledby="timing-heading"]');
+        await expect(section).toBeAttached();
+    });
+
+    test('files section has correct aria-labelledby', async ({ page }) => {
+        const section = page.locator('section[aria-labelledby="files-heading"]');
+        await expect(section).toBeAttached();
+    });
+
     test('save and discard buttons are hidden on load', async ({ page }) => {
         await expect(page.locator('#saveTimingBtn')).toBeHidden();
         await expect(page.locator('#discardTimingBtn')).toBeHidden();
     });
 
     test('cue table has correct column headers', async ({ page }) => {
-        const headers = page.locator('#cueTableBody').locator('..').locator('thead th');
+        const headers = page.locator('table:has(#cueTableBody) thead th');
         await expect(headers).toHaveCount(3);
         await expect(headers.nth(0)).toContainText('Slide');
         await expect(headers.nth(1)).toContainText('Title');
