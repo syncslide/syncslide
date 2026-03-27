@@ -24,18 +24,32 @@
 
 	if (recNameInput && rid) {
 		let lastSentName = recNameInput.value.trim();
+		const renameStatus = document.getElementById('rename-status');
 		onCommit(recNameInput, async () => {
 			const newName = recNameInput.value.trim();
 			if (!newName || newName === lastSentName) return;
 			lastSentName = newName;
-			await fetch(`/user/recordings/${rid}/name`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'text/plain' },
-				body: newName,
-			});
-			document.title = `Edit Recording: ${newName} - SyncSlide`;
-			const h1 = document.getElementById('edit-rec-heading');
-			if (h1) h1.textContent = `Edit Recording: ${newName}`;
+			try {
+				const resp = await fetch(`/user/recordings/${rid}/name`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'text/plain' },
+					body: newName,
+				});
+				if (!resp.ok) throw new Error('Rename failed');
+				document.title = `Edit Recording: ${newName} - SyncSlide`;
+				const h1 = document.getElementById('edit-rec-heading');
+				if (h1) h1.textContent = `Edit Recording: ${newName}`;
+				if (renameStatus) {
+					renameStatus.textContent = 'Recording renamed.';
+					setTimeout(() => { renameStatus.textContent = ''; }, 3000);
+				}
+			} catch {
+				lastSentName = recNameInput.dataset.originalName || '';
+				if (renameStatus) {
+					renameStatus.textContent = 'Rename failed. Please try again.';
+					setTimeout(() => { renameStatus.textContent = ''; }, 4000);
+				}
+			}
 		});
 	}
 
