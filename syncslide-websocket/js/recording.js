@@ -30,7 +30,7 @@
   function announce(message) {
     clearTimeout(announceTimeout);
     announceEl.textContent = message;
-    announceTimeout = setTimeout(function () { announceEl.textContent = ''; }, 1000);
+    announceTimeout = setTimeout(function () { announceEl.textContent = ''; }, 3000);
   }
 
   function startTimer(fromMs) {

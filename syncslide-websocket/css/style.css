@@ -39,7 +39,7 @@ html[data-theme="light"] {
 body { background-color: var(--bg); padding: 16px; font-family: -apple-system, helvetica, arial, sans-serif; font-size: 16px; color: var(--text); line-height: 1.5em; overflow-wrap: break-word; }
 .skip-link { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .skip-link:focus { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; white-space: normal; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
 
 header { text-align: center; margin-bottom: 18px; }
