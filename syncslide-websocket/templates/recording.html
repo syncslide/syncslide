@@ -9,6 +9,7 @@
 
 {% block breadcrumb %}{% if is_owner %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% else %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ recording.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
 {% block content %}
+<h1>{{ pres.name }}</h1>
 <section aria-labelledby="video-heading">
 <details open>
 <summary id="video-heading">Video</summary>
@@ -44,7 +45,7 @@ Your browser does not support the video tag.
 <a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.html" download="{{ pres.name }}_{{ recording.name }}.html">Download Slides HTML</a>
 </nav>
 {% if is_owner %}<button id="openEditPresentation" type="button">Edit Timing</button>{% endif %}
-<section aria-live="polite" id="currentSlide"></section>
+<section aria-label="Current slide" aria-live="polite" id="currentSlide"></section>
 <nav aria-label="Slide Navigation">
 <label for="goTo">Go to slide:</label>
 <select id="goTo" name="goTo"></select>

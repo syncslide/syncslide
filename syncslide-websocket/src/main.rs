@@ -317,7 +317,8 @@ async fn handle_recording_message(
             // Create DB row
             let name = {
                 let now = time::OffsetDateTime::now_utc();
-                format!("Recording \u{2013} {}", now.format(&time::format_description::well_known::Rfc3339).unwrap_or_default())
+                format!("Recording \u{2013} {:04}-{:02}-{:02} {:02}:{:02}",
+                    now.year(), u8::from(now.month()), now.day(), now.hour(), now.minute())
             };
             let rec = Recording::create(presentation_id, name, None, String::new(), pool).await.ok()?;
             // Store real db_id
