@@ -18,7 +18,7 @@
 
 {% block content %}
 <h1 id="edit-rec-heading" tabindex="-1">Edit Recording: {{ recording.name }}</h1>
-<label>Recording name: <input type="text" id="recName" data-rid="{{ recording.id }}" data-pid="{{ pres.id }}" value="{{ recording.name }}"></label>
+<label>Recording name: <input type="text" id="recName" data-rid="{{ recording.id }}" value="{{ recording.name }}"></label>
 <div aria-live="polite" aria-atomic="true" id="rename-status"></div>
 <section aria-labelledby="timing-heading">
 <h2 id="timing-heading">Edit Timing</h2>
