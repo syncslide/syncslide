@@ -137,6 +137,18 @@ test.describe('presentations list', () => {
         await expect(page.locator('#actions-menu-1 [role="menuitem"]').nth(1)).toBeFocused();
     });
 
+    test('ArrowUp on first menu item wraps to last item', async ({ page }) => {
+        await page.goto('/user/presentations');
+        await page.locator('#actions-btn-1').click();
+        // Focus is on first item after open
+        await expect(page.locator('#actions-menu-1 [role="menuitem"]').first()).toBeFocused();
+        await page.keyboard.press('ArrowUp');
+        // Should wrap to the last item
+        const items = page.locator('#actions-menu-1 [role="menuitem"]');
+        const count = await items.count();
+        await expect(items.nth(count - 1)).toBeFocused();
+    });
+
     test('Escape closes actions menu and returns focus to button', async ({ page }) => {
         await page.goto('/user/presentations');
         await page.locator('#actions-btn-1').click();
