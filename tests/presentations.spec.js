@@ -543,3 +543,45 @@ test.describe('editor sees actions menu', () => {
         await editorCtx.close();
     });
 });
+
+test.describe('recording name BroadcastChannel sync', () => {
+    // BroadcastChannel only reaches pages in the same browser context (same origin).
+    // Both pages must share a context; the default { page } fixture creates isolated contexts.
+    test('rec-name broadcast updates name link, actions button, manage-access heading, and delete heading on PList', async ({ browser }) => {
+        const ctx = await browser.newContext();
+        const plistPage = await ctx.newPage();
+        const editPage = await ctx.newPage();
+
+        try {
+            // Establish an absolute base before using loginAsAdmin (which uses relative URLs).
+            await plistPage.goto('http://localhost:5003');
+            await loginAsAdmin(plistPage);
+            await editPage.goto('http://localhost:5003');
+            await loginAsAdmin(editPage);
+
+            // Open PList so the BroadcastChannel handler is active.
+            await plistPage.goto('http://localhost:5003/user/presentations');
+            // Seeded Demo recording (rid=1) elements are in the DOM even if <details> is collapsed.
+            await expect(plistPage.locator('#rec-actions-btn-1')).toBeAttached();
+
+            // Open the edit-recording page for the seeded Demo recording (pid=1, rid=1).
+            await editPage.goto('http://localhost:5003/admin/1/1/edit');
+
+            // Rename the recording.
+            const newName = 'BC Sync Test Recording';
+            await editPage.fill('#recName', newName);
+            await editPage.keyboard.press('Enter');
+
+            // Wait for the rename to succeed on the edit page before checking PList.
+            await expect(editPage.locator('#rename-status')).toContainText('Recording renamed.');
+
+            // All four PList elements must reflect the new name.
+            await expect(plistPage.locator('#rec-actions-btn-1')).toHaveText('Actions: ' + newName);
+            await expect(plistPage.locator('tr:has(#rec-actions-btn-1) td:first-child a')).toContainText(newName);
+            await expect(plistPage.locator('#manage-rec-access-heading-1')).toHaveText('Manage access for ' + newName);
+            await expect(plistPage.locator('#delete-rec-heading-1')).toHaveText('Delete ' + newName + '?');
+        } finally {
+            await ctx.close();
+        }
+    });
+});
