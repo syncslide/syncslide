@@ -14,6 +14,7 @@
   if (!statusEl) return; // not on stage page
 
   let timerInterval = null;
+  let announceTimeout = null;
   let elapsedMs = 0;
 
   function formatTime(ms) {
@@ -27,8 +28,9 @@
   }
 
   function announce(message) {
+    clearTimeout(announceTimeout);
     announceEl.textContent = message;
-    setTimeout(function () { announceEl.textContent = ''; }, 100);
+    announceTimeout = setTimeout(function () { announceEl.textContent = ''; }, 1000);
   }
 
   function startTimer(fromMs) {
@@ -51,14 +53,14 @@
     }
   }
 
-  function setRunning(fromMs) {
+  function setRunning(fromMs, message) {
     statusEl.textContent = 'Recording';
     btnStart.hidden = true;
     btnPause.hidden = false;
     btnResume.hidden = true;
     btnStop.hidden = false;
     startTimer(fromMs);
-    announce('Recording started');
+    announce(message);
   }
 
   function setPaused(atMs) {
@@ -96,11 +98,11 @@
   window.handleRecordingMessage = function (type, data) {
     expandSection();
     if (type === 'recording_start') {
-      setRunning(data.elapsed_ms);
+      setRunning(data.elapsed_ms, 'Recording started');
     } else if (type === 'recording_pause') {
       setPaused(data.elapsed_ms);
     } else if (type === 'recording_resume') {
-      setRunning(data.elapsed_ms);
+      setRunning(data.elapsed_ms, 'Recording resumed');
     } else if (type === 'recording_stop') {
       setStopped();
     }
