@@ -21,6 +21,7 @@
 	// ── Rename ────────────────────────────────────────────────────────────────
 	const recNameInput = document.getElementById('recName');
 	const rid = recNameInput ? recNameInput.dataset.rid : null;
+	const pid = recNameInput ? recNameInput.dataset.pid : null;
 
 	if (recNameInput && rid) {
 		let lastSentName = recNameInput.value.trim();
@@ -39,6 +40,7 @@
 				document.title = `Edit Recording: ${newName} - SyncSlide`;
 				const h1 = document.getElementById('edit-rec-heading');
 				if (h1) h1.textContent = `Edit Recording: ${newName}`;
+				new BroadcastChannel('syncslide').postMessage({ type: 'rec-name', pid: pid, rid: rid, name: newName });
 				if (renameStatus) {
 					renameStatus.textContent = 'Recording renamed.';
 					setTimeout(() => { renameStatus.textContent = ''; }, 3000);

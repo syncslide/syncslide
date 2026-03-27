@@ -935,6 +935,33 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			var noRecLink = item.querySelector('details p a');
 			if (noRecLink) noRecLink.textContent = name + ' stage';
 
+		} else if (ev.data.type === 'rec-name') {
+			var rid = String(ev.data.rid);
+			var name = ev.data.name;
+
+			var recLink = document.querySelector('#rec-actions-btn-' + rid);
+			if (recLink) {
+				// Find the parent pres-item row via the recording's table row
+				var tr = recLink.closest('tr');
+
+				// Update the recording name link (first td > a, first text node)
+				if (tr) {
+					var nameLink = tr.querySelector('td:first-child a');
+					if (nameLink && nameLink.firstChild && nameLink.firstChild.nodeType === 3) {
+						nameLink.firstChild.textContent = name;
+					}
+				}
+
+				// Update the actions button text
+				recLink.textContent = 'Actions: ' + name;
+			}
+
+			var manageHeading = document.getElementById('manage-rec-access-heading-' + rid);
+			if (manageHeading) manageHeading.textContent = 'Manage access for ' + name;
+
+			var deleteHeading = document.getElementById('delete-rec-heading-' + rid);
+			if (deleteHeading) deleteHeading.textContent = 'Delete ' + name + '?';
+
 		} else if (ev.data.type === 'recording-added') {
 			var pid = String(ev.data.pid);
 			var item = document.querySelector('.pres-item[data-id="' + pid + '"]');
