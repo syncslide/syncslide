@@ -5,6 +5,7 @@
 (function () {
   const statusEl = document.getElementById('rec-status');
   const timerEl = document.getElementById('rec-timer');
+  const announceEl = document.getElementById('rec-announce');
   const btnStart = document.getElementById('recordStart');
   const btnPause = document.getElementById('recordPause');
   const btnResume = document.getElementById('recordResume');
@@ -23,6 +24,11 @@
     return String(h).padStart(2, '0') + ':' +
            String(m).padStart(2, '0') + ':' +
            String(s).padStart(2, '0');
+  }
+
+  function announce(message) {
+    announceEl.textContent = message;
+    setTimeout(function () { announceEl.textContent = ''; }, 100);
   }
 
   function startTimer(fromMs) {
@@ -52,6 +58,7 @@
     btnResume.hidden = true;
     btnStop.hidden = false;
     startTimer(fromMs);
+    announce('Recording started');
   }
 
   function setPaused(atMs) {
@@ -61,6 +68,7 @@
     btnResume.hidden = false;
     btnStop.hidden = false;
     stopTimer(atMs);
+    announce('Recording paused');
   }
 
   function setStopped() {
@@ -71,6 +79,7 @@
     btnStop.hidden = true;
     stopTimer(0);
     timerEl.textContent = '00:00:00';
+    announce('Recording stopped');
   }
 
   const sectionEl = document.getElementById('record-section');
