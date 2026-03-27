@@ -699,6 +699,54 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 })();
 </script>
 
+<script>
+(function () {
+	var bc = new BroadcastChannel('syncslide');
+	bc.onmessage = function (ev) {
+		if (ev.data.type !== 'pres-name') return;
+		var pid = String(ev.data.pid);
+		var name = ev.data.name;
+		var item = document.querySelector('.pres-item[data-id="' + pid + '"]');
+		if (!item) return;
+
+		item.dataset.name = name.toLowerCase();
+
+		var stageLink = item.querySelector('a.stage-link');
+		if (stageLink && stageLink.firstChild && stageLink.firstChild.nodeType === 3) {
+			stageLink.firstChild.textContent = name;
+		}
+
+		var summary = item.querySelector('details > summary');
+		if (summary) {
+			var current = summary.getAttribute('aria-label') || '';
+			var match = current.match(/\((\d+)\)$/);
+			var count = match ? match[1] : '0';
+			summary.setAttribute('aria-label', 'Recordings for ' + name + ' (' + count + ')');
+		}
+
+		var actionsBtn = document.getElementById('actions-btn-' + pid);
+		if (actionsBtn) actionsBtn.textContent = 'Actions: ' + name;
+
+		var deleteHeading = document.getElementById('delete-pres-heading-' + pid);
+		if (deleteHeading) deleteHeading.textContent = 'Delete ' + name + '?';
+
+		var manageHeading = document.getElementById('manage-access-heading-' + pid);
+		if (manageHeading) manageHeading.textContent = 'Manage access for ' + name;
+
+		var editItem = item.querySelector('[data-action="open-edit"]');
+		if (editItem && editItem.firstChild && editItem.firstChild.nodeType === 3) {
+			editItem.firstChild.textContent = 'Edit ' + name;
+		}
+
+		var deleteItem = item.querySelector('[data-dialog-id="delete-pres-' + pid + '"]');
+		if (deleteItem) deleteItem.textContent = 'Delete ' + name;
+
+		var noRecLink = item.querySelector('details p a');
+		if (noRecLink) noRecLink.textContent = name + ' stage';
+	};
+})();
+</script>
+
 {% else %}
 <p>No presentations yet. <a href="/create">Start one now!</a></p>
 {% endif %}

@@ -122,6 +122,8 @@ if (presNameInput) {
 		document.title = `${newName} \u2013 ${mode} - SyncSlide`;
 		const span = document.getElementById('pres-name');
 		if (span) span.textContent = newName;
+		const editH1 = document.getElementById('edit-heading');
+		if (editH1) editH1.textContent = newName;
 		const slideH1 = document.querySelector('#currentSlide h1');
 		if (slideH1) slideH1.textContent = newName;
 		const mdLabel = document.getElementById('input');
@@ -129,6 +131,7 @@ if (presNameInput) {
 		const qrImg = document.querySelector('#qrOverlay img');
 		if (qrImg) qrImg.alt = `${newName} QR code`;
 		socket.send(JSON.stringify({ type: "name", data: newName }));
+		new BroadcastChannel('syncslide').postMessage({ type: 'pres-name', pid: pid, name: newName });
 		await fetch(`/user/presentations/${pid}/name`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'text/plain' },
