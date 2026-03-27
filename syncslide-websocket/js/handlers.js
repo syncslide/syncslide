@@ -107,6 +107,7 @@ function openSlideDialog(mode, idx) {
 		applyBtn.textContent = 'Add';
 	}
 	dialog.showModal();
+	heading.focus();
 }
 
 renderSlideTable();
