@@ -226,8 +226,8 @@ document.querySelectorAll('[data-close-dialog]').forEach(function (btn) {
 });
 
 // Focus-return on dialog close (handles Cancel button, Escape key, and programmatic close).
-// For presentation-action dialogs: returns to the actions menu button via data-return-focus.
-// For recording-delete dialogs: falls back to [data-open-dialog] query.
+// All action-menu dialogs (presentation and recording) set data-return-focus before showModal().
+// The fallback [data-open-dialog] query handles legacy dialogs if any remain.
 document.querySelectorAll('dialog').forEach(function (dialog) {
 	dialog.addEventListener('close', function () {
 		var returnId = dialog.dataset.returnFocus;
@@ -817,13 +817,10 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 				} else if (item.dataset.action === 'open-dialog') {
 					var dialog = document.getElementById(item.dataset.dialogId);
 					if (!dialog) return;
+					dialog.dataset.returnFocus = actionsBtn.id;
 					dialog.showModal();
 					var first = dialog.querySelector('h1[tabindex="-1"]') || dialog.querySelector('input, button');
 					if (first) first.focus();
-					dialog.addEventListener('close', function onClose() {
-						actionsBtn.focus();
-						dialog.removeEventListener('close', onClose);
-					});
 				} else if (item.dataset.action === 'open-rec-edit') {
 					window.open(item.dataset.editUrl, '_blank', 'noreferrer,noopener');
 					actionsBtn.focus();
