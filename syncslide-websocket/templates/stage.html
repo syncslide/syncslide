@@ -4,7 +4,6 @@
 {% block breadcrumb %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li><a href="/user/presentations">Your Presentations</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endblock breadcrumb %}
 
 {% block stage %}
-<h1 id="stage-heading" tabindex="-1">{{ pres.name }}</h1>
 <button type="button" id="qrToggle" aria-pressed="false" aria-controls="qrOverlay">QR</button>
 <aside id="qrOverlay" hidden aria-label="QR code">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
@@ -25,5 +24,5 @@ document.getElementById('record-toggle').addEventListener('click', function () {
 });
 </script>
 {% include "_slide_nav.html" %}
-<script>document.getElementById('stage-heading').focus();</script>
+<script>document.getElementById('main').focus();</script>
 {% endblock stage %}
