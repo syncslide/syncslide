@@ -94,6 +94,14 @@
       setRunning(data.elapsed_ms, 'Recording resumed');
     } else if (type === 'recording_stop') {
       setStopped();
+      if (data.id && data.id > 0) {
+        new BroadcastChannel('syncslide').postMessage({
+          type: 'recording-added',
+          pid: pid,
+          ownerName: parts[0],
+          rec: { id: data.id, name: data.name, start: data.start }
+        });
+      }
     }
   };
 

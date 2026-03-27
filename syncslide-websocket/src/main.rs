@@ -115,7 +115,14 @@ pub enum SlideMessage {
     },
     /// Stop an active recording.
     #[serde(rename = "recording_stop")]
-    RecordingStop,
+    RecordingStop {
+        /// Database ID of the saved recording.
+        id: i64,
+        /// Display name of the recording.
+        name: String,
+        /// Creation date in YYYY-MM-DD format.
+        start: String,
+    },
 }
 
 struct RecordingEvent {
@@ -125,6 +132,7 @@ struct RecordingEvent {
 
 struct RecordingState {
     db_id: i64,
+    name: String,
     started_at: std::time::Instant,
     /// Total running time from all completed active periods (updated on each resume).
     active_ms: u64,
@@ -298,6 +306,12 @@ async fn handle_recording_message(
 ) -> Option<SlideMessage> {
     match msg {
         RecordingMessage::RecordingStart => {
+            // Compute name before acquiring the lock
+            let name = {
+                let now = time::OffsetDateTime::now_utc();
+                format!("Recording \u{2013} {:04}-{:02}-{:02} {:02}:{:02}",
+                    now.year(), u8::from(now.month()), now.day(), now.hour(), now.minute())
+            };
             // Check and initialise under lock (placeholder db_id = -1)
             {
                 let mut p = pres.lock().unwrap();
@@ -307,6 +321,7 @@ async fn handle_recording_message(
                 let slide = p.slide;
                 p.recording = Some(RecordingState {
                     db_id: -1,
+                    name: name.clone(),
                     started_at: std::time::Instant::now(),
                     active_ms: 0,
                     is_paused: false,
@@ -315,11 +330,6 @@ async fn handle_recording_message(
                 });
             }
             // Create DB row
-            let name = {
-                let now = time::OffsetDateTime::now_utc();
-                format!("Recording \u{2013} {:04}-{:02}-{:02} {:02}:{:02}",
-                    now.year(), u8::from(now.month()), now.day(), now.hour(), now.minute())
-            };
             let rec = Recording::create(presentation_id, name, None, String::new(), pool).await.ok()?;
             // Store real db_id
             pres.lock().unwrap().recording.as_mut()?.db_id = rec.id;
@@ -358,14 +368,14 @@ async fn handle_recording_message(
 
         RecordingMessage::RecordingStop => {
             // Extract everything needed before async work
-            let (db_id, slides, content) = {
+            let (db_id, name, slides, content) = {
                 let mut p = pres.lock().unwrap();
                 let rec = p.recording.take()?;
-                (rec.db_id, rec.slides, p.content.clone())
+                (rec.db_id, rec.name, rec.slides, p.content.clone())
             };
             if db_id < 0 {
                 // DB row not yet created (start still in progress) — nothing to save
-                return Some(SlideMessage::RecordingStop);
+                return Some(SlideMessage::RecordingStop { id: -1, name: String::new(), start: String::new() });
             }
             // Resolve slide indices to title/content
             let all_slides = render_all_slides(&content);
@@ -382,7 +392,11 @@ async fn handle_recording_message(
                 .collect();
             let _ = RecordingSlide::create_batch(db_id, inputs, pool).await;
             let _ = Recording::touch(db_id, pool).await;
-            Some(SlideMessage::RecordingStop)
+            let start = {
+                let now = time::OffsetDateTime::now_utc();
+                format!("{:04}-{:02}-{:02}", now.year(), u8::from(now.month()), now.day())
+            };
+            Some(SlideMessage::RecordingStop { id: db_id, name, start })
         }
     }
 }
@@ -3042,7 +3056,7 @@ mod tests {
 
         let result = handle_recording_message(RecordingMessage::RecordingStop, &pres, pres_db.id, &pool).await;
 
-        assert!(matches!(result, Some(SlideMessage::RecordingStop)));
+        assert!(matches!(result, Some(SlideMessage::RecordingStop { .. })));
         assert!(pres.lock().unwrap().recording.is_none());
 
         // recording_slide rows exist
@@ -3121,7 +3135,7 @@ mod tests {
 
         // Simulate auto-stop (same as stop, but called by disconnect handler)
         let result = handle_recording_message(RecordingMessage::RecordingStop, &pres, pres_db.id, &pool).await;
-        assert!(matches!(result, Some(SlideMessage::RecordingStop)));
+        assert!(matches!(result, Some(SlideMessage::RecordingStop { .. })));
         assert!(pres.lock().unwrap().recording.is_none());
 
         // last_edited was set

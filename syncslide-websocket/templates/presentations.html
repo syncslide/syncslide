@@ -701,48 +701,134 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 
 <script>
 (function () {
+	var EXT_SVG = '<svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 12 12" style="margin-left:0.25em"><path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7M8 1h3v3M11 1L5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+	function esc(s) {
+		return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+
+	function getPresName(item) {
+		var link = item.querySelector('a.stage-link');
+		return link && link.firstChild && link.firstChild.nodeType === 3 ? link.firstChild.textContent : '';
+	}
+
+	function setupRecRow(tr, openBtn, dialog) {
+		openBtn.addEventListener('click', function () {
+			dialog.showModal();
+			var first = dialog.querySelector('h1[tabindex="-1"]') || dialog.querySelector('input, button');
+			if (first) first.focus();
+		});
+		var closeBtn = dialog.querySelector('[data-close-dialog]');
+		if (closeBtn) {
+			closeBtn.addEventListener('click', function () {
+				dialog.close();
+				openBtn.focus();
+			});
+		}
+		dialog.addEventListener('close', function () { openBtn.focus(); });
+	}
+
+	function addRecordingRow(item, ownerName, pid, rec) {
+		var details = item.querySelector('details');
+		if (!details) return;
+
+		var summary = details.querySelector('summary');
+		if (summary) {
+			var labelMatch = (summary.getAttribute('aria-label') || '').match(/\((\d+)\)$/);
+			var newCount = labelMatch ? parseInt(labelMatch[1], 10) + 1 : 1;
+			summary.setAttribute('aria-label', 'Recordings for ' + getPresName(item) + ' (' + newCount + ')');
+			summary.textContent = 'Recordings (' + newCount + ')';
+		}
+
+		var recId = String(rec.id);
+		var tr = document.createElement('tr');
+		tr.innerHTML =
+			'<td><a href="/' + esc(ownerName) + '/' + esc(pid) + '/' + esc(recId) + '" target="_blank" rel="noreferrer noopener">' + esc(rec.name) + EXT_SVG + ' <span class="sr-only">(opens in new tab)</span></a></td>' +
+			'<td>' + esc(rec.start) + '</td>' +
+			'<td>—</td>' +
+			'<td>' +
+				'<button type="button" data-open-dialog="delete-rec-' + esc(recId) + '">Delete</button>' +
+				'<dialog id="delete-rec-' + esc(recId) + '" aria-labelledby="delete-rec-heading-' + esc(recId) + '">' +
+					'<h1 id="delete-rec-heading-' + esc(recId) + '" tabindex="-1">Delete ' + esc(rec.name) + '?</h1>' +
+					'<p>This will permanently delete the recording.</p>' +
+					'<form method="post" action="/user/recordings/' + esc(recId) + '/delete">' +
+						'<button type="submit">Delete</button>' +
+					'</form>' +
+					'<button type="button" data-close-dialog="delete-rec-' + esc(recId) + '">Cancel</button>' +
+				'</dialog>' +
+			'</td>';
+
+		var openBtn = tr.querySelector('[data-open-dialog]');
+		var dialog = document.getElementById('delete-rec-' + recId);
+		if (!dialog) {
+			// Dialog was just inserted via innerHTML — find it in the tr
+			dialog = tr.querySelector('dialog');
+			if (dialog) document.body.appendChild(dialog);
+		}
+		if (openBtn && dialog) setupRecRow(tr, openBtn, dialog);
+
+		var table = details.querySelector('table');
+		if (table) {
+			table.querySelector('tbody').appendChild(tr);
+		} else {
+			var newTable = document.createElement('table');
+			newTable.innerHTML = '<thead><tr><th>Name</th><th>Created</th><th>Last Edited</th><th>Actions</th></tr></thead><tbody></tbody>';
+			newTable.querySelector('tbody').appendChild(tr);
+			var p = details.querySelector('p');
+			if (p) details.replaceChild(newTable, p);
+			else details.appendChild(newTable);
+		}
+	}
+
 	var bc = new BroadcastChannel('syncslide');
 	bc.onmessage = function (ev) {
-		if (ev.data.type !== 'pres-name') return;
-		var pid = String(ev.data.pid);
-		var name = ev.data.name;
-		var item = document.querySelector('.pres-item[data-id="' + pid + '"]');
-		if (!item) return;
+		if (ev.data.type === 'pres-name') {
+			var pid = String(ev.data.pid);
+			var name = ev.data.name;
+			var item = document.querySelector('.pres-item[data-id="' + pid + '"]');
+			if (!item) return;
 
-		item.dataset.name = name.toLowerCase();
+			item.dataset.name = name.toLowerCase();
 
-		var stageLink = item.querySelector('a.stage-link');
-		if (stageLink && stageLink.firstChild && stageLink.firstChild.nodeType === 3) {
-			stageLink.firstChild.textContent = name;
+			var stageLink = item.querySelector('a.stage-link');
+			if (stageLink && stageLink.firstChild && stageLink.firstChild.nodeType === 3) {
+				stageLink.firstChild.textContent = name;
+			}
+
+			var summary = item.querySelector('details > summary');
+			if (summary) {
+				var current = summary.getAttribute('aria-label') || '';
+				var match = current.match(/\((\d+)\)$/);
+				var count = match ? match[1] : '0';
+				summary.setAttribute('aria-label', 'Recordings for ' + name + ' (' + count + ')');
+			}
+
+			var actionsBtn = document.getElementById('actions-btn-' + pid);
+			if (actionsBtn) actionsBtn.textContent = 'Actions: ' + name;
+
+			var deleteHeading = document.getElementById('delete-pres-heading-' + pid);
+			if (deleteHeading) deleteHeading.textContent = 'Delete ' + name + '?';
+
+			var manageHeading = document.getElementById('manage-access-heading-' + pid);
+			if (manageHeading) manageHeading.textContent = 'Manage access for ' + name;
+
+			var editItem = item.querySelector('[data-action="open-edit"]');
+			if (editItem && editItem.firstChild && editItem.firstChild.nodeType === 3) {
+				editItem.firstChild.textContent = 'Edit ' + name;
+			}
+
+			var deleteItem = item.querySelector('[data-dialog-id="delete-pres-' + pid + '"]');
+			if (deleteItem) deleteItem.textContent = 'Delete ' + name;
+
+			var noRecLink = item.querySelector('details p a');
+			if (noRecLink) noRecLink.textContent = name + ' stage';
+
+		} else if (ev.data.type === 'recording-added') {
+			var pid = String(ev.data.pid);
+			var item = document.querySelector('.pres-item[data-id="' + pid + '"]');
+			if (!item) return;
+			addRecordingRow(item, ev.data.ownerName, pid, ev.data.rec);
 		}
-
-		var summary = item.querySelector('details > summary');
-		if (summary) {
-			var current = summary.getAttribute('aria-label') || '';
-			var match = current.match(/\((\d+)\)$/);
-			var count = match ? match[1] : '0';
-			summary.setAttribute('aria-label', 'Recordings for ' + name + ' (' + count + ')');
-		}
-
-		var actionsBtn = document.getElementById('actions-btn-' + pid);
-		if (actionsBtn) actionsBtn.textContent = 'Actions: ' + name;
-
-		var deleteHeading = document.getElementById('delete-pres-heading-' + pid);
-		if (deleteHeading) deleteHeading.textContent = 'Delete ' + name + '?';
-
-		var manageHeading = document.getElementById('manage-access-heading-' + pid);
-		if (manageHeading) manageHeading.textContent = 'Manage access for ' + name;
-
-		var editItem = item.querySelector('[data-action="open-edit"]');
-		if (editItem && editItem.firstChild && editItem.firstChild.nodeType === 3) {
-			editItem.firstChild.textContent = 'Edit ' + name;
-		}
-
-		var deleteItem = item.querySelector('[data-dialog-id="delete-pres-' + pid + '"]');
-		if (deleteItem) deleteItem.textContent = 'Delete ' + name;
-
-		var noRecLink = item.querySelector('details p a');
-		if (noRecLink) noRecLink.textContent = name + ' stage';
 	};
 })();
 </script>
