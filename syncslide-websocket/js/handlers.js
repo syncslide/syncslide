@@ -223,6 +223,8 @@ if (slideTableBody) {
 		const sel = e.target.closest('select[data-idx]');
 		if (sel) executeSlideAction(sel);
 	});
+	// 'change' fires on all devices; executeSlideAction resets sel.value on first call,
+	// preventing the focusout listener from double-firing.
 	slideTableBody.addEventListener('change', (e) => {
 		const sel = e.target.closest('select[data-idx]');
 		if (sel) executeSlideAction(sel);
