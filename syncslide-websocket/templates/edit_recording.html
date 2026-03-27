@@ -1,0 +1,44 @@
+{% extends "nav.html" %}
+
+{% block title %}Edit Recording: {{ recording.name }}{% endblock title %}
+
+{% block js %}
+<script defer src="/js/edit-recording.js"></script>
+{% endblock js %}
+
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb"><ol>
+<li><a href="/">Home</a></li>
+<li><a href="/user/presentations">Your Presentations</a></li>
+<li><a href="/{{ pres_user.name }}/{{ pres.id }}">{{ pres.name }}</a></li>
+<li><a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}">{{ recording.name }}</a></li>
+<li aria-current="page">Edit Recording</li>
+</ol></nav>
+{% endblock breadcrumb %}
+
+{% block content %}
+<h1 id="edit-rec-heading" tabindex="-1">Edit Recording: {{ recording.name }}</h1>
+<label>Recording name: <input type="text" id="recName" data-rid="{{ recording.id }}" value="{{ recording.name }}"></label>
+<section aria-labelledby="timing-heading">
+<h2 id="timing-heading">Edit Timing</h2>
+<label><input type="checkbox" id="shiftSubsequent"> Shift subsequent slides when editing a timestamp</label>
+<table>
+<thead><tr><th>Slide</th><th>Title</th><th>Start Time (seconds)</th></tr></thead>
+<tbody id="cueTableBody" data-vtt-url="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}/slides.vtt"></tbody>
+</table>
+<div aria-live="polite" id="timing-status"></div>
+<button type="button" id="saveTimingBtn" hidden>Save</button>
+<button type="button" id="discardTimingBtn" hidden>Discard</button>
+</section>
+<section aria-labelledby="files-heading">
+<h2 id="files-heading">Replace Files</h2>
+<form id="replaceFilesForm" data-rid="{{ recording.id }}">
+<label>Video (optional): <input type="file" name="video" accept="video/*"></label>
+<label>Captions VTT (optional): <input type="file" name="captions" accept=".vtt,text/vtt"></label>
+<button type="submit">Replace</button>
+</form>
+<div aria-live="polite" id="files-status"></div>
+</section>
+<a href="/{{ pres_user.name }}/{{ pres.id }}/{{ recording.id }}">Watch recording</a>
+<script>document.getElementById('edit-rec-heading').focus();</script>
+{% endblock content %}
