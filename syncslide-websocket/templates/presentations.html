@@ -50,7 +50,7 @@
 				<tbody>
 				{% for rec in pres.recordings %}
 				<tr>
-					<td><a href="/{{ pres.owner_name }}/{{ pres.id }}/{{ rec.id }}">{{ rec.name }}</a></td>
+					<td><a href="/{{ pres.owner_name }}/{{ pres.id }}/{{ rec.id }}" target="_blank" rel="noreferrer noopener">{{ rec.name }}<svg aria-hidden="true" focusable="false" width="12" height="12" viewBox="0 0 12 12" style="margin-left:0.25em"><path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7M8 1h3v3M11 1L5 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> <span class="sr-only">(opens in new tab)</span></a></td>
 					<td>{{ rec.start | truncate(length=10, end="") }}</td>
 					<td>{% if rec.last_edited %}{{ rec.last_edited | truncate(length=10, end="") }}{% else %}—{% endif %}</td>
 					<td>
