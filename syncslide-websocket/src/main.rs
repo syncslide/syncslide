@@ -1027,6 +1027,46 @@ async fn recording(
         .into_response()
 }
 
+async fn edit_recording(
+    State(tera): State<Tera>,
+    State(db): State<SqlitePool>,
+    auth_session: AuthSession,
+    Path((uname, pid, rid)): Path<(String, i64, i64)>,
+) -> impl IntoResponse {
+    if auth_session.user.is_none() {
+        return Redirect::to("/auth/login").into_response();
+    }
+    let Ok(Some(pres_user)) = User::get_by_name(uname, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let Ok(Some(pres)) = DbPresentation::get_by_id(pid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if pres.user_id != pres_user.id {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let Ok(Some(rec)) = Recording::get_by_id(rid, &db).await else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    if rec.presentation_id != pid {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+    let access = match check_access(&db, auth_session.user.as_ref(), pid, Some(rid)).await {
+        Ok(a) => a,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
+    if !matches!(access, AccessResult::Owner | AccessResult::Editor | AccessResult::Controller) {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    let mut ctx = Context::new();
+    ctx.insert("recording", &rec);
+    ctx.insert("pres", &pres);
+    ctx.insert("pres_user", &pres_user);
+    tera.render("edit_recording.html", ctx, auth_session, db)
+        .await
+        .into_response()
+}
+
 async fn demo(State(db): State<SqlitePool>) -> impl IntoResponse {
     let Ok(Some(user)) = User::get_by_name("admin".to_string(), &db).await else {
         return Redirect::to("/").into_response();
@@ -1713,6 +1753,7 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         .route("/help", get(help))
         .route("/{uname}/{pid}/edit", get(edit_pres))
         .route("/{uname}/{pid}/{rid}", get(recording))
+        .route("/{uname}/{pid}/{rid}/edit", get(edit_recording))
         .route("/{uname}/{pid}/{rid}/slides.vtt", get(slides_vtt))
         .route("/{uname}/{pid}/{rid}/slides.html", get(slides_html))
         .nest_service("/css", ServeDir::new("css/"))
@@ -2806,6 +2847,35 @@ mod tests {
             .get(&format!("/admin/{pid}/{rid}"))
             .await;
         assert_eq!(resp.status_code(), 403);
+    }
+
+    /// GET /{uname}/{pid}/{rid}/edit by the owner must return 200 with the edit-rec-heading.
+    #[tokio::test]
+    async fn owner_gets_edit_recording_page() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Edit Rec Test", &state.db_pool).await;
+        let rid = seed_recording(pid, &state.db_pool).await;
+        login_as(&server, "admin", "admin").await;
+
+        let resp = server.get(&format!("/admin/{pid}/{rid}/edit")).await;
+        assert_eq!(resp.status_code(), 200);
+        assert!(
+            resp.text().contains(r#"id="edit-rec-heading""#),
+            "edit recording page must have edit-rec-heading"
+        );
+    }
+
+    /// GET /{uname}/{pid}/{rid}/edit without login must redirect to /auth/login.
+    #[tokio::test]
+    async fn unauthenticated_edit_recording_redirects() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Edit Rec Auth Test", &state.db_pool).await;
+        let rid = seed_recording(pid, &state.db_pool).await;
+
+        let resp = server.get(&format!("/admin/{pid}/{rid}/edit")).await;
+        assert_eq!(resp.status_code(), 303);
     }
 
     /// GET /{uname}/{pid}/edit by the owner must serve the edit page.
