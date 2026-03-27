@@ -34,6 +34,8 @@ const handleUpdate = (message) => {
 		if (presNameEl) presNameEl.textContent = message.data;
 		const slideH1 = document.querySelector('#currentSlide h1');
 		if (slideH1) slideH1.textContent = message.data;
+		const mdLabel = document.getElementById('input');
+		if (mdLabel) mdLabel.textContent = 'Markdown: ' + message.data;
 		const mode = window.presPageMode;
 		document.title = mode === 'stage'
 		    ? `${message.data} \u2013 Stage - SyncSlide`

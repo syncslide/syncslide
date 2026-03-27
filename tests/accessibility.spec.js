@@ -93,3 +93,37 @@ test.describe('stage and edit page H1 focus', () => {
         await expect(items.last()).toHaveAttribute('aria-current', 'page');
     });
 });
+
+test.describe('markdown label syncs via WebSocket name update', () => {
+    test('markdown label on second edit tab updates when name changes via WS', async ({ browser }) => {
+        const { loginAsAdmin } = require('./helpers');
+
+        // Tab 1 — receives the WS name update
+        const ctx1 = await browser.newContext();
+        const page1 = await ctx1.newPage();
+        await loginAsAdmin(page1);
+        await page1.goto('/admin/1/edit');
+        await expect(page1.locator('#edit-heading')).toBeFocused();
+
+        // Tab 2 — sends the name change
+        const ctx2 = await browser.newContext();
+        const page2 = await ctx2.newPage();
+        await loginAsAdmin(page2);
+        await page2.goto('/admin/1/edit');
+
+        // Change name on tab 2 (blur commits via onCommit)
+        const newName = 'WS Label Sync Test ' + Date.now();
+        await page2.fill('#presName', newName);
+        await page2.locator('#presName').blur();
+
+        // Wait for WS propagation and verify label on tab 1
+        await expect(page1.locator('#input')).toHaveText('Markdown: ' + newName, { timeout: 5000 });
+
+        // Restore original name
+        await page2.fill('#presName', 'Demo');
+        await page2.locator('#presName').blur();
+
+        await ctx1.close();
+        await ctx2.close();
+    });
+});
