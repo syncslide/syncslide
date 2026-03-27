@@ -39,6 +39,7 @@
 				document.title = `Edit Recording: ${newName} - SyncSlide`;
 				const h1 = document.getElementById('edit-rec-heading');
 				if (h1) h1.textContent = `Edit Recording: ${newName}`;
+				new BroadcastChannel('syncslide').postMessage({ type: 'rec-name', rid: rid, name: newName });
 				if (renameStatus) {
 					renameStatus.textContent = 'Recording renamed.';
 					setTimeout(() => { renameStatus.textContent = ''; }, 3000);
