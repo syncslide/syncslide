@@ -49,7 +49,6 @@ Commit the updated `.sqlx/` files alongside your query changes.
 
 - Branch from `main`
 - CI runs the full test suite automatically on every PR — the PR cannot merge until it passes
-- Do not rewrite history (`git push --force` to `main` is not permitted)
 
 ---
 

@@ -10,7 +10,6 @@ Live instance: [syncslide.clippycat.ca](https://syncslide.clippycat.ca)
 - Audience sees the presenter's current slide in real time via WebSocket
 - LaTeX support via KaTeX
 - Server-side recording with synchronized slide playback
-- Accessible-first: WCAG 2.2 AAA target, keyboard navigable, screen reader tested
 - Share presentations with other users, or make them public
 
 ## Self-hosting
