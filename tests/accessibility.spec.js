@@ -44,6 +44,23 @@ test.describe('authenticated pages', () => {
         await page.goto('/admin/1');
         await expect(page.locator('#markdown-input')).not.toBeAttached();
     });
+
+    test('QR toggle announces state change via live region', async ({ page }) => {
+        await page.goto('/admin/1');
+        const btn = page.locator('#qrToggle');
+        const announce = page.locator('#qr-announce');
+
+        // Live region must exist in DOM
+        await expect(announce).toBeAttached();
+
+        // Toggle QR on — region must announce
+        await btn.click();
+        await expect(announce).toContainText(/QR code/i, { timeout: 2000 });
+
+        // Toggle QR off — region must announce
+        await btn.click();
+        await expect(announce).toContainText(/QR code/i, { timeout: 2000 });
+    });
 });
 
 test.describe('stage and edit page H1 focus', () => {
@@ -96,8 +113,6 @@ test.describe('stage and edit page H1 focus', () => {
 
 test.describe('markdown label syncs via WebSocket name update', () => {
     test('markdown label on second edit tab updates when name changes via WS', async ({ browser }) => {
-        const { loginAsAdmin } = require('./helpers');
-
         // Tab 1 — receives the WS name update
         const ctx1 = await browser.newContext();
         const page1 = await ctx1.newPage();

@@ -9,6 +9,7 @@
 <aside id="qrOverlay" hidden aria-label="QR code">
 <a href="/{{ pres_user.name }}/{{ pres.id }}"><img src="/qr/{{ pres_user.name }}/{{ pres.id }}" alt="{{ pres.name }} QR code" width="150" height="150"></a>
 </aside>
+<div id="qr-announce" aria-live="polite" class="sr-only"></div>
 <h2><button type="button" id="record-toggle" aria-expanded="false" aria-controls="record-section">Record: <span id="rec-status">Stopped</span> — <span id="rec-timer">00:00:00</span></button></h2>
 <div id="rec-announce" aria-live="polite" class="sr-only"></div>
 <section id="record-section" aria-label="Recording controls" hidden>
