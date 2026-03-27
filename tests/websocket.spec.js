@@ -98,8 +98,9 @@ test.describe('server-side recording sync', () => {
         await page1.goto(STAGE_URL);
         await page2.goto(STAGE_URL);
 
-        // Expand the recording section so its buttons are accessible
+        // Expand the recording section on both pages so buttons are accessible
         await page1.click('#record-toggle');
+        await page2.click('#record-toggle');
 
         // Ensure recording is stopped before starting (in case prior test left it running)
         const stopBtn1 = page1.locator('#recordStop');
@@ -131,6 +132,7 @@ test.describe('server-side recording sync', () => {
         await page2.goto(STAGE_URL);
 
         await page1.click('#record-toggle');
+        await page2.click('#record-toggle');
         await page1.click('#recordStart');
         await expect(page2.locator('#rec-status')).toHaveText('Recording', { timeout: 3000 });
 
@@ -156,6 +158,7 @@ test.describe('server-side recording sync', () => {
         await page2.goto(STAGE_URL);
 
         await page1.click('#record-toggle');
+        await page2.click('#record-toggle');
         await page1.click('#recordStart');
         await expect(page2.locator('#rec-status')).toHaveText('Recording', { timeout: 3000 });
 
