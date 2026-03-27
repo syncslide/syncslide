@@ -94,6 +94,30 @@ test.describe('theme toggle — public pages', () => {
         expect(textAfter.trim()).toBe('Enable light mode');
     });
 
+    test('theme toggle button has aria-pressed attribute', async ({ page }) => {
+        await page.goto('/');
+        const btn = page.locator('#theme-toggle');
+        await expect(btn).toHaveAttribute('aria-pressed');
+    });
+
+    test('theme toggle aria-pressed reflects current state', async ({ page }) => {
+        await page.goto('/');
+        const btn = page.locator('#theme-toggle');
+        const html = page.locator('html');
+
+        // aria-pressed must match the current theme
+        const theme = await html.getAttribute('data-theme');
+        const pressed = await btn.getAttribute('aria-pressed');
+        // dark mode = pressed (the button represents "dark mode is on")
+        expect(pressed).toBe(theme === 'dark' ? 'true' : 'false');
+
+        // Toggle and verify aria-pressed flips
+        await btn.click();
+        const newTheme = await html.getAttribute('data-theme');
+        const newPressed = await btn.getAttribute('aria-pressed');
+        expect(newPressed).toBe(newTheme === 'dark' ? 'true' : 'false');
+    });
+
     test('axe passes in dark theme', async ({ page }) => {
         await page.goto('/');
         // Ensure dark theme
