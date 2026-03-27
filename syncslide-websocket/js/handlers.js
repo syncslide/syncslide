@@ -167,6 +167,27 @@ if (slideDialog) {
 	document.getElementById('slideDialogCancel').addEventListener('click', () => {
 		slideDialog.close();
 	});
+	// Tab-trap: keep focus within the dialog (ARIA APG modal dialog pattern)
+	slideDialog.addEventListener('keydown', (e) => {
+		if (e.key !== 'Tab') return;
+		const focusable = Array.from(slideDialog.querySelectorAll(
+			'button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+		)).filter(el => !el.disabled && !el.closest('[hidden]') && !el.hidden);
+		if (focusable.length === 0) return;
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		if (e.shiftKey) {
+			if (document.activeElement === first) {
+				e.preventDefault();
+				last.focus();
+			}
+		} else {
+			if (document.activeElement === last) {
+				e.preventDefault();
+				first.focus();
+			}
+		}
+	});
 }
 
 document.getElementById('addSlide')?.addEventListener('click', () => {
@@ -202,10 +223,8 @@ if (slideTableBody) {
 		const sel = e.target.closest('select[data-idx]');
 		if (sel) executeSlideAction(sel);
 	});
-	if (window.matchMedia('(pointer: coarse)').matches) {
-		slideTableBody.addEventListener('change', (e) => {
-			const sel = e.target.closest('select[data-idx]');
-			if (sel) executeSlideAction(sel);
-		});
-	}
+	slideTableBody.addEventListener('change', (e) => {
+		const sel = e.target.closest('select[data-idx]');
+		if (sel) executeSlideAction(sel);
+	});
 }
