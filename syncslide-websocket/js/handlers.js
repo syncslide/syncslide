@@ -176,8 +176,9 @@ if (slideDialog) {
 		if (focusable.length === 0) return;
 		const first = focusable[0];
 		const last = focusable[focusable.length - 1];
+		const heading = document.getElementById('slideDialogHeading');
 		if (e.shiftKey) {
-			if (document.activeElement === first) {
+			if (document.activeElement === first || document.activeElement === heading) {
 				e.preventDefault();
 				last.focus();
 			}
