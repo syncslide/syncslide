@@ -66,6 +66,14 @@ test.describe('recording playback page', () => {
         await expect(h1).toContainText('Demo');
     });
 
+    test('page h1 has tabindex=-1', async ({ page }) => {
+        await expect(page.locator('#recording-heading')).toHaveAttribute('tabindex', '-1');
+    });
+
+    test('page h1 receives focus on load', async ({ page }) => {
+        await expect(page.locator('#recording-heading')).toBeFocused();
+    });
+
     test('video section is present with labelled heading', async ({ page }) => {
         const section = page.locator('section[aria-labelledby="video-heading"]');
         await expect(section).toBeVisible();
