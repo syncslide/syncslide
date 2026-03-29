@@ -27,6 +27,8 @@ use sqlx::sqlite::SqliteConnectOptions;
 use std::str::FromStr;
 use tera::{Context, Tera as TeraBase};
 use time::Duration;
+use std::net::{IpAddr, Ipv4Addr};
+use tower_governor::{GovernorError, GovernorLayer, governor::GovernorConfigBuilder, key_extractor::KeyExtractor};
 use tower_http::services::ServeDir;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::SqliteStore;
@@ -72,15 +74,15 @@ impl Tera {
     ) -> Response<Body> {
         if let Some(ref user) = auth_session.user {
             ctx.insert("user", &user);
-            let groups = auth_session
-                .backend
-                .get_user_permissions(user)
-                .await
-                .unwrap();
-            ctx.insert("groups", &groups);
+            match auth_session.backend.get_user_permissions(user).await {
+                Ok(groups) => ctx.insert("groups", &groups),
+                Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+            }
         }
-        let html = self.tera.render(name, &ctx).unwrap();
-        Html(html).into_response()
+        match self.tera.render(name, &ctx) {
+            Ok(html) => Html(html).into_response(),
+            Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        }
     }
 }
 
@@ -164,6 +166,35 @@ pub struct Presentation {
     presenter_count: usize,
 }
 
+/// Extracts the client IP address for rate limiting.
+///
+/// Reads from `X-Forwarded-For` (set by Caddy in production) or `X-Real-IP`.
+/// Falls back to the loopback address in local development and test environments.
+/// Safe to use behind a trusted reverse proxy like Caddy that controls these headers.
+#[derive(Clone, Debug)]
+struct ClientIpExtractor;
+
+impl KeyExtractor for ClientIpExtractor {
+    type Key = IpAddr;
+
+    fn extract<T>(&self, req: &axum::http::Request<T>) -> Result<IpAddr, GovernorError> {
+        let headers = req.headers();
+        let ip = headers
+            .get("x-forwarded-for")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|s| s.split(',').find_map(|part| part.trim().parse::<IpAddr>().ok()))
+            .or_else(|| {
+                headers
+                    .get("x-real-ip")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.trim().parse::<IpAddr>().ok())
+            })
+            // Fall back to loopback for local dev and tests (no proxy headers present).
+            .unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        Ok(ip)
+    }
+}
+
 /// The state of the entire application.
 #[derive(Clone)]
 pub struct AppState {
@@ -208,8 +239,9 @@ async fn broadcast_to_all(
 }
 
 fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
-    let mut slides = state.slides.lock().unwrap();
-    let mut pres = slides.get_mut(pid).unwrap().lock().unwrap();
+    let Ok(mut slides) = state.slides.lock() else { return; };
+    let Some(pres_arc) = slides.get_mut(pid) else { return; };
+    let Ok(mut pres) = pres_arc.lock() else { return; };
     match msg {
         SlideMessage::Slide(sn) => {
             pres.slide = sn;
@@ -222,14 +254,18 @@ fn update_slide(pid: &str, msg: SlideMessage, state: &mut AppState) {
     }
 }
 
-async fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mutex<Presentation>> {
+async fn add_client_handler_channel(
+    pid: String,
+    state: &mut AppState,
+) -> Result<Arc<Mutex<Presentation>>, StatusCode> {
     // Check if already in memory without holding lock across await
     {
         let Ok(slides) = state.slides.lock() else {
-            panic!("Unable to lock K/V store!");
+            eprintln!("K/V store mutex poisoned in add_client_handler_channel (read)");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
         };
         if let Some(pres) = slides.get(&pid) {
-            return Arc::clone(pres);
+            return Ok(Arc::clone(pres));
         }
     }
     // Not in memory — load content from DB so the initial WS message has real content
@@ -244,7 +280,8 @@ async fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mu
         String::new()
     };
     let Ok(mut slides) = state.slides.lock() else {
-        panic!("Unable to lock K/V store!");
+        eprintln!("K/V store mutex poisoned in add_client_handler_channel (write)");
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
     };
     let pres = slides.entry(pid).or_insert_with(|| {
         Arc::new(Mutex::new(Presentation {
@@ -255,7 +292,18 @@ async fn add_client_handler_channel(pid: String, state: &mut AppState) -> Arc<Mu
             presenter_count: 0,
         }))
     });
-    Arc::clone(pres)
+    Ok(Arc::clone(pres))
+}
+
+/// Returns `true` if every slide section in `content` is within the 100 KB limit.
+///
+/// Slides are delimited by `\n## ` (H2 headings), matching the frontend split logic.
+/// 100 KB per slide — keeps individual slides lean while allowing arbitrarily large decks.
+/// (OWASP Input Validation Cheat Sheet recommends explicit length caps on rich text inputs.)
+fn slides_within_size_limit(content: &str) -> bool {
+    // 100 KB per slide — lower end of the ±50% range allowed by the spec.
+    const MAX_SLIDE_BYTES: usize = 100 * 1024;
+    content.split("\n## ").all(|section| section.len() <= MAX_SLIDE_BYTES)
 }
 
 fn handle_socket(
@@ -286,6 +334,13 @@ fn handle_socket(
     if !permitted {
         return Ok(true); // silently drop
     }
+    // Slide content: max 100 KB per slide section. Disconnects on excess — mirrors HTTP 400
+    // semantics for oversized input (OWASP Input Validation Cheat Sheet §Rich Text).
+    if let SlideMessage::Text(ref content) = slide_msg {
+        if !slides_within_size_limit(content) {
+            return Err("Slide content too large");
+        }
+    }
     update_slide(pid, slide_msg.clone(), state);
     if tx.send(slide_msg).is_err() {
         cleanup(state);
@@ -314,7 +369,7 @@ async fn handle_recording_message(
             };
             // Check and initialise under lock (placeholder db_id = -1)
             {
-                let mut p = pres.lock().unwrap();
+                let Ok(mut p) = pres.lock() else { return None; };
                 if p.recording.is_some() {
                     return None;
                 }
@@ -332,13 +387,20 @@ async fn handle_recording_message(
             // Create DB row
             let rec = Recording::create(presentation_id, name, None, String::new(), pool).await.ok()?;
             // Store real db_id
-            pres.lock().unwrap().recording.as_mut()?.db_id = rec.id;
+            {
+                let Ok(mut p) = pres.lock() else { return None; };
+                if let Some(rec_state) = p.recording.as_mut() {
+                    rec_state.db_id = rec.id;
+                } else {
+                    return None;
+                }
+            }
             Some(SlideMessage::RecordingStart { elapsed_ms: 0 })
         }
 
         RecordingMessage::RecordingPause => {
             let elapsed_ms = {
-                let mut p = pres.lock().unwrap();
+                let Ok(mut p) = pres.lock() else { return None; };
                 let rec = p.recording.as_mut()?;
                 if rec.is_paused { return None; }
                 let elapsed_ms = (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms;
@@ -351,7 +413,7 @@ async fn handle_recording_message(
 
         RecordingMessage::RecordingResume => {
             let elapsed_ms = {
-                let mut p = pres.lock().unwrap();
+                let Ok(mut p) = pres.lock() else { return None; };
                 let rec = p.recording.as_mut()?;
                 if !rec.is_paused { return None; }
                 let pause_start = rec.pause_started_at?;
@@ -369,7 +431,7 @@ async fn handle_recording_message(
         RecordingMessage::RecordingStop => {
             // Extract everything needed before async work
             let (db_id, name, slides, content) = {
-                let mut p = pres.lock().unwrap();
+                let Ok(mut p) = pres.lock() else { return None; };
                 let rec = p.recording.take()?;
                 (rec.db_id, rec.name, rec.slides, p.content.clone())
             };
@@ -402,18 +464,30 @@ async fn handle_recording_message(
 }
 
 async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role: AccessResult) {
-    let pres = add_client_handler_channel(pid.clone(), &mut state).await;
+    let pres = match add_client_handler_channel(pid.clone(), &mut state).await {
+        Ok(p) => p,
+        Err(_) => {
+            // K/V store mutex is poisoned — close the connection rather than crash.
+            let _ = socket.close().await;
+            return;
+        }
+    };
     let is_presenter = matches!(role, AccessResult::Owner | AccessResult::Editor | AccessResult::Controller);
 
     // Increment presenter_count for authorized roles
     if is_presenter {
-        pres.lock().unwrap().presenter_count += 1;
+        if let Ok(mut p) = pres.lock() {
+            p.presenter_count += 1;
+        }
     }
 
     let (mut tx, mut rx, text, slide, recording_msg) = {
-        let p = pres.lock().unwrap();
-        let text = serde_json::to_string(&SlideMessage::Text(p.content.clone())).unwrap();
-        let slide = serde_json::to_string(&SlideMessage::Slide(p.slide)).unwrap();
+        let Ok(p) = pres.lock() else { return; };
+        // SlideMessage contains only strings and integers; serialisation cannot fail.
+        let text = serde_json::to_string(&SlideMessage::Text(p.content.clone()))
+            .expect("SlideMessage is always serializable");
+        let slide = serde_json::to_string(&SlideMessage::Slide(p.slide))
+            .expect("SlideMessage is always serializable");
         let (tx, rx) = (p.channel.0.clone(), p.channel.0.subscribe());
         // Build connect-time recording state message if recording is active
         let recording_msg = p.recording.as_ref().map(|rec| {
@@ -423,16 +497,18 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
                 (std::time::Instant::now() - rec.started_at).as_millis() as u64 + rec.active_ms
             };
             if rec.is_paused {
-                serde_json::to_string(&SlideMessage::RecordingPause { elapsed_ms }).unwrap()
+                serde_json::to_string(&SlideMessage::RecordingPause { elapsed_ms })
+                    .expect("SlideMessage is always serializable")
             } else {
-                serde_json::to_string(&SlideMessage::RecordingStart { elapsed_ms }).unwrap()
+                serde_json::to_string(&SlideMessage::RecordingStart { elapsed_ms })
+                    .expect("SlideMessage is always serializable")
             }
         });
         (tx, rx, text, slide, recording_msg)
     };
 
-    socket.send(Message::from(text)).await.unwrap();
-    socket.send(Message::from(slide)).await.unwrap();
+    if socket.send(Message::from(text)).await.is_err() { return; }
+    if socket.send(Message::from(slide)).await.is_err() { return; }
     if let Some(rec_msg) = recording_msg {
         let _ = socket.send(Message::from(rec_msg)).await;
     }
@@ -485,9 +561,9 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
             // Capture slide snapshot for active recording
             if let Some(n) = slide_n {
                 if is_presenter {
-                    let mut slides_map = state1.slides.lock().unwrap();
+                    let Ok(mut slides_map) = state1.slides.lock() else { continue; };
                     if let Some(p) = slides_map.get_mut(&pid) {
-                        let mut p = p.lock().unwrap();
+                        let Ok(mut p) = p.lock() else { continue; };
                         if let Some(ref mut rec) = p.recording {
                             if !rec.is_paused {
                                 let offset_ms = (std::time::Instant::now() - rec.started_at)
@@ -503,11 +579,15 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
 
     let channel_handler = async {
         while let Ok(msg) = rx.recv().await {
-            let text = serde_json::to_string(&msg).unwrap();
-            sock_send.send(Message::from(text)).await.unwrap();
-            let id = pid.parse().unwrap();
-            if let SlideMessage::Text(text) = msg {
-                let _ = DbPresentation::update_content(id, text, &state.db_pool).await;
+            // SlideMessage contains only strings and integers; serialisation cannot fail.
+            let text = serde_json::to_string(&msg)
+                .expect("SlideMessage is always serializable");
+            if sock_send.send(Message::from(text)).await.is_err() {
+                return;
+            }
+            // pid is a URL path segment parsed as i64 in the ws route; persist without panicking.
+            if let (Ok(id), SlideMessage::Text(content)) = (pid.parse::<i64>(), msg) {
+                let _ = DbPresentation::update_content(id, content, &state.db_pool).await;
             }
         }
     };
@@ -516,10 +596,12 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
 
     // Auto-stop recording if this was the last presenter
     if is_presenter {
-        let should_stop = {
-            let mut p = pres.lock().unwrap();
-            p.presenter_count = p.presenter_count.saturating_sub(1);
-            p.presenter_count == 0 && p.recording.is_some()
+        let should_stop = match pres.lock() {
+            Ok(mut p) => {
+                p.presenter_count = p.presenter_count.saturating_sub(1);
+                p.presenter_count == 0 && p.recording.is_some()
+            }
+            Err(_) => false, // mutex poisoned; skip recording cleanup
         };
         if should_stop {
             handle_recording_message(
@@ -701,6 +783,11 @@ async fn start_pres(
     if name_form.name.is_empty() {
         return Redirect::to("/start").into_response();
     }
+    // Presentation name: 200-char limit — aligns with Google Slides and common tools.
+    // Prevents DB text column overflow and oversized page titles.
+    if name_form.name.len() > 200 {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
     let pres = DbPresentation::new(&user, name_form.name, &db).await;
     if let Err(ref e) = pres {
         println!("{e:?}");
@@ -772,7 +859,11 @@ async fn stage(
     if auth_session.user.is_none() {
         return Redirect::to("/auth/login").into_response();
     }
-    let pres = DbPresentation::get_by_id(pid, &db).await.unwrap().unwrap();
+    let pres = match DbPresentation::get_by_id(pid, &db).await {
+        Ok(Some(p)) => p,
+        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
     let slide_index = current_slide_index(&app_state, pid);
     let initial_slide = render_slide(&pres.content, slide_index, &pres.name);
     let mut ctx = Context::new();
@@ -907,7 +998,14 @@ async fn new_user_form(
     {
         return StatusCode::NOT_FOUND.into_response();
     }
-    User::new(&db, new_user).await.unwrap();
+    // User display name: 100-char limit — prevents oversized names in DB and UI rendering.
+    // Chosen at the lower end of the ±50% range; aligns with GOV.UK Design System name field guidance.
+    if new_user.name.len() > 100 {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    if User::new(&db, new_user).await.is_err() {
+        return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+    }
     Redirect::to("/user/presentations").into_response()
 }
 async fn new_user(
@@ -948,7 +1046,10 @@ async fn change_pwd_form(
     if pwd_form.new != pwd_form.confirm {
         return Redirect::to("/user/change_pwd?error=Passwords+do+not+match").into_response();
     }
-    let phash = PasswordHash::new(&user.password).unwrap();
+    let phash = match PasswordHash::new(&user.password) {
+        Ok(h) => h,
+        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+    };
     if Argon2::default()
         .verify_password(pwd_form.old.as_bytes(), &phash)
         .is_err()
@@ -1280,6 +1381,10 @@ async fn update_presentation_name(
     .await;
     if !matches!(owner_count, Ok(1)) {
         return StatusCode::FORBIDDEN.into_response();
+    }
+    // Presentation name: 200-char limit — consistent with the /create form validation.
+    if body.len() > 200 {
+        return StatusCode::BAD_REQUEST.into_response();
     }
     match DbPresentation::update_name(pid, body, &db).await {
         Ok(()) => StatusCode::OK.into_response(),
@@ -1707,10 +1812,21 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
         slides: Arc::new(Mutex::new(HashMap::new())),
         db_pool,
     };
+    // Rate-limit POST /auth/login: 5 attempts per IP per minute (OWASP brute-force prevention).
+    // Burst of 5 with one token replenished every 12 s gives a sustained rate of 5/minute.
+    // ClientIpExtractor reads X-Forwarded-For (set by Caddy) and falls back to 127.0.0.1
+    // in dev/test environments where no proxy header is present.
+    let login_rate_limit = {
+        let mut builder = GovernorConfigBuilder::default();
+        builder.per_second(12);
+        builder.burst_size(5);
+        let conf = builder.key_extractor(ClientIpExtractor).finish().unwrap();
+        GovernorLayer::new(Arc::new(conf))
+    };
     let router = Router::new()
         .route("/", get(index))
         .route("/auth/login", get(login))
-        .route("/auth/login", post(login_process))
+        .route("/auth/login", post(login_process).layer(login_rate_limit))
         .route("/auth/logout", get(logout))
         .route("/user/presentations", get(presentations))
         .route("/user/recordings/{rid}/delete", post(delete_recording))
@@ -1769,7 +1885,9 @@ pub async fn build_app(db_pool: SqlitePool) -> (Router, AppState) {
                     "/user/recordings/{rid}/files",
                     post(update_recording_files),
                 )
-                .layer(DefaultBodyLimit::disable()),
+                // 50 MB upload limit — matches common video-hosting constraints (Mux, Vimeo Basic).
+        // Chosen at the lower end of the ±50% range; prevents runaway memory use on the server.
+        .layer(DefaultBodyLimit::max(50 * 1024 * 1024)),
         )
         .with_state(state.clone())
         .layer(auth_layer);
@@ -3414,6 +3532,98 @@ mod tests {
         assert_eq!(resp.status_code(), 403);
     }
 
+    /// POST /user/recordings/{rid}/files without authentication must return 401.
+    #[tokio::test]
+    async fn update_recording_files_requires_auth() {
+        let (server, _state) = test_server().await;
+        let form = axum_test::multipart::MultipartForm::new();
+        let resp = server
+            .post("/user/recordings/1/files")
+            .multipart(form)
+            .await;
+        assert_eq!(resp.status_code(), axum::http::StatusCode::UNAUTHORIZED);
+    }
+
+    /// POST /user/recordings/{rid}/files with an ID that does not belong to the
+    /// authenticated user must return 404.
+    #[tokio::test]
+    async fn update_recording_files_rejects_unowned_recording() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+        // The recording is owned by admin; testuser tries to upload.
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Files Perm Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id",
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        login_as(&server, "testuser", "testpass").await;
+        let form = axum_test::multipart::MultipartForm::new();
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/files"))
+            .multipart(form)
+            .await;
+        assert_eq!(resp.status_code(), axum::http::StatusCode::NOT_FOUND);
+    }
+
+    /// POST /user/recordings/{rid}/files by the owner with a video part must
+    /// write the file to disk and update the `video_path` column.
+    ///
+    /// The handler writes to the relative path `assets/{rid}/`, so the test
+    /// pre-creates that directory and removes it on exit to avoid polluting the
+    /// working tree between runs.
+    #[tokio::test]
+    async fn update_recording_files_owner_uploads_video() {
+        let (server, state) = test_server().await;
+        let uid = get_user_id("admin", &state.db_pool).await;
+        let pid = seed_presentation(uid, "Files Upload Test", &state.db_pool).await;
+        let rid: i64 = sqlx::query_scalar(
+            "INSERT INTO recording (presentation_id, name, captions_path) VALUES (?, 'Rec', 'r.vtt') RETURNING id",
+        )
+        .bind(pid)
+        .fetch_one(&state.db_pool)
+        .await
+        .unwrap();
+
+        // The handler writes to assets/{rid}/ using a path relative to the
+        // process CWD. Pre-create the directory so the write succeeds.
+        let asset_dir = format!("assets/{rid}");
+        tokio::fs::create_dir_all(&asset_dir).await.unwrap();
+
+        login_as(&server, "admin", "admin").await;
+        let form = axum_test::multipart::MultipartForm::new().add_part(
+            "video",
+            axum_test::multipart::Part::bytes(b"fake-video-data".to_vec())
+                .file_name("video.mp4")
+                .mime_type("video/mp4"),
+        );
+        let resp = server
+            .post(&format!("/user/recordings/{rid}/files"))
+            .multipart(form)
+            .await;
+
+        // Cleanup before asserting so the directory is removed even on failure.
+        let _ = tokio::fs::remove_dir_all(&asset_dir).await;
+
+        assert_eq!(resp.status_code(), axum::http::StatusCode::OK);
+
+        let video_path: Option<String> =
+            sqlx::query_scalar("SELECT video_path FROM recording WHERE id = ?")
+                .bind(rid)
+                .fetch_one(&state.db_pool)
+                .await
+                .unwrap();
+        assert_eq!(
+            video_path.as_deref(),
+            Some("video.mp4"),
+            "video_path must be updated in the database after upload"
+        );
+    }
+
     /// GET /{uname}/{pid}/{rid}/slides.vtt must return VTT content for accessible recordings.
     #[tokio::test]
     async fn slides_vtt_returns_content_for_public_recording() {
@@ -3468,5 +3678,202 @@ mod tests {
         let body = resp.text();
         assert!(body.contains("<!DOCTYPE html>"), "response must be HTML");
         assert!(body.contains("<section>"), "response must contain slide sections");
+    }
+
+    // --- QR code route tests ---
+
+    /// GET /qr/{uname}/{pid} must return 200 with content-type image/svg+xml.
+    #[tokio::test]
+    async fn qr_code_returns_correct_content_type() {
+        let (server, _state) = test_server().await;
+
+        let response = server.get("/qr/testuser/42").await;
+
+        assert_eq!(response.status_code(), 200);
+        let ct = response
+            .headers()
+            .get("content-type")
+            .expect("content-type header must be present")
+            .to_str()
+            .unwrap();
+        assert!(
+            ct.starts_with("image/svg+xml"),
+            "content-type must be image/svg+xml, got: {ct}"
+        );
+    }
+
+    /// GET /qr/{uname}/{pid} body must be a well-formed SVG document.
+    #[tokio::test]
+    async fn qr_code_returns_svg_body() {
+        let (server, _state) = test_server().await;
+
+        let response = server.get("/qr/testuser/42").await;
+        let body = response.text();
+
+        assert!(body.contains("<svg"), "body must contain <svg element, got: {}", &body[..body.len().min(80)]);
+        assert!(body.contains("</svg>"), "body must contain closing </svg>");
+    }
+
+    /// GET /qr/{uname}/{pid} must succeed even when the username and presentation
+    /// ID do not correspond to any real database rows — the handler generates the
+    /// QR code from the path params without a DB lookup.
+    #[tokio::test]
+    async fn qr_code_succeeds_for_nonexistent_presentation() {
+        let (server, _state) = test_server().await;
+
+        let response = server.get("/qr/nobody/99999").await;
+
+        assert_eq!(
+            response.status_code(),
+            200,
+            "QR route must succeed even for unknown username/pid"
+        );
+        let ct = response
+            .headers()
+            .get("content-type")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert!(ct.starts_with("image/svg+xml"));
+    }
+
+    // --- Demo redirect tests ---
+
+    /// GET /demo when the admin user has at least one presentation must redirect
+    /// to /{admin.name}/{pres.id}.  Migrations seed admin (id=1) and the Demo
+    /// presentation (id=1), so the Location header must be /admin/1.
+    #[tokio::test]
+    async fn demo_with_admin_presentation_redirects_to_presentation() {
+        let (server, _state) = test_server().await;
+        // Migrations seed admin user + Demo presentation; no extra seeding needed.
+
+        let response = server.get("/demo").await;
+
+        assert_eq!(
+            response.status_code(),
+            303,
+            "demo must redirect (303) to the admin's first presentation"
+        );
+        let location = response
+            .headers()
+            .get("location")
+            .expect("Location header must be present")
+            .to_str()
+            .unwrap();
+        assert_eq!(
+            location, "/admin/1",
+            "demo must redirect to /admin/1 (seeded presentation)"
+        );
+    }
+
+    /// GET /demo when the admin user has no presentations must redirect to /.
+    #[tokio::test]
+    async fn demo_without_admin_presentations_redirects_to_home() {
+        let (_server, state) = test_server().await;
+        // Delete the seeded Demo presentation so the admin has none.
+        // Must delete recording rows first — recording has no ON DELETE CASCADE FK.
+        sqlx::query("DELETE FROM recording WHERE presentation_id IN (SELECT id FROM presentation WHERE user_id = (SELECT id FROM users WHERE name = 'admin'))")
+            .execute(&state.db_pool)
+            .await
+            .unwrap();
+        sqlx::query("DELETE FROM presentation WHERE user_id = (SELECT id FROM users WHERE name = 'admin')")
+            .execute(&state.db_pool)
+            .await
+            .unwrap();
+
+        // Build a fresh server against the same pool state.
+        let (router, _) = build_app(state.db_pool).await;
+        let server = TestServer::builder().save_cookies().build(router).unwrap();
+
+        let response = server.get("/demo").await;
+
+        assert_eq!(
+            response.status_code(),
+            303,
+            "demo with no admin presentations must still redirect"
+        );
+        let location = response
+            .headers()
+            .get("location")
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(location, "/", "demo with no presentations must redirect to /");
+    }
+
+    /// A poisoned K/V store mutex must return `Err` from `add_client_handler_channel`
+    /// rather than crashing the process with a panic.
+    #[tokio::test]
+    async fn kvstore_lock_poison_returns_err_not_panic() {
+        let pool = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(
+                SqliteConnectOptions::from_str("sqlite::memory:")
+                    .unwrap()
+                    .foreign_keys(false),
+            )
+            .await
+            .unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+
+        // Poison the slides mutex by panicking while a guard is held.
+        let slides: Arc<Mutex<HashMap<String, Arc<Mutex<Presentation>>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let slides_clone = Arc::clone(&slides);
+        let _ = std::thread::spawn(move || {
+            let _guard = slides_clone.lock().unwrap();
+            panic!("intentional poison");
+        })
+        .join();
+        assert!(slides.lock().is_err(), "mutex should be poisoned after panic");
+
+        let mut state = AppState {
+            tera: Tera::new(),
+            slides,
+            db_pool: pool,
+        };
+
+        let result = add_client_handler_channel("1".to_string(), &mut state).await;
+        assert!(
+            result.is_err(),
+            "poisoned K/V store must return Err, not panic"
+        );
+    }
+
+    /// After 5 login attempts from the same IP, the 6th must be rejected with HTTP 429.
+    #[tokio::test]
+    async fn login_rate_limiting_returns_429_after_limit() {
+        let (server, state) = test_server().await;
+        seed_user(&state.db_pool).await;
+
+        // Send 5 attempts — all should be handled normally (not rate-limited).
+        for i in 0..5_u8 {
+            let resp = server
+                .post("/auth/login")
+                .form(&serde_json::json!({
+                    "username": "testuser",
+                    "password": "wrongpass"
+                }))
+                .await;
+            assert_ne!(
+                resp.status_code().as_u16(),
+                429,
+                "attempt {i} should not be rate-limited"
+            );
+        }
+
+        // The 6th attempt from the same IP must be rejected.
+        let resp = server
+            .post("/auth/login")
+            .form(&serde_json::json!({
+                "username": "testuser",
+                "password": "wrongpass"
+            }))
+            .await;
+        assert_eq!(
+            resp.status_code().as_u16(),
+            429,
+            "6th attempt must return 429 Too Many Requests"
+        );
     }
 }
