@@ -2,6 +2,7 @@
 {% block title %}{% if pres %}{{ pres.name }}{% else %}Audience{% endif %}{% endblock title %}
 
 {% block js %}
+<script defer="defer" src="/js/purify.min.js"></script>
 <script defer="defer" src="/js/remarkable.js"></script>
 <script defer="defer" src="/js/katex.js"></script>
 <script defer="defer" src="/js/auto-render.js"></script>
@@ -14,6 +15,7 @@
 
 {% block breadcrumb %}{% if pres %}<nav aria-label="Breadcrumb"><ol><li><a href="/">Home</a></li><li aria-current="page">{{ pres.name }}</li></ol></nav>{% endif %}{% endblock breadcrumb %}
 {% block content %}
+<div id="ws-status" role="status" hidden></div>
 {% block stage %}{% endblock stage %}
 {% if pres %}<span id="pres-name" hidden>{{ pres.name }}</span>{% endif %}
 <section aria-live="polite" aria-label="Current slide" id="currentSlide">{% if initial_slide %}{{ initial_slide | safe }}{% endif %}</section>

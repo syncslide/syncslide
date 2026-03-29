@@ -9,7 +9,9 @@ const updateMarkdown = async () => {
 	const render = md.render(markdownInput);
 	const dom = stringToDOM(render);
 	if (typeof getH2s === 'function') getH2s(dom);
-	socket.send(JSON.stringify({ type: "text", data: markdownInput }));
+	if (socket && socket.readyState === WebSocket.OPEN) {
+		socket.send(JSON.stringify({ type: "text", data: markdownInput }));
+	}
 	if (typeof updateSlide === 'function') updateSlide();
 	renderSlideTable();
 }
@@ -51,9 +53,11 @@ function syncFromSlides(slides) {
 	textInput.value = markdown;
 	lastSentMarkdown = markdown;
 	const d = document.createElement('div');
-	d.innerHTML = md.render(markdown);
+	d.innerHTML = DOMPurify.sanitize(md.render(markdown));
 	if (typeof getH2s === 'function') getH2s(d);
-	socket.send(JSON.stringify({ type: "text", data: markdown }));
+	if (socket && socket.readyState === WebSocket.OPEN) {
+		socket.send(JSON.stringify({ type: "text", data: markdown }));
+	}
 	if (typeof updateSlide === 'function') updateSlide();
 }
 
@@ -131,7 +135,9 @@ if (presNameInput) {
 		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
 		const qrImg = document.querySelector('#qrOverlay img');
 		if (qrImg) qrImg.alt = `${newName} QR code`;
-		socket.send(JSON.stringify({ type: "name", data: newName }));
+		if (socket && socket.readyState === WebSocket.OPEN) {
+				socket.send(JSON.stringify({ type: "name", data: newName }));
+			}
 		new BroadcastChannel('syncslide').postMessage({ type: 'pres-name', pid: pid, name: newName });
 		await fetch(`/user/presentations/${pid}/name`, {
 			method: 'POST',

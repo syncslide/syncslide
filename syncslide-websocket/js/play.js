@@ -20,7 +20,7 @@ window.addEventListener("load", () => {
 			const cue = Array.from(slidesData.cues).find(c => c.startTime === targetTime);
 			if (cue) {
 				const parsed = JSON.parse(cue.text);
-				slidesContainer.innerHTML = parsed.content ?? parsed.data ?? '';
+				slidesContainer.innerHTML = DOMPurify.sanitize(parsed.content ?? parsed.data ?? '');
 				markExternalLinks(slidesContainer);
 			}
 		}

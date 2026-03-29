@@ -18,12 +18,16 @@ function getPresName() { return presNameEl ? presNameEl.textContent.trim() : '';
 
 function stringToDOM(htmlString) {
 	var tempElement = document.createElement('div');
-	tempElement.innerHTML = htmlString.trim();
+	tempElement.innerHTML = DOMPurify.sanitize(htmlString.trim());
 return tempElement;
 }
 
 const handleUpdate = (message) => {
-	message = JSON.parse(message.data);
+	try {
+		message = JSON.parse(message.data);
+	} catch (e) {
+		return;
+	}
 	if (message.type && message.type.startsWith('recording_')) {
 		if (typeof handleRecordingMessage === 'function') {
 			handleRecordingMessage(message.type, message.data || {});
@@ -64,12 +68,12 @@ const handleUpdate = (message) => {
 		h1.textContent = presName;
 		htmlOutput.appendChild(h1);
 	}
-	for (nh of newHtml) {
+	for (let nh of newHtml) {
 		htmlOutput.appendChild(nh);
 	}
 	updateRender();
 	markExternalLinks(htmlOutput);
 }
 
-socket.onmessage = handleUpdate
+wsRegisterMessageHandler(handleUpdate);
 

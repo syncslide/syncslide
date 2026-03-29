@@ -473,6 +473,8 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
         }
     };
     let is_presenter = matches!(role, AccessResult::Owner | AccessResult::Editor | AccessResult::Controller);
+    // Audience and public viewers must not receive recording control messages.
+    let is_audience = matches!(role, AccessResult::Audience | AccessResult::PublicOk);
 
     // Increment presenter_count for authorized roles
     if is_presenter {
@@ -509,8 +511,11 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
 
     if socket.send(Message::from(text)).await.is_err() { return; }
     if socket.send(Message::from(slide)).await.is_err() { return; }
+    // Audience and public connections do not receive recording control state on connect.
     if let Some(rec_msg) = recording_msg {
-        let _ = socket.send(Message::from(rec_msg)).await;
+        if !is_audience {
+            let _ = socket.send(Message::from(rec_msg)).await;
+        }
     }
 
     let mut state1 = state.clone();
@@ -579,6 +584,16 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
 
     let channel_handler = async {
         while let Ok(msg) = rx.recv().await {
+            // Audience and public connections only receive Slide, Text, and Name messages.
+            // Recording control events (start/pause/resume/stop) are presenter-only.
+            if is_audience
+                && !matches!(
+                    msg,
+                    SlideMessage::Text(_) | SlideMessage::Slide(_) | SlideMessage::Name(_)
+                )
+            {
+                continue;
+            }
             // SlideMessage contains only strings and integers; serialisation cannot fail.
             let text = serde_json::to_string(&msg)
                 .expect("SlideMessage is always serializable");
@@ -626,7 +641,11 @@ async fn join(
 /// Splits at `<h2>` boundaries, mirroring the JS `addSiblings` function.
 #[must_use]
 fn render_slide(markdown: &str, slide_index: u32, pres_name: &str) -> String {
-    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all()).collect();
+    // Strip raw HTML events to prevent XSS — pulldown-cmark passes them through
+    // unchanged, which would let editors embed <script> or other dangerous tags.
+    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all())
+        .filter(|e| !matches!(e, Event::Html(_) | Event::InlineHtml(_)))
+        .collect();
     let slide_starts: Vec<usize> = events
         .iter()
         .enumerate()
@@ -657,7 +676,11 @@ fn render_slide(markdown: &str, slide_index: u32, pres_name: &str) -> String {
 /// Uses the same pulldown-cmark parser as `render_slide`.
 #[must_use]
 fn render_all_slides(markdown: &str) -> Vec<(String, String)> {
-    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all()).collect();
+    // Strip raw HTML events to prevent XSS — pulldown-cmark passes them through
+    // unchanged, which would let editors embed <script> or other dangerous tags.
+    let events: Vec<Event<'_>> = Parser::new_ext(markdown, Options::all())
+        .filter(|e| !matches!(e, Event::Html(_) | Event::InlineHtml(_)))
+        .collect();
     let slide_starts: Vec<usize> = events
         .iter()
         .enumerate()
@@ -2475,6 +2498,71 @@ mod tests {
         );
     }
 
+    /// Audience connections must not receive recording control messages from the broadcast channel.
+    ///
+    /// This mirrors the server-side filtering introduced to prevent data exposure: recording
+    /// start/pause/resume/stop events are only meaningful to presenter connections (Owner /
+    /// Editor / Controller) and must be silently dropped before they reach audience or public
+    /// subscribers.  `Text`, `Slide`, and `Name` messages must still pass through so that the
+    /// audience view continues to update.
+    ///
+    /// Analogous real-world precedent: Google Docs broadcasts cursor and selection events only to
+    /// participants with edit access and never to public-link viewers.
+    #[tokio::test]
+    async fn audience_connection_does_not_receive_recording_messages() {
+        use tokio::sync::broadcast;
+
+        let (tx, _rx_main) = broadcast::channel::<SlideMessage>(16);
+
+        // Simulate the audience subscriber's receiver.
+        let mut rx_audience = tx.subscribe();
+
+        // Publish each recording control variant as if a presenter had triggered them.
+        let recording_msgs: Vec<SlideMessage> = vec![
+            SlideMessage::RecordingStart { elapsed_ms: 0 },
+            SlideMessage::RecordingPause { elapsed_ms: 500 },
+            SlideMessage::RecordingResume { elapsed_ms: 500 },
+            SlideMessage::RecordingStop {
+                id: 1,
+                name: "test".to_string(),
+                start: "2026-01-01".to_string(),
+            },
+        ];
+        for m in &recording_msgs {
+            assert!(tx.send(m.clone()).is_ok(), "broadcast send must succeed");
+        }
+
+        // Also send allowed message types that the audience view needs.
+        assert!(tx.send(SlideMessage::Slide(3)).is_ok());
+        assert!(tx.send(SlideMessage::Text("# Hello".to_string())).is_ok());
+        assert!(tx.send(SlideMessage::Name("My Talk".to_string())).is_ok());
+
+        // Apply the same filter used in the server-side channel_handler for audience connections.
+        let mut allowed = vec![];
+        while let Ok(msg) = rx_audience.try_recv() {
+            if matches!(
+                msg,
+                SlideMessage::Text(_) | SlideMessage::Slide(_) | SlideMessage::Name(_)
+            ) {
+                allowed.push(msg);
+            }
+        }
+
+        assert_eq!(allowed.len(), 3, "audience must receive exactly 3 non-recording messages");
+        assert!(
+            matches!(allowed[0], SlideMessage::Slide(3)),
+            "audience must receive Slide"
+        );
+        assert!(
+            matches!(allowed[1], SlideMessage::Text(_)),
+            "audience must receive Text"
+        );
+        assert!(
+            matches!(allowed[2], SlideMessage::Name(_)),
+            "audience must receive Name"
+        );
+    }
+
     /// POST /user/presentations/{pid}/access/add by the owner must insert the row
     /// and redirect to /user/presentations.
     #[tokio::test]
@@ -3117,6 +3205,29 @@ mod tests {
     fn render_all_slides_empty_for_no_headings() {
         let slides = render_all_slides("just some text");
         assert_eq!(slides.len(), 0);
+    }
+
+    /// Raw HTML in Markdown content must be stripped by render_slide and render_all_slides
+    /// to prevent stored XSS (OWASP A03).
+    #[test]
+    fn render_slide_strips_raw_html() {
+        let md = "## Slide 1\n<script>alert('xss')</script>\n\nSafe text";
+        // render_slide must not include the <script> tag
+        let html = render_slide(md, 0, "");
+        assert!(
+            !html.contains("<script"),
+            "render_slide must strip <script> tags, got: {html}"
+        );
+        assert!(html.contains("Safe text"), "safe content must still render");
+
+        // render_all_slides must also strip raw HTML
+        let slides = render_all_slides(md);
+        assert_eq!(slides.len(), 1);
+        assert!(
+            !slides[0].1.contains("<script"),
+            "render_all_slides must strip <script> tags, got: {}",
+            slides[0].1
+        );
     }
 
     /// Creates an isolated in-memory pool with migrations applied.

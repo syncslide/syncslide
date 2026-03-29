@@ -9,12 +9,14 @@
 {% endblock breadcrumb %}
 {% block js %}
 <script>window.presPageMode = 'edit';</script>
+<script defer src="/js/purify.min.js"></script>
 <script defer src="/js/remarkable.js"></script>
 <script defer src="/js/common.js"></script>
 <script defer src="/js/audience.js"></script>
 <script defer src="/js/handlers.js"></script>
 {% endblock js %}
 {% block content %}
+<div id="ws-status" role="status" hidden></div>
 <h1 id="edit-heading" tabindex="-1">{{ pres.name }}</h1>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
 <button type="button" id="addSlide">Add Slide</button>
