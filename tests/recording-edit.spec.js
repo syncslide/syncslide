@@ -39,8 +39,8 @@ async function createAndOpenRecordingEdit(page) {
     return editUrl;
 }
 
-test.describe.configure({ mode: 'serial' });
 test.describe('recording edit page', () => {
+    test.describe.configure({ mode: 'serial' });
     let editUrl;
 
     test.beforeAll(async ({ browser }) => {
