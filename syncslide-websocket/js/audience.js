@@ -1,14 +1,10 @@
 const qrToggleBtn = document.getElementById('qrToggle');
 const qrOverlay = document.getElementById('qrOverlay');
-const qrAnnounce = document.getElementById('qr-announce');
 if (qrToggleBtn && qrOverlay) {
 	qrToggleBtn.addEventListener('click', () => {
 		const pressed = qrToggleBtn.getAttribute('aria-pressed') === 'true';
 		qrToggleBtn.setAttribute('aria-pressed', String(!pressed));
 		qrOverlay.hidden = pressed;
-		if (qrAnnounce) {
-			qrAnnounce.textContent = pressed ? 'QR code hidden.' : 'QR code shown.';
-		}
 	});
 }
 
