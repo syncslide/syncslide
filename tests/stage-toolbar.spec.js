@@ -44,8 +44,11 @@ test.describe('stage toolbar layout', () => {
     await page.locator('#record-toggle').click();
     await page.locator('#recordStart').click();
     await expect(page.locator('#rec-status')).toHaveText('Recording', { timeout: 5000 });
-    await expect(page.locator('#rec-timer')).not.toHaveText('00:00:00', { timeout: 5000 });
-    await page.locator('#recordStop').click();
-    await expect(page.locator('#rec-status')).toHaveText('Stopped', { timeout: 5000 });
+    try {
+      await expect(page.locator('#rec-timer')).not.toHaveText('00:00:00', { timeout: 5000 });
+    } finally {
+      await page.locator('#recordStop').click();
+      await expect(page.locator('#rec-status')).toHaveText('Stopped', { timeout: 5000 });
+    }
   });
 });
