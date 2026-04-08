@@ -117,9 +117,19 @@ test.describe('markdown label syncs via WebSocket name update', () => {
         // Wait for WS propagation and verify label on tab 1
         await expect(page1.locator('#input')).toHaveText('Markdown: ' + newName, { timeout: 5000 });
 
-        // Restore original name
+        // Restore original name. The WS broadcast updates sibling tabs
+        // immediately, but the DB commit happens separately via POST
+        // /user/presentations/{pid}/name. We MUST wait for that 200 response
+        // before closing contexts, otherwise Demo stays renamed on disk and
+        // poisons sibling test files that expect the presentation to be
+        // called "Demo". (handlers.js:142 fires the fetch; the handler at
+        // main.rs:1420 awaits update_name() before replying 200.)
+        const restorePost = page2.waitForResponse(resp =>
+            resp.url().endsWith('/user/presentations/1/name') && resp.status() === 200
+        );
         await page2.fill('#presName', 'Demo');
         await page2.locator('#presName').blur();
+        await restorePost;
 
         await ctx1.close();
         await ctx2.close();

@@ -1,6 +1,6 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
-const { loginAsAdmin } = require('./helpers');
+const { loginAsAdmin, loginAs } = require('./helpers');
 
 // Correct credentials → redirected to /.
 test('login with correct credentials redirects to home', async ({ page }) => {
@@ -44,8 +44,11 @@ test('valid session grants access to presentations page', async ({ page }) => {
 });
 
 // Logout → session ended → login link visible in nav.
+// Uses loginAs (not loginAsAdmin) to POST a fresh throwaway session; logging
+// out via the cookie-based loginAsAdmin would invalidate the shared admin
+// session that globalSetup.js seeded for every other test in the suite.
 test('logout ends session and login link appears in nav', async ({ page }) => {
-    await loginAsAdmin(page);
+    await loginAs(page, 'admin', 'admin');
     await page.locator('nav[aria-label="Account"] button[aria-expanded]').click();
     await page.locator('nav[aria-label="Account"] a[href="/auth/logout"]').click();
     // Wait for the redirect to complete before asserting nav state.
@@ -55,8 +58,10 @@ test('logout ends session and login link appears in nav', async ({ page }) => {
 });
 
 // After logout, protected pages redirect to login again.
+// Also uses loginAs for a throwaway session — same reasoning as the sibling
+// logout test above.
 test('after logout, protected pages redirect to login', async ({ page }) => {
-    await loginAsAdmin(page);
+    await loginAs(page, 'admin', 'admin');
     await page.locator('nav[aria-label="Account"] button[aria-expanded]').click();
     await page.locator('nav[aria-label="Account"] a[href="/auth/logout"]').click();
     await page.waitForURL('/');

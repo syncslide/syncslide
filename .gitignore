@@ -183,3 +183,6 @@ syncslide-websocket/Cargo.lock
 **/*shm
 syncslide-websocket/test.sqlite3
 syncslide-websocket/assets/
+
+# Playwright — admin session cookies captured in globalSetup.js
+tests/.auth/
