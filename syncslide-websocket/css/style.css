@@ -157,6 +157,8 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 #qrOverlay { position: fixed; bottom: 1em; right: 1em; background: #fff; border: 2px solid var(--qr-border); padding: 8px; border-radius: 4px; z-index: 100; line-height: 0; }
 #qrOverlay img { width: 150px; height: 150px; margin: 0; }
 #qrToggle[aria-pressed="true"] { outline: 4px solid var(--qr-outline); }
+#qrToggle,
+#record-toggle { display: block; width: fit-content; margin-block: .4em; }
 
 
 /* dialog / modal */
