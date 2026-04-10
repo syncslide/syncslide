@@ -186,3 +186,7 @@ syncslide-websocket/assets/
 
 # Playwright — admin session cookies captured in globalSetup.js
 tests/.auth/
+
+# Playwright test artifacts
+test-results/
+tests/test-results/
