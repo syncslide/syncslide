@@ -196,6 +196,7 @@ function hideMarkdownUnsaved() {
     markdownUnsaved.hidden = true;
     markdownDialogMain.hidden = false;
     markdownDialog.setAttribute('aria-labelledby', 'markdownDialogHeading');
+    markdownDialogHeading.focus();
 }
 
 if (markdownDialog) {
