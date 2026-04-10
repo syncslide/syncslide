@@ -598,7 +598,24 @@ test.describe('dynamically added recording actions menu', () => {
             await expect(menu).toBeVisible();
             await expect(btn).toHaveAttribute('aria-expanded', 'true');
 
-            // Pressing Escape must close the menu.
+            // Menu must include Manage access item (was missing from dynamic rows).
+            const manageItem = menu.locator('[data-action="open-dialog"][data-dialog-id="manage-rec-access-9999"]');
+            await expect(manageItem).toBeAttached();
+            await expect(manageItem).toHaveText('Manage access');
+
+            // Clicking Manage access must open the dialog.
+            await manageItem.click();
+            const manageDialog = plistPage.locator('#manage-rec-access-9999');
+            await expect(manageDialog).toBeVisible();
+            await expect(plistPage.locator('#manage-rec-access-heading-9999')).toHaveText('Manage access for BC Test Recording');
+
+            // Close the dialog.
+            await plistPage.locator('[data-close-dialog="manage-rec-access-9999"]').click();
+            await expect(manageDialog).toBeHidden();
+
+            // Re-open and close menu via Escape.
+            await btn.click();
+            await expect(menu).toBeVisible();
             await plistPage.keyboard.press('Escape');
             await expect(menu).toBeHidden();
             await expect(btn).toHaveAttribute('aria-expanded', 'false');

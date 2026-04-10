@@ -861,9 +861,28 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 				'<button type="button" id="rec-actions-btn-' + esc(recId) + '" aria-haspopup="menu" aria-expanded="false" aria-controls="rec-actions-menu-' + esc(recId) + '">Actions: ' + esc(rec.name) + '</button>' +
 				'<ul role="menu" id="rec-actions-menu-' + esc(recId) + '" hidden>' +
 					'<li role="menuitem" tabindex="-1" data-action="copy-rec-link" data-owner-name="' + esc(ownerName) + '" data-pres-id="' + esc(pid) + '" data-rec-id="' + esc(recId) + '">Copy recording link</li>' +
+					'<li role="menuitem" tabindex="-1" data-action="open-dialog" data-dialog-id="manage-rec-access-' + esc(recId) + '" data-return-btn="rec-actions-btn-' + esc(recId) + '">Manage access</li>' +
 					'<li role="menuitem" tabindex="-1" data-action="open-rec-edit" data-edit-url="/' + esc(ownerName) + '/' + esc(pid) + '/' + esc(recId) + '/edit">Edit Recording ' + EXT_SVG + ' <span class="sr-only">(opens in new tab)</span></li>' +
-					'<li role="menuitem" tabindex="-1" data-action="open-dialog" data-dialog-id="delete-rec-' + esc(recId) + '">Delete Recording</li>' +
+					'<li role="menuitem" tabindex="-1" data-action="open-dialog" data-dialog-id="delete-rec-' + esc(recId) + '" data-return-btn="rec-actions-btn-' + esc(recId) + '">Delete Recording</li>' +
 				'</ul>' +
+				'<dialog id="manage-rec-access-' + esc(recId) + '" aria-labelledby="manage-rec-access-heading-' + esc(recId) + '" data-focus-heading="true">' +
+					'<h1 id="manage-rec-access-heading-' + esc(recId) + '" tabindex="-1">Manage access for ' + esc(rec.name) + '</h1>' +
+					'<form method="post" action="/user/recordings/' + esc(recId) + '/access/mode">' +
+						'<label for="rec-access-mode-' + esc(recId) + '">Access</label>' +
+						'<select id="rec-access-mode-' + esc(recId) + '" name="mode">' +
+							'<option value="public" selected>Public \u2014 anyone with the link</option>' +
+							'<option value="audience">Shared \u2014 same audience list as presentation</option>' +
+							'<option value="private">Private \u2014 presenters only</option>' +
+						'</select>' +
+						'<input type="hidden" name="action" value="set">' +
+						'<button type="submit">Save</button>' +
+					'</form>' +
+					'<form method="post" action="/user/recordings/' + esc(recId) + '/access/mode">' +
+						'<input type="hidden" name="action" value="inherit">' +
+						'<button type="submit">Inherit from presentation</button>' +
+					'</form>' +
+					'<button type="button" data-close-dialog="manage-rec-access-' + esc(recId) + '">Close</button>' +
+				'</dialog>' +
 				'<dialog id="delete-rec-' + esc(recId) + '" aria-labelledby="delete-rec-heading-' + esc(recId) + '">' +
 					'<h1 id="delete-rec-heading-' + esc(recId) + '" tabindex="-1">Delete ' + esc(rec.name) + '?</h1>' +
 					'<p>This will permanently delete the recording.</p>' +
@@ -875,8 +894,8 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			'</td>';
 
 		var actionsBtn = tr.querySelector('[aria-haspopup="menu"]');
-		var deleteDialog = tr.querySelector('dialog');
-		if (deleteDialog) document.body.appendChild(deleteDialog);
+		var dialogs = Array.from(tr.querySelectorAll('dialog'));
+		dialogs.forEach(function (d) { document.body.appendChild(d); });
 
 		var table = details.querySelector('table');
 		if (table) {
@@ -892,7 +911,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 
 		// setupRecMenu uses document.getElementById to find the menu, so the
 		// tr must be in the DOM before this call — otherwise it returns null.
-		if (actionsBtn) setupRecMenu(tr, actionsBtn, deleteDialog ? [deleteDialog] : []);
+		if (actionsBtn) setupRecMenu(tr, actionsBtn, dialogs);
 	}
 
 	var bc = new BroadcastChannel('syncslide');
