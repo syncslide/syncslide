@@ -88,4 +88,22 @@ test.describe('edit page — slide dialog', () => {
         await expect(firstRow.locator('select')).not.toBeAttached();
     });
 
+    test('action menu opens on click and arrow keys navigate items', async ({ page }) => {
+        const btn = page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]');
+        await btn.click();
+        const menu = page.locator('#slideTableBody tr').first().locator('[role="menu"]');
+        await expect(menu).toBeVisible();
+        // First item is focused on open
+        const firstItem = menu.locator('[role="menuitem"]').first();
+        await expect(firstItem).toBeFocused();
+        // Arrow down moves to second item
+        await page.keyboard.press('ArrowDown');
+        const secondItem = menu.locator('[role="menuitem"]').nth(1);
+        await expect(secondItem).toBeFocused();
+        // Escape closes and returns focus to button
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+        await expect(btn).toBeFocused();
+    });
+
 });

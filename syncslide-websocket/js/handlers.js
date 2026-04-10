@@ -213,37 +213,159 @@ document.getElementById('addSlide')?.addEventListener('click', () => {
 
 const slideTableBody = document.getElementById('slideTableBody');
 if (slideTableBody) {
-	function executeSlideAction(sel) {
-		const idx = parseInt(sel.dataset.idx);
-		const action = sel.value;
-		if (!action) return;
-		sel.value = '';
-		if (action === 'edit') { openSlideDialog('edit', idx); return; }
-		const slides = markdownToSlides(textInput.value);
-		if (action === 'delete') {
-			if (!confirm(`Delete slide ${idx + 1}: "${slides[idx].title}"?`)) return;
-			slides.splice(idx, 1);
-		} else if (action === 'move-up' && idx > 0) {
-			[slides[idx - 1], slides[idx]] = [slides[idx], slides[idx - 1]];
-		} else if (action === 'move-down' && idx < slides.length - 1) {
-			[slides[idx], slides[idx + 1]] = [slides[idx + 1], slides[idx]];
-		}
-		syncFromSlides(slides);
-		renderSlideTable();
-	}
-	slideTableBody.addEventListener('focusout', (e) => {
-		const sel = e.target.closest('select[data-idx]');
-		if (sel) executeSlideAction(sel);
-	});
-	slideTableBody.addEventListener('keydown', (e) => {
-		if (e.key !== 'Enter') return;
-		const sel = e.target.closest('select[data-idx]');
-		if (sel) executeSlideAction(sel);
-	});
-	// 'change' fires on all devices; executeSlideAction resets sel.value on first call,
-	// preventing the focusout listener from double-firing.
-	slideTableBody.addEventListener('change', (e) => {
-		const sel = e.target.closest('select[data-idx]');
-		if (sel) executeSlideAction(sel);
-	});
+    // --- Menu button delegation (APG Menu Button pattern) ---
+    function findMenu(btn) {
+        return document.getElementById(btn.getAttribute('aria-controls'));
+    }
+    function openSlideMenu(btn, focusLast) {
+        btn.setAttribute('aria-expanded', 'true');
+        const menu = findMenu(btn);
+        if (!menu) return;
+        menu.removeAttribute('hidden');
+        const items = Array.from(menu.querySelectorAll('[role="menuitem"]'));
+        if (items.length) (focusLast ? items[items.length - 1] : items[0]).focus();
+    }
+    function closeSlideMenu(btn) {
+        btn.setAttribute('aria-expanded', 'false');
+        const menu = findMenu(btn);
+        if (menu) menu.setAttribute('hidden', '');
+    }
+    function closeSlideMenuAndFocus(btn) {
+        closeSlideMenu(btn);
+        btn.focus();
+    }
+
+    // Click on menu button: toggle
+    slideTableBody.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[aria-haspopup="menu"]');
+        if (btn) {
+            if (btn.getAttribute('aria-expanded') === 'true') {
+                closeSlideMenuAndFocus(btn);
+            } else {
+                openSlideMenu(btn, false);
+            }
+            return;
+        }
+        // Click on menu item: activate
+        const item = e.target.closest('[role="menuitem"]');
+        if (item) {
+            const menuEl = item.closest('[role="menu"]');
+            const menuBtn = menuEl ? document.getElementById(menuEl.id.replace('menu', 'btn')) : null;
+            if (menuBtn) closeSlideMenu(menuBtn);
+            handleSlideAction(item.dataset.action, parseInt(item.dataset.idx), menuBtn);
+        }
+    });
+
+    // Keydown on menu button: arrow keys open menu
+    slideTableBody.addEventListener('keydown', (e) => {
+        const btn = e.target.closest('button[aria-haspopup="menu"]');
+        if (btn) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); openSlideMenu(btn, false); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); openSlideMenu(btn, true); }
+            return;
+        }
+        // Keydown on menu item: navigation
+        const item = e.target.closest('[role="menuitem"]');
+        if (!item) return;
+        const menuEl = item.closest('[role="menu"]');
+        if (!menuEl) return;
+        const items = Array.from(menuEl.querySelectorAll('[role="menuitem"]'));
+        const idx = items.indexOf(item);
+        const menuBtn = document.getElementById(menuEl.id.replace('menu', 'btn'));
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            items[(idx + 1) % items.length].focus();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            items[(idx - 1 + items.length) % items.length].focus();
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            items[0].focus();
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            items[items.length - 1].focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (menuBtn) closeSlideMenu(menuBtn);
+            handleSlideAction(item.dataset.action, parseInt(item.dataset.idx), menuBtn);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            if (menuBtn) closeSlideMenuAndFocus(menuBtn);
+        }
+    });
+
+    // Focusout: close menu when focus leaves it
+    slideTableBody.addEventListener('focusout', (e) => {
+        const menuEl = e.target.closest('[role="menu"]');
+        if (!menuEl) return;
+        if (menuEl.contains(e.relatedTarget)) return;
+        const menuBtn = document.getElementById(menuEl.id.replace('menu', 'btn'));
+        if (menuBtn) closeSlideMenu(menuBtn);
+    });
+
+    // --- Slide actions ---
+    function handleSlideAction(action, idx, returnBtn) {
+        if (action === 'edit') { openSlideDialog('edit', idx); return; }
+        if (action === 'delete') { openDeleteSlideDialog(idx, returnBtn); return; }
+        const slides = markdownToSlides(textInput.value);
+        if (action === 'move-up' && idx > 0) {
+            [slides[idx - 1], slides[idx]] = [slides[idx], slides[idx - 1]];
+        } else if (action === 'move-down' && idx < slides.length - 1) {
+            [slides[idx], slides[idx + 1]] = [slides[idx + 1], slides[idx]];
+        }
+        syncFromSlides(slides);
+        renderSlideTable();
+        // After re-render, focus the button at the new position
+        if (action === 'move-up' && returnBtn) {
+            const newBtn = document.getElementById('slide-actions-btn-' + (idx - 1));
+            if (newBtn) newBtn.focus();
+        } else if (action === 'move-down' && returnBtn) {
+            const newBtn = document.getElementById('slide-actions-btn-' + (idx + 1));
+            if (newBtn) newBtn.focus();
+        }
+    }
+
+    // --- Delete slide dialog ---
+    const deleteDialog = document.getElementById('deleteSlideDialog');
+    const deleteHeading = document.getElementById('deleteSlideHeading');
+    const deleteConfirmBtn = document.getElementById('deleteSlideConfirm');
+    const deleteCancelBtn = document.getElementById('deleteSlideCancel');
+    let deleteIdx = null;
+    let deleteReturnBtn = null;
+
+    function openDeleteSlideDialog(idx, returnBtn) {
+        const slides = markdownToSlides(textInput.value);
+        deleteIdx = idx;
+        deleteReturnBtn = returnBtn;
+        deleteHeading.textContent = 'Delete slide ' + (idx + 1) + ': ' + slides[idx].title + '?';
+        deleteDialog.showModal();
+        deleteHeading.focus();
+    }
+
+    if (deleteConfirmBtn) {
+        deleteConfirmBtn.addEventListener('click', () => {
+            const slides = markdownToSlides(textInput.value);
+            slides.splice(deleteIdx, 1);
+            syncFromSlides(slides);
+            renderSlideTable();
+            deleteDialog.close();
+            if (deleteReturnBtn) {
+                // Row was removed; focus the closest remaining action button
+                const remaining = document.querySelector('#slideTableBody button[aria-haspopup="menu"]');
+                if (remaining) remaining.focus();
+            }
+        });
+    }
+    if (deleteCancelBtn) {
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteDialog.close();
+            if (deleteReturnBtn) deleteReturnBtn.focus();
+        });
+    }
+    if (deleteDialog) {
+        deleteDialog.addEventListener('cancel', (e) => {
+            // Escape key — same as Cancel
+            if (deleteReturnBtn) setTimeout(() => deleteReturnBtn.focus(), 0);
+        });
+    }
 }
