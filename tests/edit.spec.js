@@ -96,6 +96,12 @@ test.describe('edit page — slide dialog', () => {
         await expect(page.locator('#slideDialogCancel')).toBeFocused();
     });
 
+    test('slide table rows have action menu buttons instead of selects', async ({ page }) => {
+        const firstRow = page.locator('#slideTableBody tr').first();
+        await expect(firstRow.locator('button[aria-haspopup="menu"]')).toBeVisible();
+        await expect(firstRow.locator('select')).not.toBeAttached();
+    });
+
     test('delete slide via actions select triggers native confirm and removes row on accept', async ({ page }) => {
         // Save original markdown to restore DB state after the test.
         const originalMarkdown = await page.locator('#markdown-input').inputValue();

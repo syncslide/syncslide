@@ -1,3 +1,9 @@
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
 let lastSentMarkdown = null;
 let dialogRefIdx = null;
 let dialogMode = 'insert'; // 'insert' | 'edit'
@@ -68,14 +74,18 @@ function renderSlideTable() {
 	slideTableBody.innerHTML = '';
 	slides.forEach((slide, i) => {
 		const tr = document.createElement('tr');
-		tr.innerHTML = `<th scope="row">${i + 1}</th><td>${slide.title}</td>`
-			+ `<td><select data-idx="${i}" aria-label="Actions for slide ${i + 1}">`
-			+ `<option value="" selected>--</option>`
-			+ `<option value="edit">Edit</option>`
-			+ `<option value="move-up">Move Up</option>`
-			+ `<option value="move-down">Move Down</option>`
-			+ `<option value="delete">Delete</option>`
-			+ `</select></td>`;
+		const menuId = 'slide-actions-menu-' + i;
+		const btnId = 'slide-actions-btn-' + i;
+		let items = '<li role="menuitem" tabindex="-1" data-action="edit" data-idx="' + i + '">Edit</li>';
+		if (i > 0) items += '<li role="menuitem" tabindex="-1" data-action="move-up" data-idx="' + i + '">Move Up</li>';
+		if (i < slides.length - 1) items += '<li role="menuitem" tabindex="-1" data-action="move-down" data-idx="' + i + '">Move Down</li>';
+		items += '<li role="menuitem" tabindex="-1" data-action="delete" data-idx="' + i + '">Delete</li>';
+		tr.innerHTML = '<th scope="row">' + (i + 1) + '</th>'
+			+ '<td>' + escapeHtml(slide.title) + '</td>'
+			+ '<td>'
+			+ '<button type="button" id="' + btnId + '" aria-haspopup="menu" aria-expanded="false" aria-controls="' + menuId + '">Actions: slide ' + (i + 1) + '</button>'
+			+ '<ul role="menu" id="' + menuId + '" hidden>' + items + '</ul>'
+			+ '</td>';
 		slideTableBody.appendChild(tr);
 	});
 }

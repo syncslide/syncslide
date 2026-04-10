@@ -23,9 +23,15 @@
 <section aria-labelledby="slides-heading">
   <h2 id="slides-heading">Slides</h2>
   <table>
-    <thead><tr><th>Slide</th><th>Title</th><th>Actions</th></tr></thead>
+    <thead><tr><th scope="col">Slide</th><th scope="col">Title</th><th scope="col">Actions</th></tr></thead>
     <tbody id="slideTableBody"></tbody>
   </table>
+  <dialog id="deleteSlideDialog" aria-labelledby="deleteSlideHeading">
+    <h1 id="deleteSlideHeading" tabindex="-1"></h1>
+    <p>This will remove the slide from the presentation.</p>
+    <button type="button" id="deleteSlideConfirm">Delete</button>
+    <button type="button" id="deleteSlideCancel">Cancel</button>
+  </dialog>
 </section>
 <section aria-labelledby="markdown-heading">
   <h2 id="markdown-heading">Markdown</h2>
