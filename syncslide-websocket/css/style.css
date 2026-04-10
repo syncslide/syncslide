@@ -142,6 +142,7 @@ a[href^="http"] .ext-label { position: absolute; width: 1px; height: 1px; overfl
 .pres-controls label, .pagination-controls label { margin-right: .4em; }
 .pres-controls select, .pagination-controls select { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 3px 6px; }
 #pres-list { list-style: none; padding: 0; margin: 0; }
+[role="menu"] { list-style: none; padding: 0; margin: 0; }
 .pres-item { border-bottom: 1px solid var(--pres-item-border); padding: .8em 0; }
 .pres-item h2 { text-align: left; margin-bottom: .25em; }
 .pres-item details { margin-top: .4em; }
