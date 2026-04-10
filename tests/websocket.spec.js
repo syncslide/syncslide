@@ -150,30 +150,30 @@ test.describe('websocket reconnection', () => {
         await audCtx.close();
     });
 
-    // Triggering a send action (blur on the markdown textarea) while the socket is
-    // closed must not throw a DOMException or crash the page.
     test('send-while-disconnected does not throw', async ({ page }) => {
         await loginAsAdmin(page);
         await page.goto(EDIT_URL);
-        await expect(page.locator('#markdown-input')).toBeVisible();
+        await expect(page.locator('#editMarkdownBtn')).toBeVisible();
 
         const pageErrors = [];
         page.on('pageerror', e => pageErrors.push(e));
+
+        // Open the markdown dialog so the textarea is accessible
+        await page.locator('#editMarkdownBtn').click();
+        await expect(page.locator('#markdownDialog')).toBeVisible();
 
         // Close the socket, confirm the banner appears (onclose has fired).
         await page.evaluate(() => window.socket.close());
         await expect(page.locator('#ws-status')).toBeVisible({ timeout: 2000 });
 
-        // Focus and blur the textarea to trigger updateMarkdown → guarded send.
-        await page.focus('#markdown-input');
-        await page.evaluate(() => document.getElementById('markdown-input').dispatchEvent(new Event('blur')));
+        // Click Save to trigger updateMarkdown → guarded send.
+        await page.locator('#markdownSaveBtn').click();
 
         // Allow any synchronous errors to propagate.
         await page.waitForTimeout(200);
 
         // The page must still be functional and no errors thrown.
         expect(pageErrors).toHaveLength(0);
-        await expect(page.locator('#markdown-input')).toBeVisible();
     });
 });
 

@@ -177,4 +177,93 @@ test.describe('edit page — markdown dialog', () => {
         await expect(heading).toHaveText('Edit Markdown');
         await expect(heading).toBeFocused();
     });
+
+    test('Save in markdown dialog sends changes and updates slide table', async ({ page }) => {
+        const initialRows = await page.locator('#slideTableBody tr').count();
+        await page.locator('#editMarkdownBtn').click();
+        const textarea = page.locator('#markdownDialog #markdown-input');
+        const current = await textarea.inputValue();
+        await textarea.fill(current + '\n\n## Extra Slide\nContent here');
+        await page.locator('#markdownSaveBtn').click();
+        await expect(page.locator('#markdownDialog')).not.toBeVisible();
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows + 1);
+        await expect(page.locator('#editMarkdownBtn')).toBeFocused();
+        // Restore
+        await page.locator('#editMarkdownBtn').click();
+        await page.locator('#markdownDialog #markdown-input').fill(current);
+        await page.locator('#markdownSaveBtn').click();
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
+    });
+
+    test('Close with no changes dismisses dialog immediately', async ({ page }) => {
+        await page.locator('#editMarkdownBtn').click();
+        await expect(page.locator('#markdownDialog')).toBeVisible();
+        await page.locator('#markdownCloseBtn').click();
+        await expect(page.locator('#markdownDialog')).not.toBeVisible();
+        await expect(page.locator('#editMarkdownBtn')).toBeFocused();
+    });
+
+    test('Close with changes shows unsaved prompt, Discard reverts', async ({ page }) => {
+        const initialRows = await page.locator('#slideTableBody tr').count();
+        await page.locator('#editMarkdownBtn').click();
+        const textarea = page.locator('#markdownDialog #markdown-input');
+        const original = await textarea.inputValue();
+        await textarea.fill(original + '\n\n## Temp Slide\ntemp');
+        await page.locator('#markdownCloseBtn').click();
+        // Unsaved prompt appears
+        await expect(page.locator('#markdownUnsavedHeading')).toBeVisible();
+        await expect(page.locator('#markdownUnsavedHeading')).toBeFocused();
+        // Discard
+        await page.locator('#markdownUnsavedDiscard').click();
+        await expect(page.locator('#markdownDialog')).not.toBeVisible();
+        // Slide table unchanged
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
+    });
+
+    test('Unsaved prompt Back returns to editing', async ({ page }) => {
+        await page.locator('#editMarkdownBtn').click();
+        const textarea = page.locator('#markdownDialog #markdown-input');
+        const original = await textarea.inputValue();
+        await textarea.fill(original + '\n\n## Temp\ntemp');
+        await page.locator('#markdownCloseBtn').click();
+        await expect(page.locator('#markdownUnsavedHeading')).toBeVisible();
+        await page.locator('#markdownUnsavedBack').click();
+        // Back to main dialog view
+        await expect(page.locator('.markdown-dialog-main')).toBeVisible();
+        await expect(page.locator('.markdown-unsaved')).toBeHidden();
+        // Heading should be focused after returning from unsaved panel
+        await expect(page.locator('#markdownDialogHeading')).toBeFocused();
+        // Discard to clean up
+        await page.locator('#markdownCloseBtn').click();
+        await page.locator('#markdownUnsavedDiscard').click();
+    });
+
+    test('Escape with changes shows unsaved prompt', async ({ page }) => {
+        await page.locator('#editMarkdownBtn').click();
+        const textarea = page.locator('#markdownDialog #markdown-input');
+        const original = await textarea.inputValue();
+        await textarea.fill(original + '\n\n## Esc Test\nesc');
+        await page.keyboard.press('Escape');
+        await expect(page.locator('#markdownUnsavedHeading')).toBeVisible();
+        // Discard to clean up
+        await page.locator('#markdownUnsavedDiscard').click();
+    });
+
+    test('Unsaved prompt Save applies changes and closes', async ({ page }) => {
+        const initialRows = await page.locator('#slideTableBody tr').count();
+        await page.locator('#editMarkdownBtn').click();
+        const textarea = page.locator('#markdownDialog #markdown-input');
+        const original = await textarea.inputValue();
+        await textarea.fill(original + '\n\n## Save Via Prompt\nprompt');
+        await page.locator('#markdownCloseBtn').click();
+        await expect(page.locator('#markdownUnsavedHeading')).toBeVisible();
+        await page.locator('#markdownUnsavedSave').click();
+        await expect(page.locator('#markdownDialog')).not.toBeVisible();
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows + 1);
+        // Restore
+        await page.locator('#editMarkdownBtn').click();
+        await page.locator('#markdownDialog #markdown-input').fill(original);
+        await page.locator('#markdownSaveBtn').click();
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
+    });
 });

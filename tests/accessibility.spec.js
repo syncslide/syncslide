@@ -115,7 +115,7 @@ test.describe('markdown label syncs via WebSocket name update', () => {
         await page2.locator('#presName').blur();
 
         // Wait for WS propagation and verify label on tab 1
-        await expect(page1.locator('#input')).toHaveText('Markdown: ' + newName, { timeout: 5000 });
+        await expect(page1.locator('label[for="markdown-input"]')).toHaveText(newName, { timeout: 5000 });
 
         // Restore original name. The WS broadcast updates sibling tabs
         // immediately, but the DB commit happens separately via POST
