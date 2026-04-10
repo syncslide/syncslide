@@ -556,6 +556,58 @@ test.describe('editor sees actions menu', () => {
     });
 });
 
+test.describe('dynamically added recording actions menu', () => {
+    // When a recording is added via BroadcastChannel while the presentations
+    // page is open, its actions menu must be functional (not dead buttons).
+    // Regression: setupRecMenu was called before the row was in the DOM, so
+    // document.getElementById couldn't find the menu and silently bailed.
+    test('actions menu opens on a recording added via BroadcastChannel', async ({ browser }) => {
+        const ctx = await browser.newContext();
+        const plistPage = await ctx.newPage();
+
+        try {
+            await plistPage.goto('http://localhost:5003');
+            await loginAsAdmin(plistPage);
+            await plistPage.goto('http://localhost:5003/user/presentations');
+
+            // Inject a fake recording-added event via BroadcastChannel.
+            await plistPage.evaluate(() => {
+                const bc = new BroadcastChannel('syncslide');
+                bc.postMessage({
+                    type: 'recording-added',
+                    pid: 1,
+                    ownerName: 'admin',
+                    rec: { id: 9999, name: 'BC Test Recording', start: '2026-04-10' },
+                });
+                bc.close();
+            });
+
+            // Wait for the new row to appear.
+            const btn = plistPage.locator('#rec-actions-btn-9999');
+            await expect(btn).toBeAttached();
+
+            // Expand the recordings <details> so the button is visible.
+            const details = plistPage.locator('.pres-item[data-id="1"] details');
+            if (!(await details.getAttribute('open'))) {
+                await details.locator('summary').click();
+            }
+
+            // The actions button must toggle the menu on click.
+            await btn.click();
+            const menu = plistPage.locator('#rec-actions-menu-9999');
+            await expect(menu).toBeVisible();
+            await expect(btn).toHaveAttribute('aria-expanded', 'true');
+
+            // Pressing Escape must close the menu.
+            await plistPage.keyboard.press('Escape');
+            await expect(menu).toBeHidden();
+            await expect(btn).toHaveAttribute('aria-expanded', 'false');
+        } finally {
+            await ctx.close();
+        }
+    });
+});
+
 test.describe('recording name BroadcastChannel sync', () => {
     // BroadcastChannel only reaches pages in the same browser context (same origin).
     // Both pages must share a context; the default { page } fixture creates isolated contexts.

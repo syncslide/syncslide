@@ -877,7 +877,6 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		var actionsBtn = tr.querySelector('[aria-haspopup="menu"]');
 		var deleteDialog = tr.querySelector('dialog');
 		if (deleteDialog) document.body.appendChild(deleteDialog);
-		if (actionsBtn) setupRecMenu(tr, actionsBtn, deleteDialog ? [deleteDialog] : []);
 
 		var table = details.querySelector('table');
 		if (table) {
@@ -890,6 +889,10 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			if (p) details.replaceChild(newTable, p);
 			else details.appendChild(newTable);
 		}
+
+		// setupRecMenu uses document.getElementById to find the menu, so the
+		// tr must be in the DOM before this call — otherwise it returns null.
+		if (actionsBtn) setupRecMenu(tr, actionsBtn, deleteDialog ? [deleteDialog] : []);
 	}
 
 	var bc = new BroadcastChannel('syncslide');
