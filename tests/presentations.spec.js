@@ -715,7 +715,7 @@ test.describe('recording name BroadcastChannel sync', () => {
 
             // All four PList elements must reflect the new name.
             await expect(plistPage.locator('#rec-actions-btn-1')).toHaveText('Actions: ' + newName);
-            await expect(plistPage.locator('tr:has(#rec-actions-btn-1) td:first-child a')).toContainText(newName);
+            await expect(plistPage.locator('tr:has(#rec-actions-btn-1) th[scope="row"] a')).toContainText(newName);
             await expect(plistPage.locator('#manage-rec-access-heading-1')).toHaveText('Manage access for ' + newName);
             await expect(plistPage.locator('#delete-rec-heading-1')).toHaveText('Delete ' + newName + '?');
         } finally {

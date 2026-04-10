@@ -1046,9 +1046,9 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 				// Find the parent pres-item row via the recording's table row
 				var tr = recLink.closest('tr');
 
-				// Update the recording name link (first td > a, first text node)
+				// Update the recording name link (row header > a, first text node)
 				if (tr) {
-					var nameLink = tr.querySelector('td:first-child a');
+					var nameLink = tr.querySelector('th[scope="row"] a');
 					if (nameLink && nameLink.firstChild && nameLink.firstChild.nodeType === 3) {
 						nameLink.firstChild.textContent = name;
 					}
