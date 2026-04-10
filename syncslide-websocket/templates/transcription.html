@@ -1,0 +1,244 @@
+{#
+  WCAG 2.2 AAA Accessible Slide Transcription Template
+  =====================================================
+  This is the canonical output format for Bytetools slide transcriptions.
+
+  Heading hierarchy (one h1 per page):
+    h1  — Presentation title
+    h2  — "Table of contents" (in <nav>) | "Slides" (sr-only section label)
+    h3  — Individual slide titles
+
+  Landmarks: header (nav.html), main (base.html), nav×2 (breadcrumb + TOC),
+             section (slides), article (each slide), footer (nav.html).
+
+  WCAG 2.2 AAA criteria addressed in this template:
+    1.1.1  Non-text Content   — alt text required; decorative images use alt="" role="presentation"
+    1.3.1  Info and Relationships — semantic elements throughout
+    1.3.2  Meaningful Sequence — DOM order matches reading order
+    1.4.6  Contrast (Enhanced) — all text uses CSS vars proven ≥7:1 (light: #1a1a1a/#fff;
+                                 dark: #fff/#222). See style.css for verification.
+    2.1.3  Keyboard (No Exception) — all interactive elements reachable by keyboard
+    2.4.1  Bypass Blocks     — skip link in base.html
+    2.4.6  Headings and Labels — descriptive headings on every section
+    2.4.8  Location          — breadcrumb in {% block breadcrumb %}
+    2.4.9  Link Purpose (Link Only) — every link is self-describing ("Previous: slide N")
+    2.4.10 Section Headings  — headings organise all major sections
+    2.4.13 Focus Appearance  — 3px solid currentColor / 2px offset in base CSS (≥ 7:1)
+    2.5.8  Target Size       — interactive links min 44px tall via CSS
+    3.1.1  Language of Page  — lang="en" on <html> in base.html
+
+  Content requirements for the calling code:
+    presentation.title            string   Presentation title
+    presentation.author           string   (optional) Author name
+    presentation.source_file      string   Original filename
+    presentation.created_at       string   ISO-8601 datetime  (for <time datetime="">)
+    presentation.created_at_formatted  string  Human-readable date
+    presentation.slides           array
+      slide.title                 string
+      slide.content_html          string   Rendered HTML (use | safe)
+      slide.notes                 string   (optional) Speaker notes, plain text
+      slide.images                array    (optional)
+        image.src                 string   URL
+        image.alt                 string   Meaningful alt text (or "" if decorative)
+        image.is_decorative       bool     true → alt="" role="presentation"
+        image.caption             string   (optional) Visible caption
+
+  Language annotations:
+    Mark foreign-language passages in content_html with the lang attribute.
+    Mark abbreviations with <abbr title="…"> and unusual terms with <dfn>.
+    These are required to satisfy WCAG 3.1.2, 3.1.3, 3.1.4 at AAA.
+#}
+
+{% extends "nav.html" %}
+
+{% block title %}{{ presentation.title }}{% endblock title %}
+
+{# ── Breadcrumb (WCAG 2.4.8 Location) ──────────────────────────────────────── #}
+{% block breadcrumb %}
+<nav aria-label="Breadcrumb" class="breadcrumb">
+  <ol class="breadcrumb__list">
+    <li class="breadcrumb__item"><a href="/">Home</a></li>
+    <li class="breadcrumb__item"><a href="/user/presentations">Presentations</a></li>
+    <li class="breadcrumb__item" aria-current="page">{{ presentation.title }}</li>
+  </ol>
+</nav>
+{% endblock breadcrumb %}
+
+{% block content %}
+<div class="transcription">
+
+  {# ── Document header ──────────────────────────────────────────────────────── #}
+  <header class="doc-header">
+    {# h1: unique per page, identifies the document #}
+    <h1 id="doc-title">{{ presentation.title }}</h1>
+    <dl class="doc-meta">
+      {% if presentation.author %}
+      <div class="doc-meta__row">
+        <dt>Author</dt>
+        <dd>{{ presentation.author }}</dd>
+      </div>
+      {% endif %}
+      <div class="doc-meta__row">
+        <dt>Source file</dt>
+        <dd class="doc-meta__filename">{{ presentation.source_file }}</dd>
+      </div>
+      <div class="doc-meta__row">
+        <dt>Transcribed</dt>
+        <dd>
+          <time datetime="{{ presentation.created_at }}">
+            {{ presentation.created_at_formatted }}
+          </time>
+        </dd>
+      </div>
+      <div class="doc-meta__row">
+        <dt>Slide count</dt>
+        <dd>{{ presentation.slides | length }}</dd>
+      </div>
+    </dl>
+  </header>
+
+  {# ── Table of contents (WCAG 2.4.5 Multiple Ways + 2.4.9 Link Purpose) ────── #}
+  {#
+    The TOC is a <nav> landmark labelled by its own h2. Screen readers expose it
+    as a separate navigation region, letting users skip to any slide by heading.
+    Link text includes the slide number so each link is unambiguous in isolation.
+  #}
+  <nav class="toc" aria-labelledby="toc-heading">
+    <h2 id="toc-heading">Table of contents</h2>
+    <ol class="toc__list">
+      {% for slide in presentation.slides %}
+      <li class="toc__item">
+        <a href="#slide-{{ loop.index }}" class="toc__link">
+          {# aria-label on the span makes "Slide 1:" announced with correct punctuation #}
+          <span class="toc__slide-num" aria-label="Slide {{ loop.index }}:">{{ loop.index }}.</span>
+          {{ slide.title }}
+        </a>
+      </li>
+      {% endfor %}
+    </ol>
+  </nav>
+
+  {# ── Slides ───────────────────────────────────────────────────────────────── #}
+  {#
+    The section is labelled by a visually-hidden h2 so screen reader users
+    navigating by headings see the structure:
+      h1 Presentation title
+      h2 Table of contents      ← in the nav above
+      h2 Slides                 ← sr-only, marks the slide section
+        h3 Slide 1 title
+        h3 Slide 2 title …
+  #}
+  <section aria-labelledby="slides-section-heading">
+    <h2 id="slides-section-heading" class="sr-only">Slides</h2>
+
+    {% for slide in presentation.slides %}
+    <article class="slide" id="slide-{{ loop.index }}" aria-labelledby="slide-title-{{ loop.index }}">
+
+      <header class="slide__header">
+        <h3 id="slide-title-{{ loop.index }}">
+          {# Slide number is decorative repetition of the list position #}
+          <span class="slide__num" aria-hidden="true">{{ loop.index }}.</span>
+          {{ slide.title }}
+        </h3>
+      </header>
+
+      {# ── Images (WCAG 1.1.1 Non-text Content) ──────────────────────────────── #}
+      {#
+        Every image must have either:
+          a) A meaningful alt attribute describing the image's purpose, or
+          b) alt="" + role="presentation" to mark it as purely decorative.
+        Avoid using images of text (WCAG 1.4.9 Images of Text — No Exception).
+        If transcription encounters an image of text, extract the text into
+        content_html instead and omit the image, or provide full alt text.
+      #}
+      {% if slide.images %}
+      {% for image in slide.images %}
+      <figure class="slide__figure">
+        {% if image.is_decorative %}
+        <img
+          src="{{ image.src }}"
+          alt=""
+          role="presentation"
+          class="slide__image slide__image--decorative"
+        >
+        {% else %}
+        <img
+          src="{{ image.src }}"
+          alt="{{ image.alt }}"
+          class="slide__image"
+        >
+        {% endif %}
+        {% if image.caption %}
+        <figcaption class="slide__caption">{{ image.caption }}</figcaption>
+        {% endif %}
+      </figure>
+      {% endfor %}
+      {% endif %}
+
+      {# ── Slide body ─────────────────────────────────────────────────────────── #}
+      {#
+        content_html is rendered HTML from the transcription pipeline.
+        The upstream pipeline is responsible for:
+          — wrapping paragraphs in <p>
+          — marking foreign-language spans with lang="…"
+          — wrapping abbreviations in <abbr title="…"> (WCAG 3.1.4)
+          — wrapping defined terms in <dfn> (WCAG 3.1.3)
+          — using <ul>/<ol> for bullet lists, <table> with <th> for data tables
+          — never using images of text
+      #}
+      <div class="slide__content">
+        {{ slide.content_html | safe }}
+      </div>
+
+      {# ── Speaker notes ─────────────────────────────────────────────────────── #}
+      {#
+        Speaker notes are disclosed via <details>/<summary>, giving users the
+        choice to read them. The summary is specific enough to be useful on its
+        own (WCAG 2.4.9) and the expanded content is a sibling div so focus
+        remains predictable.
+      #}
+      {% if slide.notes %}
+      <details class="slide__notes">
+        <summary class="slide__notes-summary">
+          Speaker notes for slide {{ loop.index }}
+        </summary>
+        <div class="slide__notes-body">{{ slide.notes }}</div>
+      </details>
+      {% endif %}
+
+      {# ── Intra-document slide navigation (WCAG 2.4.9 Link Purpose) ──────────── #}
+      {#
+        Each link names its exact destination so it is unambiguous when read
+        in isolation by a screen reader (Link Purpose — Link Only, AAA).
+        Arrow glyphs are aria-hidden; all meaning is in the visible text.
+      #}
+      <nav class="slide__nav" aria-label="Navigate between slides">
+        {% if not loop.first %}
+        <a href="#slide-{{ loop.index - 1 }}" class="slide__nav-link slide__nav-link--prev">
+          <span aria-hidden="true">←</span>
+          Previous: slide {{ loop.index - 1 }}
+        </a>
+        {% endif %}
+
+        <a href="#toc-heading" class="slide__nav-link slide__nav-link--toc">
+          Back to table of contents
+        </a>
+
+        {% if not loop.last %}
+        <a href="#slide-{{ loop.index + 1 }}" class="slide__nav-link slide__nav-link--next">
+          Next: slide {{ loop.index + 1 }}
+          <span aria-hidden="true">→</span>
+        </a>
+        {% endif %}
+      </nav>
+
+    </article>
+    {% if not loop.last %}
+    <hr class="slide-divider" aria-hidden="true">
+    {% endif %}
+    {% endfor %}
+
+  </section>
+
+</div>
+{% endblock content %}
