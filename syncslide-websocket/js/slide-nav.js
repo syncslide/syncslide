@@ -17,7 +17,9 @@ function getH2s(allHtml) {
 
 const updateSlide = async () => {
 	const slideChoice = document.getElementById("goTo").value;
-	socket.send(JSON.stringify({ type: "slide", data: Number(slideChoice) }));
+	if (socket && socket.readyState === WebSocket.OPEN) {
+		socket.send(JSON.stringify({ type: "slide", data: Number(slideChoice) }));
+	}
 }
 
 // For a SELECT, onCommit (defined in handlers.js) is exactly addEventListener('input', fn).

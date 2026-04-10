@@ -169,4 +169,16 @@ dialog button { background: var(--control-bg); color: var(--text); border: 1px s
 dialog input[type="text"], dialog input[type="file"], dialog textarea, dialog select { background: var(--control-bg); color: var(--text); border: 1px solid var(--control-border); padding: 3px 6px; }
 dialog fieldset { border-color: var(--control-border); }
 
+
+/* WebSocket reconnection status banner */
+#ws-status {
+    background: #9e2a2b;
+    color: #ffffff;
+    padding: 0.5em 1em;
+    text-align: center;
+    font-weight: bold;
+    border-radius: 2px;
+    margin-bottom: 0.75em;
+}
+
 /*# sourceMappingURL=style.css.map */

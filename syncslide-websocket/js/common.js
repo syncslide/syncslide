@@ -5,7 +5,67 @@ const pid = parts[parts.length - 1] === 'edit'
 
 const wsUrl = new URL(`/ws/${pid}`, window.location.href);
 wsUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const socket = new WebSocket(wsUrl.href);
+
+// Mutable socket reference — reassigned on each reconnect attempt.
+// var (not let/const) at top-level so window.socket is accessible from tests
+// and from other scripts that reference the global socket name.
+var socket;
+
+// Registered onmessage handler — re-applied to every new socket after reconnect.
+let _wsMessageHandler = null;
+
+let _wsReconnectDelay = 1000;
+const _wsMaxDelay = 30000;
+
+/**
+ * Register the onmessage handler and open the first connection.
+ * Must be called instead of socket.onmessage = directly, so the handler
+ * survives reconnections. The initial _wsConnect() is deferred to this call
+ * so the handler is guaranteed to be set before any messages arrive.
+ */
+function wsRegisterMessageHandler(fn) {
+    _wsMessageHandler = fn;
+    if (socket) {
+        socket.onmessage = fn;
+    } else {
+        _wsConnect();
+    }
+}
+
+function _wsSetStatus(connected) {
+    const el = document.getElementById('ws-status');
+    if (!el) return;
+    if (connected) {
+        el.hidden = true;
+        el.textContent = '';
+    } else {
+        el.hidden = false;
+        el.textContent = 'Connection lost \u2014 reconnecting\u2026';
+    }
+}
+
+function _wsConnect() {
+    socket = new WebSocket(wsUrl.href);
+    if (_wsMessageHandler) socket.onmessage = _wsMessageHandler;
+
+    socket.onopen = function () {
+        _wsReconnectDelay = 1000;
+        _wsSetStatus(true);
+    };
+
+    socket.onclose = function () {
+        _wsSetStatus(false);
+        const jitter = Math.random() * 500;
+        const delay = _wsReconnectDelay + jitter;
+        _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, _wsMaxDelay);
+        setTimeout(_wsConnect, delay);
+    };
+
+    socket.onerror = function () {
+        // onerror is always followed by onclose; reconnection is handled there.
+    };
+}
+
 const md = new remarkable.Remarkable({
 	html: true,
 });
@@ -36,4 +96,3 @@ const updateRender = async () => {
 		throwError: false,
 	});
 }
-

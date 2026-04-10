@@ -306,6 +306,19 @@ fn slides_within_size_limit(content: &str) -> bool {
     content.split("\n## ").all(|section| section.len() <= MAX_SLIDE_BYTES)
 }
 
+/// Returns a short, grep-able type label for a [`SlideMessage`] variant.
+fn slide_msg_type_name(msg: &SlideMessage) -> &'static str {
+    match msg {
+        SlideMessage::Text(_) => "text",
+        SlideMessage::Slide(_) => "slide",
+        SlideMessage::Name(_) => "name",
+        SlideMessage::RecordingStart { .. } => "recording_start",
+        SlideMessage::RecordingPause { .. } => "recording_pause",
+        SlideMessage::RecordingResume { .. } => "recording_resume",
+        SlideMessage::RecordingStop { .. } => "recording_stop",
+    }
+}
+
 fn handle_socket(
     msg: Result<Message, axum::Error>,
     pid: &str,
@@ -323,7 +336,10 @@ fn handle_socket(
     }
     let slide_msg: SlideMessage = match raw.to_text().ok().and_then(|t| serde_json::from_str(t).ok()) {
         Some(m) => m,
-        None => return Err("Invalid message!"),
+        None => {
+            eprintln!("[ws] pid={pid} role={role:?} msg_type=unknown reason=malformed_or_unknown_type");
+            return Err("Invalid message!");
+        }
     };
     let permitted = match (role, &slide_msg) {
         (AccessResult::Owner, _) => true,
@@ -332,12 +348,14 @@ fn handle_socket(
         _ => false,
     };
     if !permitted {
+        eprintln!("[ws] pid={pid} role={role:?} msg_type={} reason=unauthorized", slide_msg_type_name(&slide_msg));
         return Ok(true); // silently drop
     }
     // Slide content: max 100 KB per slide section. Disconnects on excess — mirrors HTTP 400
     // semantics for oversized input (OWASP Input Validation Cheat Sheet §Rich Text).
     if let SlideMessage::Text(ref content) = slide_msg {
         if !slides_within_size_limit(content) {
+            eprintln!("[ws] pid={pid} role={role:?} msg_type=text reason=content_too_large");
             return Err("Slide content too large");
         }
     }
@@ -547,8 +565,21 @@ async fn ws_handle(mut socket: WebSocket, pid: String, mut state: AppState, role
                             ).await {
                                 let _ = tx.send(broadcast_msg);
                             }
+                        } else {
+                            let raw_type = serde_json::from_str::<serde_json::Value>(text)
+                                .ok()
+                                .and_then(|v| v["type"].as_str().map(String::from))
+                                .unwrap_or_else(|| "unknown".to_string());
+                            eprintln!("[ws] pid={pid} role={role:?} msg_type={raw_type} reason=malformed_recording_message");
                         }
                     }
+                } else {
+                    let raw_type = text_val
+                        .as_deref()
+                        .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
+                        .and_then(|v| v["type"].as_str().map(String::from))
+                        .unwrap_or_else(|| "recording_unknown".to_string());
+                    eprintln!("[ws] pid={pid} role={role:?} msg_type={raw_type} reason=unauthorized_role_for_recording");
                 }
                 continue;
             }
