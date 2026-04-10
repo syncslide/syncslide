@@ -20,24 +20,36 @@
 <h1 id="edit-heading" tabindex="-1">{{ pres.name }}</h1>
 <label>Presentation name: <input type="text" id="presName" value="{{ pres.name }}"></label>
 <button type="button" id="addSlide">Add Slide</button>
+<button type="button" id="editMarkdownBtn">Edit Markdown</button>
 <section aria-labelledby="slides-heading">
   <h2 id="slides-heading">Slides</h2>
   <table>
     <thead><tr><th scope="col">Slide</th><th scope="col">Title</th><th scope="col">Actions</th></tr></thead>
     <tbody id="slideTableBody"></tbody>
   </table>
-  <dialog id="deleteSlideDialog" aria-labelledby="deleteSlideHeading">
-    <h1 id="deleteSlideHeading" tabindex="-1"></h1>
-    <p>This will remove the slide from the presentation.</p>
-    <button type="button" id="deleteSlideConfirm">Delete</button>
-    <button type="button" id="deleteSlideCancel">Cancel</button>
-  </dialog>
 </section>
-<section aria-labelledby="markdown-heading">
-  <h2 id="markdown-heading">Markdown</h2>
-  <label for="markdown-input" id="input">Markdown: {{ pres.name }}</label>
-  <textarea id="markdown-input">{{ pres.content }}</textarea>
-</section>
+<dialog id="deleteSlideDialog" aria-labelledby="deleteSlideHeading">
+  <h1 id="deleteSlideHeading" tabindex="-1"></h1>
+  <p>This will remove the slide from the presentation.</p>
+  <button type="button" id="deleteSlideConfirm">Delete</button>
+  <button type="button" id="deleteSlideCancel">Cancel</button>
+</dialog>
+<dialog id="markdownDialog" aria-labelledby="markdownDialogHeading">
+  <div class="markdown-dialog-main">
+    <h1 id="markdownDialogHeading" tabindex="-1">Edit Markdown</h1>
+    <label for="markdown-input">{{ pres.name }}</label>
+    <textarea id="markdown-input">{{ pres.content }}</textarea>
+    <button type="button" id="markdownSaveBtn">Save</button>
+    <button type="button" id="markdownCloseBtn">Close</button>
+  </div>
+  <div class="markdown-unsaved" hidden>
+    <h1 id="markdownUnsavedHeading" tabindex="-1">Unsaved changes</h1>
+    <p>You have unsaved changes.</p>
+    <button type="button" id="markdownUnsavedSave">Save</button>
+    <button type="button" id="markdownUnsavedDiscard">Discard</button>
+    <button type="button" id="markdownUnsavedBack">Back</button>
+  </div>
+</dialog>
 <dialog id="slideDialog" aria-labelledby="slideDialogHeading">
 <h1 id="slideDialogHeading" tabindex="-1"></h1>
 <button type="button" id="slideDialogCancel">Cancel</button>

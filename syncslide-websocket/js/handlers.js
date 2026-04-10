@@ -4,40 +4,34 @@ function escapeHtml(str) {
     return d.innerHTML;
 }
 
-let lastSentMarkdown = null;
 let dialogRefIdx = null;
 let dialogMode = 'insert'; // 'insert' | 'edit'
 
-const updateMarkdown = async () => {
-	const markdownInput = document.getElementById("markdown-input").value;
-	if (markdownInput === lastSentMarkdown) return;
-	lastSentMarkdown = markdownInput;
-	const render = md.render(markdownInput);
-	const dom = stringToDOM(render);
-	if (typeof getH2s === 'function') getH2s(dom);
-	if (socket && socket.readyState === WebSocket.OPEN) {
-		socket.send(JSON.stringify({ type: "text", data: markdownInput }));
-	}
-	if (typeof updateSlide === 'function') updateSlide();
-	renderSlideTable();
+const textInput = document.getElementById("markdown-input");
+
+function updateMarkdown() {
+    const markdownInput = textInput.value;
+    const render = md.render(markdownInput);
+    const dom = stringToDOM(render);
+    if (typeof getH2s === 'function') getH2s(dom);
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ type: "text", data: markdownInput }));
+    }
+    if (typeof updateSlide === 'function') updateSlide();
+    renderSlideTable();
 }
 
 function onCommit(el, fn) {
-	if (el.tagName === 'SELECT') {
-		// 'input' fires on both desktop and Android (where 'change' is unreliable).
-		// Do not also add 'change' or 'blur' — they fire redundantly and cause double-calls.
-		el.addEventListener('input', fn);
-	} else {
-		el.addEventListener('blur', fn);
-		el.addEventListener('change', fn);
-		if (el.tagName !== 'TEXTAREA') {
-			el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
-		}
-	}
+    if (el.tagName === 'SELECT') {
+        el.addEventListener('input', fn);
+    } else {
+        el.addEventListener('blur', fn);
+        el.addEventListener('change', fn);
+        if (el.tagName !== 'TEXTAREA') {
+            el.addEventListener('keydown', (e) => { if (e.key === 'Enter') fn(e); });
+        }
+    }
 }
-
-const textInput = document.getElementById("markdown-input");
-onCommit(textInput, updateMarkdown);
 
 
 function markdownToSlides(markdown) {
@@ -57,7 +51,6 @@ function slidesToMarkdown(slides) {
 function syncFromSlides(slides) {
 	const markdown = slidesToMarkdown(slides);
 	textInput.value = markdown;
-	lastSentMarkdown = markdown;
 	const d = document.createElement('div');
 	d.innerHTML = DOMPurify.sanitize(md.render(markdown));
 	if (typeof getH2s === 'function') getH2s(d);
@@ -141,8 +134,8 @@ if (presNameInput) {
 		if (editH1) editH1.textContent = newName;
 		const slideH1 = document.querySelector('#currentSlide h1');
 		if (slideH1) slideH1.textContent = newName;
-		const mdLabel = document.getElementById('input');
-		if (mdLabel) mdLabel.textContent = `Markdown: ${newName}`;
+		const mdLabel = document.querySelector('label[for="markdown-input"]');
+		if (mdLabel) mdLabel.textContent = newName;
 		const qrImg = document.querySelector('#qrOverlay img');
 		if (qrImg) qrImg.alt = `${newName} QR code`;
 		if (socket && socket.readyState === WebSocket.OPEN) {
@@ -156,6 +149,85 @@ if (presNameInput) {
 		});
 	};
 	onCommit(presNameInput, applyPresName);
+}
+
+// --- Markdown dialog ---
+const markdownDialog = document.getElementById('markdownDialog');
+const markdownDialogMain = markdownDialog ? markdownDialog.querySelector('.markdown-dialog-main') : null;
+const markdownUnsaved = markdownDialog ? markdownDialog.querySelector('.markdown-unsaved') : null;
+const markdownDialogHeading = document.getElementById('markdownDialogHeading');
+const markdownUnsavedHeading = document.getElementById('markdownUnsavedHeading');
+let markdownSnapshot = '';
+
+function openMarkdownDialog() {
+    markdownSnapshot = textInput.value;
+    markdownDialogMain.hidden = false;
+    markdownUnsaved.hidden = true;
+    markdownDialog.setAttribute('aria-labelledby', 'markdownDialogHeading');
+    markdownDialog.showModal();
+    markdownDialogHeading.focus();
+}
+
+function markdownHasChanges() {
+    return textInput.value !== markdownSnapshot;
+}
+
+function saveMarkdown() {
+    updateMarkdown();
+    markdownSnapshot = textInput.value;
+    markdownDialog.close();
+    document.getElementById('editMarkdownBtn').focus();
+}
+
+function discardMarkdown() {
+    textInput.value = markdownSnapshot;
+    markdownDialog.close();
+    document.getElementById('editMarkdownBtn').focus();
+}
+
+function showMarkdownUnsaved() {
+    markdownDialogMain.hidden = true;
+    markdownUnsaved.hidden = false;
+    markdownDialog.setAttribute('aria-labelledby', 'markdownUnsavedHeading');
+    markdownUnsavedHeading.focus();
+}
+
+function hideMarkdownUnsaved() {
+    markdownUnsaved.hidden = true;
+    markdownDialogMain.hidden = false;
+    markdownDialog.setAttribute('aria-labelledby', 'markdownDialogHeading');
+}
+
+if (markdownDialog) {
+    document.getElementById('editMarkdownBtn').addEventListener('click', openMarkdownDialog);
+
+    document.getElementById('markdownSaveBtn').addEventListener('click', saveMarkdown);
+
+    document.getElementById('markdownCloseBtn').addEventListener('click', () => {
+        if (markdownHasChanges()) { showMarkdownUnsaved(); }
+        else { markdownDialog.close(); document.getElementById('editMarkdownBtn').focus(); }
+    });
+
+    document.getElementById('markdownUnsavedSave').addEventListener('click', saveMarkdown);
+    document.getElementById('markdownUnsavedDiscard').addEventListener('click', discardMarkdown);
+    document.getElementById('markdownUnsavedBack').addEventListener('click', hideMarkdownUnsaved);
+
+    markdownDialog.addEventListener('cancel', (e) => {
+        if (markdownHasChanges()) {
+            e.preventDefault();
+            showMarkdownUnsaved();
+        } else {
+            document.getElementById('editMarkdownBtn').focus();
+        }
+    });
+
+    // Escape while unsaved panel is visible returns to main
+    markdownDialog.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !markdownUnsaved.hidden) {
+            e.preventDefault();
+            hideMarkdownUnsaved();
+        }
+    });
 }
 
 const slideDialog = document.getElementById('slideDialog');

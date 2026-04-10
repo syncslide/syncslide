@@ -57,10 +57,10 @@ test.describe('edit page — slide dialog', () => {
         await expect(page.locator('#slideDialog')).not.toBeVisible();
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows + 1);
         await expect(page.locator('#slideTableBody td').filter({ hasText: 'My New Slide' })).toBeVisible();
-        // Restore: write markdown directly and trigger blur to send via WS → DB.
+        // Restore: write markdown directly and call updateMarkdown to send via WS → DB.
         await page.evaluate((md) => {
             document.getElementById('markdown-input').value = md;
-            document.getElementById('markdown-input').dispatchEvent(new Event('blur'));
+            updateMarkdown();
         }, originalMarkdown);
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
     });
@@ -143,7 +143,7 @@ test.describe('edit page — slide dialog', () => {
         // Restore via evaluate (textarea is inside a dialog, may not be visible)
         await page.evaluate((md) => {
             document.getElementById('markdown-input').value = md;
-            document.getElementById('markdown-input').dispatchEvent(new Event('blur'));
+            updateMarkdown();
         }, originalMarkdown);
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
     });
@@ -160,4 +160,21 @@ test.describe('edit page — slide dialog', () => {
         await expect(page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]')).toBeFocused();
     });
 
+});
+
+test.describe('edit page — markdown dialog', () => {
+    test.beforeEach(async ({ page }) => {
+        await loginAsAdmin(page);
+        await page.goto('/admin/1/edit');
+        await expect(page.locator('#slideTableBody tr')).not.toHaveCount(0);
+    });
+
+    test('Edit Markdown button opens dialog with heading focused', async ({ page }) => {
+        await page.locator('#editMarkdownBtn').click();
+        const dialog = page.locator('#markdownDialog');
+        await expect(dialog).toBeVisible();
+        const heading = dialog.locator('#markdownDialogHeading');
+        await expect(heading).toHaveText('Edit Markdown');
+        await expect(heading).toBeFocused();
+    });
 });
