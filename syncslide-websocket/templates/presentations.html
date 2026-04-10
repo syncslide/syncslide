@@ -62,22 +62,27 @@
 <li role="menuitem" tabindex="-1" data-action="open-dialog" data-dialog-id="delete-rec-{{ rec.id }}" data-return-btn="rec-actions-btn-{{ rec.id }}">Delete Recording</li>
 </ul>
 <dialog id="manage-rec-access-{{ rec.id }}" aria-labelledby="manage-rec-access-heading-{{ rec.id }}" data-focus-heading="true">
+<div class="manage-rec-access-main">
 <h1 id="manage-rec-access-heading-{{ rec.id }}" tabindex="-1">Manage access for {{ rec.name }}</h1>
 <form method="post" action="/user/recordings/{{ rec.id }}/access/mode">
 <label for="rec-access-mode-{{ rec.id }}">Access</label>
-<select id="rec-access-mode-{{ rec.id }}" name="mode">
+<select id="rec-access-mode-{{ rec.id }}" name="mode" class="rec-access-select" data-original-value="{% if rec.access_mode %}{{ rec.access_mode }}{% else %}inherit{% endif %}">
 <option value="public"{% if rec.access_mode == "public" %} selected{% endif %}>Public — anyone with the link</option>
 <option value="audience"{% if rec.access_mode == "audience" %} selected{% endif %}>Shared — same audience list as presentation</option>
 <option value="private"{% if rec.access_mode == "private" %} selected{% endif %}>Private — presenters only</option>
+<option value="inherit"{% if not rec.access_mode %} selected{% endif %}>Inherit from presentation</option>
 </select>
 <input type="hidden" name="action" value="set">
-<button type="submit">Save</button>
 </form>
-<form method="post" action="/user/recordings/{{ rec.id }}/access/mode">
-<input type="hidden" name="action" value="inherit">
-<button type="submit">Inherit from presentation</button>
-</form>
-<button type="button" data-close-dialog="manage-rec-access-{{ rec.id }}">Close</button>
+<button type="button" class="manage-rec-access-close">Close</button>
+</div>
+<div class="unsaved-rec-confirm" hidden>
+<h1 id="unsaved-rec-confirm-heading-{{ rec.id }}" tabindex="-1">Unsaved changes</h1>
+<p>You have unsaved changes.</p>
+<button type="button" class="unsaved-rec-save">Save</button>
+<button type="button" class="unsaved-rec-discard">Discard</button>
+<button type="button" class="unsaved-rec-back">Close</button>
+</div>
 </dialog>
 <dialog id="delete-rec-{{ rec.id }}" aria-labelledby="delete-rec-heading-{{ rec.id }}">
 <h1 id="delete-rec-heading-{{ rec.id }}" tabindex="-1">Delete {{ rec.name }}?</h1>
@@ -828,7 +833,7 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 			});
 		});
 
-		// Wire up [data-close-dialog] buttons inside the dialogs
+		// Wire up [data-close-dialog] buttons inside the dialogs (delete dialogs)
 		dialogs.forEach(function (dialog) {
 			dialog.querySelectorAll('[data-close-dialog]').forEach(function (closeBtn) {
 				closeBtn.addEventListener('click', function () {
@@ -836,6 +841,71 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 					actionsBtn.focus();
 				});
 			});
+			// Wire up confirm/discard for recording access dialogs
+			if (dialog.querySelector('.manage-rec-access-main')) {
+				setupRecAccessDialog(dialog);
+			}
+		});
+	}
+
+	function setupRecAccessDialog(dialog) {
+		var main = dialog.querySelector('.manage-rec-access-main');
+		var confirm = dialog.querySelector('.unsaved-rec-confirm');
+		var select = dialog.querySelector('.rec-access-select');
+		var form = dialog.querySelector('form');
+		var actionInput = form ? form.querySelector('input[name="action"]') : null;
+		var closeBtn = dialog.querySelector('.manage-rec-access-close');
+		var saveBtn = dialog.querySelector('.unsaved-rec-save');
+		var discardBtn = dialog.querySelector('.unsaved-rec-discard');
+		var backBtn = dialog.querySelector('.unsaved-rec-back');
+		if (!main || !confirm || !select || !closeBtn || !saveBtn || !discardBtn || !backBtn) return;
+
+		function hasChanges() {
+			return select.value !== select.dataset.originalValue;
+		}
+		function showPrompt() {
+			main.hidden = true;
+			confirm.hidden = false;
+			dialog.setAttribute('aria-labelledby', confirm.querySelector('h1').id);
+			confirm.querySelector('h1[tabindex="-1"]').focus();
+		}
+		function hidePrompt() {
+			confirm.hidden = true;
+			main.hidden = false;
+			dialog.setAttribute('aria-labelledby', main.querySelector('h1').id);
+		}
+		closeBtn.addEventListener('click', function () {
+			if (hasChanges()) { showPrompt(); }
+			else { dialog.close(); }
+		});
+		discardBtn.addEventListener('click', function () {
+			select.value = select.dataset.originalValue;
+			hidePrompt();
+		});
+		backBtn.addEventListener('click', function () {
+			hidePrompt();
+		});
+		saveBtn.addEventListener('click', function () {
+			if (actionInput) {
+				actionInput.value = select.value === 'inherit' ? 'inherit' : 'set';
+			}
+			saveBtn.disabled = true;
+			backBtn.disabled = true;
+			form.submit();
+		});
+		// Escape while confirm is visible returns to main view
+		dialog.addEventListener('keydown', function (e) {
+			if (e.key === 'Escape' && !confirm.hidden) {
+				e.preventDefault();
+				hidePrompt();
+			}
+		});
+		// Cancel native dialog close if there are unsaved changes
+		dialog.addEventListener('cancel', function (e) {
+			if (hasChanges()) {
+				e.preventDefault();
+				showPrompt();
+			}
 		});
 	}
 
@@ -866,22 +936,27 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 					'<li role="menuitem" tabindex="-1" data-action="open-dialog" data-dialog-id="delete-rec-' + esc(recId) + '" data-return-btn="rec-actions-btn-' + esc(recId) + '">Delete Recording</li>' +
 				'</ul>' +
 				'<dialog id="manage-rec-access-' + esc(recId) + '" aria-labelledby="manage-rec-access-heading-' + esc(recId) + '" data-focus-heading="true">' +
-					'<h1 id="manage-rec-access-heading-' + esc(recId) + '" tabindex="-1">Manage access for ' + esc(rec.name) + '</h1>' +
-					'<form method="post" action="/user/recordings/' + esc(recId) + '/access/mode">' +
-						'<label for="rec-access-mode-' + esc(recId) + '">Access</label>' +
-						'<select id="rec-access-mode-' + esc(recId) + '" name="mode">' +
-							'<option value="public" selected>Public \u2014 anyone with the link</option>' +
-							'<option value="audience">Shared \u2014 same audience list as presentation</option>' +
-							'<option value="private">Private \u2014 presenters only</option>' +
-						'</select>' +
-						'<input type="hidden" name="action" value="set">' +
-						'<button type="submit">Save</button>' +
-					'</form>' +
-					'<form method="post" action="/user/recordings/' + esc(recId) + '/access/mode">' +
-						'<input type="hidden" name="action" value="inherit">' +
-						'<button type="submit">Inherit from presentation</button>' +
-					'</form>' +
-					'<button type="button" data-close-dialog="manage-rec-access-' + esc(recId) + '">Close</button>' +
+					'<div class="manage-rec-access-main">' +
+						'<h1 id="manage-rec-access-heading-' + esc(recId) + '" tabindex="-1">Manage access for ' + esc(rec.name) + '</h1>' +
+						'<form method="post" action="/user/recordings/' + esc(recId) + '/access/mode">' +
+							'<label for="rec-access-mode-' + esc(recId) + '">Access</label>' +
+							'<select id="rec-access-mode-' + esc(recId) + '" name="mode" class="rec-access-select" data-original-value="inherit">' +
+								'<option value="public">Public \u2014 anyone with the link</option>' +
+								'<option value="audience">Shared \u2014 same audience list as presentation</option>' +
+								'<option value="private">Private \u2014 presenters only</option>' +
+								'<option value="inherit" selected>Inherit from presentation</option>' +
+							'</select>' +
+							'<input type="hidden" name="action" value="set">' +
+						'</form>' +
+						'<button type="button" class="manage-rec-access-close">Close</button>' +
+					'</div>' +
+					'<div class="unsaved-rec-confirm" hidden>' +
+						'<h1 id="unsaved-rec-confirm-heading-' + esc(recId) + '" tabindex="-1">Unsaved changes</h1>' +
+						'<p>You have unsaved changes.</p>' +
+						'<button type="button" class="unsaved-rec-save">Save</button>' +
+						'<button type="button" class="unsaved-rec-discard">Discard</button>' +
+						'<button type="button" class="unsaved-rec-back">Close</button>' +
+					'</div>' +
 				'</dialog>' +
 				'<dialog id="delete-rec-' + esc(recId) + '" aria-labelledby="delete-rec-heading-' + esc(recId) + '">' +
 					'<h1 id="delete-rec-heading-' + esc(recId) + '" tabindex="-1">Delete ' + esc(rec.name) + '?</h1>' +
@@ -913,6 +988,11 @@ document.querySelectorAll('.show-pwd-toggle').forEach(function (toggle) {
 		// tr must be in the DOM before this call — otherwise it returns null.
 		if (actionsBtn) setupRecMenu(tr, actionsBtn, dialogs);
 	}
+
+	// Wire up confirm/discard for server-rendered recording access dialogs.
+	document.querySelectorAll('.manage-rec-access-main').forEach(function (main) {
+		setupRecAccessDialog(main.closest('dialog'));
+	});
 
 	var bc = new BroadcastChannel('syncslide');
 	bc.onmessage = function (ev) {

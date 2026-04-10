@@ -609,8 +609,23 @@ test.describe('dynamically added recording actions menu', () => {
             await expect(manageDialog).toBeVisible();
             await expect(plistPage.locator('#manage-rec-access-heading-9999')).toHaveText('Manage access for BC Test Recording');
 
-            // Close the dialog.
-            await plistPage.locator('[data-close-dialog="manage-rec-access-9999"]').click();
+            // Select has "Inherit from presentation" as default for new recordings.
+            const select = plistPage.locator('#rec-access-mode-9999');
+            await expect(select).toHaveValue('inherit');
+
+            // Change value then close — must show unsaved confirm.
+            await select.selectOption('private');
+            await plistPage.locator('.manage-rec-access-close').last().click();
+            const confirmHeading = plistPage.locator('#unsaved-rec-confirm-heading-9999');
+            await expect(confirmHeading).toBeVisible();
+
+            // Discard resets select and returns to main view.
+            await plistPage.locator('.unsaved-rec-discard').last().click();
+            await expect(select).toHaveValue('inherit');
+            await expect(confirmHeading).toBeHidden();
+
+            // Close without changes — dialog closes immediately.
+            await plistPage.locator('.manage-rec-access-close').last().click();
             await expect(manageDialog).toBeHidden();
 
             // Re-open and close menu via Escape.
@@ -622,6 +637,48 @@ test.describe('dynamically added recording actions menu', () => {
         } finally {
             await ctx.close();
         }
+    });
+});
+
+test.describe('recording manage-access confirm/discard', () => {
+    // The server-rendered manage-access dialog for recordings must show
+    // an unsaved-changes prompt when closing with pending changes, and
+    // Discard must reset the select to its original value.
+    test('changing access mode and closing shows confirm; discard resets', async ({ page }) => {
+        await loginAsAdmin(page);
+        await page.goto('/user/presentations');
+
+        // Expand Demo recordings and open the seeded recording's actions menu.
+        const details = page.locator('.pres-item[data-id="1"] details');
+        await details.locator('summary').click();
+        const recBtn = page.locator('#rec-actions-btn-1');
+        await recBtn.click();
+
+        // Open Manage access.
+        await page.locator('[data-dialog-id="manage-rec-access-1"]').click();
+        const dialog = page.locator('#manage-rec-access-1');
+        await expect(dialog).toBeVisible();
+
+        const select = page.locator('#rec-access-mode-1');
+        const original = await select.inputValue();
+
+        // Select includes "Inherit from presentation" option.
+        await expect(select.locator('option[value="inherit"]')).toBeAttached();
+
+        // Change value, then close — confirm prompt must appear.
+        const newValue = original === 'public' ? 'private' : 'public';
+        await select.selectOption(newValue);
+        await page.locator('#manage-rec-access-1 .manage-rec-access-close').click();
+        await expect(page.locator('#manage-rec-access-1 .unsaved-rec-confirm')).toBeVisible();
+
+        // Discard — select resets to original, main view returns.
+        await page.locator('#manage-rec-access-1 .unsaved-rec-discard').click();
+        await expect(select).toHaveValue(original);
+        await expect(page.locator('#manage-rec-access-1 .unsaved-rec-confirm')).toBeHidden();
+
+        // Close without changes — dialog closes immediately.
+        await page.locator('#manage-rec-access-1 .manage-rec-access-close').click();
+        await expect(dialog).toBeHidden();
     });
 });
 
