@@ -84,7 +84,7 @@ function renderSlideTable() {
 			+ '<td>' + escapeHtml(slide.title) + '</td>'
 			+ '<td>'
 			+ '<button type="button" id="' + btnId + '" aria-haspopup="menu" aria-expanded="false" aria-controls="' + menuId + '">Actions: slide ' + (i + 1) + '</button>'
-			+ '<ul role="menu" id="' + menuId + '" hidden>' + items + '</ul>'
+			+ '<ul role="menu" id="' + menuId + '" aria-labelledby="' + btnId + '" hidden>' + items + '</ul>'
 			+ '</td>';
 		slideTableBody.appendChild(tr);
 	});
@@ -349,11 +349,10 @@ if (slideTableBody) {
             syncFromSlides(slides);
             renderSlideTable();
             deleteDialog.close();
-            if (deleteReturnBtn) {
-                // Row was removed; focus the closest remaining action button
-                const remaining = document.querySelector('#slideTableBody button[aria-haspopup="menu"]');
-                if (remaining) remaining.focus();
-            }
+            // Focus the button at the deleted position, or the last row if we deleted the last slide
+            const targetIdx = Math.min(deleteIdx, slides.length - 1);
+            const target = document.getElementById('slide-actions-btn-' + targetIdx);
+            if (target) target.focus();
         });
     }
     if (deleteCancelBtn) {
