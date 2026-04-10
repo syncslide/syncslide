@@ -48,8 +48,7 @@ test.describe('edit page — slide dialog', () => {
     });
 
     test('inserting a slide adds a row to the slide table', async ({ page }) => {
-        // Save original markdown to restore DB state after the test.
-        const originalMarkdown = await page.locator('#markdown-input').inputValue();
+        const originalMarkdown = await page.evaluate(() => document.getElementById('markdown-input').value);
         const initialRows = await page.locator('#slideTableBody tr').count();
         await page.locator('#addSlide').click();
         await expect(page.locator('#slideDialog')).toBeVisible();
@@ -58,9 +57,11 @@ test.describe('edit page — slide dialog', () => {
         await expect(page.locator('#slideDialog')).not.toBeVisible();
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows + 1);
         await expect(page.locator('#slideTableBody td').filter({ hasText: 'My New Slide' })).toBeVisible();
-        // Restore: fill textarea with original markdown and blur to trigger updateMarkdown → WS → DB.
-        await page.fill('#markdown-input', originalMarkdown);
-        await page.locator('#markdown-input').dispatchEvent('blur');
+        // Restore: write markdown directly and trigger blur to send via WS → DB.
+        await page.evaluate((md) => {
+            document.getElementById('markdown-input').value = md;
+            document.getElementById('markdown-input').dispatchEvent(new Event('blur'));
+        }, originalMarkdown);
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
     });
 
@@ -104,6 +105,59 @@ test.describe('edit page — slide dialog', () => {
         await page.keyboard.press('Escape');
         await expect(menu).toBeHidden();
         await expect(btn).toBeFocused();
+    });
+
+    test('slide table actions edit opens dialog with "Edit Slide" heading and pre-filled data', async ({ page }) => {
+        // Open action menu on first row and click Edit
+        const btn = page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]');
+        await btn.click();
+        const menu = page.locator('#slideTableBody tr').first().locator('[role="menu"]');
+        await menu.locator('[data-action="edit"]').click();
+        await expect(page.locator('#slideDialog')).toBeVisible();
+        await expect(page.locator('#slideDialogHeading')).toHaveText('Edit Slide');
+        await expect(page.locator('#slideDialogApply')).toHaveText('Apply');
+        // Title field must be pre-filled with the slide's title
+        const titleValue = await page.locator('#insertTitle').inputValue();
+        expect(titleValue.trim().length).toBeGreaterThan(0);
+        // Position fieldset must be hidden in edit mode
+        await expect(page.locator('#slideDialogPosition')).toBeHidden();
+    });
+
+    test('delete slide via action menu opens dialog and removes row on confirm', async ({ page }) => {
+        const originalMarkdown = await page.evaluate(() => document.getElementById('markdown-input').value);
+        const initialRows = await page.locator('#slideTableBody tr').count();
+        // Open menu on first row
+        const btn = page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]');
+        await btn.click();
+        // Click Delete menu item
+        const menu = page.locator('#slideTableBody tr').first().locator('[role="menu"]');
+        await menu.locator('[data-action="delete"]').click();
+        // Dialog opens
+        const dialog = page.locator('#deleteSlideDialog');
+        await expect(dialog).toBeVisible();
+        await expect(page.locator('#deleteSlideHeading')).toBeFocused();
+        // Confirm delete
+        await page.locator('#deleteSlideConfirm').click();
+        await expect(dialog).not.toBeVisible();
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows - 1);
+        // Restore via evaluate (textarea is inside a dialog, may not be visible)
+        await page.evaluate((md) => {
+            document.getElementById('markdown-input').value = md;
+            document.getElementById('markdown-input').dispatchEvent(new Event('blur'));
+        }, originalMarkdown);
+        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
+    });
+
+    test('delete slide dialog cancel returns focus to action button', async ({ page }) => {
+        const btn = page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]');
+        await btn.click();
+        const menu = page.locator('#slideTableBody tr').first().locator('[role="menu"]');
+        await menu.locator('[data-action="delete"]').click();
+        await expect(page.locator('#deleteSlideDialog')).toBeVisible();
+        await page.locator('#deleteSlideCancel').click();
+        await expect(page.locator('#deleteSlideDialog')).not.toBeVisible();
+        // Focus returns to the first row's action button (original was still row 0)
+        await expect(page.locator('#slideTableBody tr').first().locator('button[aria-haspopup="menu"]')).toBeFocused();
     });
 
 });
