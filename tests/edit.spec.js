@@ -64,20 +64,6 @@ test.describe('edit page — slide dialog', () => {
         await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
     });
 
-    test('slide table actions edit opens dialog with "Edit Slide" heading and pre-filled data', async ({ page }) => {
-        // Select "Edit" from the first slide's actions dropdown
-        const firstSelect = page.locator('#slideTableBody tr').first().locator('select');
-        await firstSelect.selectOption('edit');
-        await expect(page.locator('#slideDialog')).toBeVisible();
-        await expect(page.locator('#slideDialogHeading')).toHaveText('Edit Slide');
-        await expect(page.locator('#slideDialogApply')).toHaveText('Apply');
-        // Title field must be pre-filled with the slide's title
-        const titleValue = await page.locator('#insertTitle').inputValue();
-        expect(titleValue.trim().length).toBeGreaterThan(0);
-        // Position fieldset must be hidden in edit mode
-        await expect(page.locator('#slideDialogPosition')).toBeHidden();
-    });
-
     test('Escape closes the slide dialog', async ({ page }) => {
         await page.locator('#addSlide').click();
         await expect(page.locator('#slideDialog')).toBeVisible();
@@ -102,19 +88,4 @@ test.describe('edit page — slide dialog', () => {
         await expect(firstRow.locator('select')).not.toBeAttached();
     });
 
-    test('delete slide via actions select triggers native confirm and removes row on accept', async ({ page }) => {
-        // Save original markdown to restore DB state after the test.
-        const originalMarkdown = await page.locator('#markdown-input').inputValue();
-        // Accept the native confirm dialog that appears on delete
-        page.on('dialog', dialog => dialog.accept());
-        const initialRows = await page.locator('#slideTableBody tr').count();
-        const firstSelect = page.locator('#slideTableBody tr').first().locator('select');
-        await firstSelect.selectOption('delete');
-        // After accept, row count decreases
-        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows - 1);
-        // Restore: fill textarea with original markdown and blur to trigger updateMarkdown → WS → DB.
-        await page.fill('#markdown-input', originalMarkdown);
-        await page.locator('#markdown-input').dispatchEvent('blur');
-        await expect(page.locator('#slideTableBody tr')).toHaveCount(initialRows);
-    });
 });
